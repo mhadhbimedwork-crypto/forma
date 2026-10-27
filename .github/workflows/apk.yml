@@ -33,6 +33,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk FORMA.apk
-          gh release view apk >/dev/null 2>&1 || gh release create apk --title "FORMA (APK Android)" --notes "Scarica FORMA.apk e installalo sul telefono." --latest
-          gh release upload apk FORMA.apk --clobber
+          cp android/app/build/outputs/apk/debug/app-debug.apk FORGIA.apk
+          gh release view apk >/dev/null 2>&1 || gh release create apk --title "FORGIA (APK Android)" --notes "Scarica FORGIA.apk e installalo sul telefono." --latest
+          gh release upload apk FORGIA.apk --clobber
+          gh release delete-asset apk FORMA.apk -y || true
