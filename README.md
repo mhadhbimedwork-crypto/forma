@@ -1,4 +1,4 @@
-# FORMA – allenamento e benessere su misura
+# FORGIA – allenamento e benessere su misura
 
 App web installabile (PWA) per allenamento, alimentazione e progressi, personalizzata per ogni profilo.
 Dati salvati sul dispositivo. Nessun account.

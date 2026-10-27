@@ -1,6 +1,11 @@
 {
-  "version": "1.0.0",
-  "build": 1,
+  "version": "1.1.0",
+  "build": 2,
   "date": "2026-10-27",
-  "notes": ["Prima versione: profili, scheda su misura, mappa del dolore, registro sedute e progressi."]
+  "notes": [
+    "Nuovo nome e logo: FORGIA.",
+    "Intestazione ribassata con il nome del profilo ben visibile.",
+    "Backup automatico ogni 15 giorni: una cartella per profilo con file .json (modificabile e reimportabile), .md e .csv.",
+    "Importa un singolo profilo da file."
+  ]
 }

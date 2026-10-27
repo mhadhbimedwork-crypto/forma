@@ -1,10 +1,10 @@
-// Server FORMA (opzionale): serve l'app e collega l'analista IA (Claude).
+// Server FORGIA (opzionale): serve l'app e collega l'analista IA (Claude).
 // Avvio: ANTHROPIC_API_KEY=... node server/server.js   (Node 18+, nessuna dipendenza)
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..'), PORT = process.env.PORT || 8080;
 const KEY = process.env.ANTHROPIC_API_KEY, MODEL = process.env.FORMA_MODEL || 'claude-sonnet-5-5';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
-const SYSTEM = `Sei l'analista di FORMA, un'app di allenamento e benessere. Rispondi in italiano, concreto e breve, con passi chiari.
+const SYSTEM = `Sei l'analista di FORGIA, un'app di allenamento e benessere. Rispondi in italiano, concreto e breve, con passi chiari.
 Regole: per i minorenni nessun deficit calorico, nessun integratore, carichi moderati. Dolore 7/10 o più, formicolio, gonfiore o dolore notturno: invita a vedere un medico o fisioterapista. Non fare diagnosi. Basati solo sui dati ricevuti.`;
 
 async function claude(content, max = 900) {
@@ -38,4 +38,4 @@ http.createServer(async (req, res) => {
   let p = path.normalize(decodeURIComponent(req.url.split('?')[0])); if (p === '/' || p === path.sep) p = '/index.html';
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || f.includes(path.sep + 'server' + path.sep)) { res.writeHead(404); return res.end(); }
   fs.readFile(f, (e, d) => { if (e) { res.writeHead(404); return res.end('Non trovato'); } res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' }); res.end(d); });
-}).listen(PORT, () => console.log(`FORMA su http://localhost:${PORT}  (IA ${KEY ? 'attiva' : 'non configurata'})`));
+}).listen(PORT, () => console.log(`FORGIA su http://localhost:${PORT}  (IA ${KEY ? 'attiva' : 'non configurata'})`));

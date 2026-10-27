@@ -1,4 +1,4 @@
-/* FORMA – motore di regole: calcolatore, generatore schede, filtro dolore, progressione, analisi e import. */
+/* FORGIA – motore di regole: calcolatore, generatore schede, filtro dolore, progressione, analisi e import. */
 (function (F) {
   const todayISO = () => new Date().toISOString().slice(0, 10);
   F.todayISO = todayISO;

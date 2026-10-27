@@ -2,7 +2,7 @@
   "name": "forma",
   "version": "1.0.0",
   "private": true,
-  "description": "FORMA – allenamento e benessere su misura",
+  "description": "FORGIA – allenamento e benessere su misura",
   "scripts": {
     "build:www": "node scripts/build-www.js www",
     "sync": "npm run build:www && npx cap sync android",
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
-    "@capacitor/core": "^8.5.3"
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3"

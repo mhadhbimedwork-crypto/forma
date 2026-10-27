@@ -1,4 +1,4 @@
-/* FORMA – interfaccia. Dati salvati sul dispositivo (localStorage). */
+/* FORGIA – interfaccia. Dati salvati sul dispositivo (localStorage). */
 (function (F) {
   'use strict';
   const KEY = 'forma.v1';
@@ -21,6 +21,7 @@
   const GOALS = { recomp: 'Definizione + massa magra (ricomposizione)', cut: 'Dimagrire / definizione', mass: 'Mettere massa muscolare', strength: 'Forza' };
   const STYLES = { cali: 'Calisthenics', gym: 'Palestra (pesi/macchine)', mix: 'Palestra + calisthenics' };
   const LEVELS = { 1: 'Principiante', 2: 'Intermedio', 3: 'Avanzato' };
+  F.LABELS = { GOALS, STYLES, LEVELS };
   const ICON = {
     home: '<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>',
     plan: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
@@ -56,11 +57,46 @@
   }
   const msgs = list => list.map(f => `<div class="msg ${f.k || ''}">${esc(f.t)}</div>`).join('');
 
+  /* ---------- backup ---------- */
+  const fdate = d => d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  function backupCard() {
+    const b = F.backupInfo(S), nat = F.isNative(), fs = F.fsSupported();
+    const state = b.last ? `Ultimo backup: <b>${fdate(b.last)}</b> (${esc(b.where || '')}). ` : 'Nessun backup ancora. ';
+    const next = b.due ? '<span class="chip warn">scaduto: fallo ora</span>' : `Prossimo: ${fdate(b.next)}`;
+    const dir = ui.bkDir ? `Cartella del PC collegata: <b>${esc(ui.bkDir)}</b>` : '';
+    return `<p class="small">${state}${next}</p>
+      <p class="small mute">Per ogni profilo viene creata una cartella col suo nome con 4 file: <b>.json</b> (completo, modificabile, reimportabile), <b>.md</b> (riepilogo leggibile), <b>.csv</b> sedute e peso (Excel).</p>
+      ${fs ? `<p class="small">${dir || `Collega una cartella del PC (es. Desktop/Allenamento/Backup): da lì in poi il backup si scrive da solo ogni ${F.BACKUP_EVERY_DAYS} giorni appena apri l'app.`}</p>
+      <div class="row wrap"><button class="sm primary" data-act="bkPick">${ui.bkDir ? 'Cambia cartella' : 'Scegli cartella del PC'}</button>${ui.bkDir ? '<button class="sm" data-act="bkForget">Scollega</button>' : ''}</div>` : ''}
+      ${nat ? `<p class="small">Sul telefono il backup viene salvato in <b>Documenti/FORGIA-Backup</b> ogni ${F.BACKUP_EVERY_DAYS} giorni all'apertura dell'app.</p>` : ''}
+      <div class="row wrap" style="margin-top:8px"><button class="sm ${fs ? '' : 'primary'}" data-act="bkNow">Fai il backup adesso</button>${nat ? '<button class="sm" data-act="bkShare">Condividi / invia ai file</button>' : ''}</div>
+      ${!fs && !nat ? '<p class="mute small">Questo browser non può scrivere nelle cartelle del PC: usa Chrome o Edge sul computer, oppure i file vengono scaricati in Download.</p>' : ''}
+      <p class="mute small">I dati del telefono e quelli del PC sono separati: per spostare un profilo da un dispositivo all\'altro importa il suo file .json.</p>`;
+  }
+  function backupBanner() {
+    const b = F.backupInfo(S); if (!b.due || ui.bkHide) return '';
+    return `<div class="card" style="border-color:var(--warn)"><b>Backup da fare</b><div class="small">${b.last ? 'Sono passati più di ' + F.BACKUP_EVERY_DAYS + ' giorni dall\'ultimo backup.' : 'Non hai ancora fatto nessun backup dei tuoi dati.'}</div>
+      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button><button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
+  }
+  async function refreshDir() { if (!F.fsSupported()) return; const h = await F.getDir(); ui.bkDir = h ? h.name : null; }
+  async function autoBackup() {
+    if (!S.profiles.length) return;
+    if (!S.settings.backup) { S.settings.backup = { since: new Date().toISOString() }; save(); }
+    await refreshDir();
+    if (F.backupInfo(S).due) { const r = await F.runBackup(S, { interactive: false }); if (r.ok) { save(); toast('Backup automatico fatto: ' + r.where); } }
+    render();
+  }
+
   /* ---------- VISTE ---------- */
   function header() {
-    const opts = S.profiles.map(p => `<option value="${p.id}" ${p.id === S.active ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
-    return `<header class="top"><span class="brand">FORMA</span>
-      ${S.profiles.length ? `<select id="profSel" aria-label="Profilo attivo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+ Profilo</button>` : ''}</header>`;
+    const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+    const brand = `<div class="brandrow"><img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">FORGIA</span><span class="tag">NO PAIN · NO GAIN</span></div>`;
+    if (!p) return `<header class="top">${brand}</header>`;
+    const c = F.calc(p);
+    return `<header class="top">${brand}
+      <div class="who"><div class="avatar" aria-hidden="true">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
+        <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni · ${esc(GOALS[p.goal].split(' (')[0])}</div></div>
+        <select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button></div></header>`;
   }
   function nav() {
     const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
@@ -90,7 +126,7 @@
   }
 
   function viewWelcome() {
-    return `<div class="card hero"><h1>Benvenuto in FORMA</h1>
+    return `<div class="card hero"><h1>Benvenuto in FORGIA</h1>
       <p>Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
       <p class="mute small">I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).</p>`;
@@ -131,7 +167,7 @@
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
     const news = ui.whatsNew ? `<div class="card" style="border-color:var(--accent)"><b>Novità · versione ${esc(ui.whatsNew.version)}</b>${(ui.whatsNew.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="sm" data-act="dismissNews">Ok, ho letto</button></div></div>` : '';
-    return `${upd}${news}${next}
+    return `${upd}${news}${backupBanner()}${next}
       <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
@@ -293,11 +329,12 @@
       <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="sendReq">Invia richiesta (GitHub)</button><button class="sm" data-act="copyReq">Copia per la chat</button></div>
       <p class="mute small">"Invia" apre GitHub con la richiesta già scritta (serve essere collegati a GitHub). Non vengono inclusi dati personali o di salute: solo versione dell'app e il tuo testo. Chi gestisce l'app la legge e la applica; l'aggiornamento arriva da solo alla prossima apertura.</p>
       ${(S.requests || []).slice(-5).reverse().map(r => `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}<br><span class="mute">${r.date} · ${esc(r.how)}</span></span><button class="ghost sm danger" data-act="delReq" data-id="${r.id}" aria-label="Elimina richiesta">✕</button></div>`).join('')}</div>
-      <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORMA (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
+      <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORGIA (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
       <input id="aiUrl" placeholder="https://il-tuo-server" value="${esc(S.settings.aiUrl || '')}" aria-label="Indirizzo server IA"><button class="sm" style="margin-top:8px" data-act="saveAI">Salva</button></div>
-      <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa backup<input type="file" id="impBk" accept="application/json" hidden></label></div>
+      <div class="card"><h2>Backup automatico ogni ${F.BACKUP_EVERY_DAYS} giorni</h2>${backupCard()}</div>
+      <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
       <hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><button class="sm danger" data-act="delProfile">Elimina questo profilo e tutti i suoi dati</button></div>
-      <p class="mute small">FORMA dà indicazioni generali di allenamento e alimentazione, non sostituisce medico, fisioterapista o allenatore.</p>`;
+      <p class="mute small">FORGIA dà indicazioni generali di allenamento e alimentazione, non sostituisce medico, fisioterapista o allenatore.</p>`;
   }
 
   /* ---------- azioni ---------- */
@@ -374,11 +411,16 @@
     async checkUpdate() { toast('Controllo in corso…'); const r = await checkVersion(true); if (r === 'new') toast('Aggiornamento disponibile'); else if (r === 'same') toast('Sei già alla versione più recente'); else toast('Impossibile controllare: sei offline?'); render(); },
     async applyUpdate() { toast('Aggiorno…'); try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(x => x.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) { } location.reload(); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
-    sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORMA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
-    async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORMA v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
+    sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
+    async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORGIA v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
     delReq(t) { S.requests = (S.requests || []).filter(r => r.id !== t.dataset.id); save(); render(); },
     saveAI() { S.settings.aiUrl = $('#aiUrl').value.trim(); save(); toast('Salvato'); },
-    export() { download('forma-backup-' + F.todayISO() + '.json', JSON.stringify(S, null, 1)); },
+    async bkPick() { try { const h = await F.pickDir(); ui.bkDir = h.name; const r = await F.runBackup(S, { interactive: true }); save(); render(); toast(r.ok ? 'Cartella collegata. Backup fatto: ' + r.where : 'Cartella collegata'); } catch (e) { if (!e || e.name !== 'AbortError') toast('Cartella non accessibile'); } },
+    async bkForget() { await F.forgetDir(); ui.bkDir = null; render(); toast('Cartella scollegata'); },
+    async bkNow() { const r = await F.runBackup(S, { interactive: true, manual: true }); if (r.ok) { save(); ui.bkHide = true; render(); toast(`Backup di ${r.profiles} profil${r.profiles === 1 ? 'o' : 'i'} salvato: ${r.where}`); } else toast('Backup non riuscito (' + r.reason + ')'); },
+    async bkShare() { try { await F.nativeShare(F.allFiles(S)); } catch (e) { toast('Condivisione annullata'); } },
+    bkLater() { ui.bkHide = true; render(); },
+    export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo_' + F.todayISO() + '.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
     delProfile() { const p = P(); if (!confirm(`Eliminare il profilo di ${p.name} con schede, sedute e dolori? Non si può annullare.`)) return; S.profiles = S.profiles.filter(x => x.id !== p.id); S.active = S.profiles.length ? S.profiles[0].id : null; save(); ui.sub = null; ui.tab = 'home'; render(); },
     async askAI() {
       const p = P(), plan = planOf(p); const out = $('#aiOut'); out.innerHTML = '<p class="mute small">Analisi in corso…</p>';
@@ -386,6 +428,18 @@
       out.innerHTML = r && r.text ? `<div class="msg" style="white-space:pre-wrap">${esc(r.text)}</div>` : '';
     }
   };
+  function importText(text) {
+    let d; try { d = F.parseImport(text); } catch (x) { return toast('File non valido: ' + x.message); }
+    if (d.kind === 'profile') {
+      const ex = S.profiles.find(x => x.id === d.profile.id), same = S.profiles.find(x => x.name.toLowerCase() === d.profile.name.toLowerCase());
+      if (ex) { if (!confirm(`Il profilo "${ex.name}" esiste già. Sostituirlo con quello del file?`)) return; Object.assign(ex, d.profile); }
+      else { if (same) d.profile.name += ' (importato)'; if (S.profiles.some(x => x.id === d.profile.id)) d.profile.id = 'u' + uid(); S.profiles.push(d.profile); S.active = d.profile.id; }
+      save(); ui.sub = null; ui.tab = 'home'; render(); return toast('Profilo importato: ' + d.profile.name);
+    }
+    if (!confirm(`Sostituire TUTTI i dati attuali con il backup (${d.profiles.length} profili)?`)) return;
+    S.profiles = d.profiles; S.active = d.profiles.length ? d.profiles[0].id : null; S.settings = Object.assign({ aiUrl: '' }, S.settings, d.settings, { backup: S.settings.backup }); S.requests = d.requests;
+    save(); ui.sub = null; render(); toast('Backup importato');
+  }
   function reqText() { const t = ($('#reqText').value || '').trim(); if (t.length < 5) { toast('Scrivi cosa vuoi cambiare'); return ''; } return t; }
   function logReq(text, how) { S.requests = S.requests || []; S.requests.push({ id: uid(), date: F.todayISO(), text, how }); save(); const el = $('#reqText'); if (el) el.value = ''; render(); }
   async function checkVersion(manual) {
@@ -424,7 +478,7 @@
     const t = e.target, p = P();
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
-    if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!Array.isArray(d.profiles)) throw 0; if (!confirm('Sostituire i dati attuali con il backup?')) return; S = d; S.settings = S.settings || { aiUrl: '' }; save(); ui.sub = null; render(); toast('Backup importato'); } catch (x) { toast('File di backup non valido'); } }; r.readAsText(t.files[0]); return; }
+    if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
     if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); d.data[i][s].done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i]; startTimer(x.rest || 90); } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
@@ -438,5 +492,6 @@
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();
+  autoBackup();
   checkVersion().then(r => { if (r === 'new' || ui.whatsNew) render(); });
 })(window.FORMA);
