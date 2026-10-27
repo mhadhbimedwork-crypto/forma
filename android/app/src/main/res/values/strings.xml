@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FORMA</string>
+    <string name="title_activity_main">FORMA</string>
+    <string name="package_name">it.forma.app</string>
+    <string name="custom_url_scheme">it.forma.app</string>
+</resources>
