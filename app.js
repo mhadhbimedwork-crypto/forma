@@ -57,6 +57,19 @@
   }
   const msgs = list => list.map(f => `<div class="msg ${f.k || ''}">${esc(f.t)}</div>`).join('');
 
+  function sickCard() {
+    return `<div class="card" style="border-color:var(--danger)"><h2>Fermati adesso</h2>
+      <ol class="small" style="padding-left:18px;margin:0 0 8px"><li>Siediti o sdraiati con le gambe in alto. Non restare in piedi.</li><li>Respira lento: 4 secondi dentro dal naso, 6 fuori dalla bocca.</li><li>Bevi acqua a piccoli sorsi e mangia qualcosa di zuccherato (frutta, succo, 2-3 datteri).</li><li>Esci all'aria aperta se la sala è chiusa e calda.</li></ol>
+      <div class="msg danger small">Chiama il 118 se hai dolore al petto, palpitazioni forti, svenimento, difficoltà a parlare o debolezza da un solo lato, o se non passa in 15 minuti.</div>
+      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="sickLog">Registra l'episodio</button><button class="sm" data-act="sickClose">Chiudi</button></div></div>`;
+  }
+  function rmInput(p, x) {
+    if (!x.pct || !x.exId) return '';
+    const t = F.pctTarget(p, x), cur = p.rm && p.rm[x.exId] || '';
+    const hint = t && !t.need ? `<span class="small">${t.lo === t.hi ? t.lo : t.lo + '-' + t.hi} kg · ${esc(F.pctLabel(x))} (1RM ${t.rm.kg} kg, ${t.rm.src})</span>` : '<span class="mute small">La scheda indica una percentuale: inserisci il tuo massimale (1RM) per avere i kg. Se non lo conosci, fai la prima seduta leggera e lo stimo io.</span>';
+    return `<div class="row wrap" style="margin:4px 0"><label style="margin:0">1RM kg</label><input inputmode="decimal" style="width:80px" data-rm="${x.exId}" value="${cur}" aria-label="Massimale ${esc(x.name)}">${hint}</div>`;
+  }
+
   /* ---------- backup ---------- */
   const fdate = d => d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   function backupCard() {
@@ -167,7 +180,9 @@
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
     const news = ui.whatsNew ? `<div class="card" style="border-color:var(--accent)"><b>Novità · versione ${esc(ui.whatsNew.version)}</b>${(ui.whatsNew.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="sm" data-act="dismissNews">Ok, ho letto</button></div></div>` : '';
-    return `${upd}${news}${backupBanner()}${next}
+    const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
+    const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
+    return `${upd}${news}${backupBanner()}${symCard}${next}
       <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
@@ -184,17 +199,19 @@
     const blocks = day.exercises.map((x, i) => {
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
+      const pt = F.pctTarget(p, x), ptKg = pt && !pt.need ? pt.hi : null;
       const rows = []; for (let s = 0; s < n; s++) {
         const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s];
         const timed = x.unit === 'sec' || (e && e.unit === 'sec');
         rows.push(`<tr><td>${s + 1}</td><td class="mute">${esc(F.targetFor(x, s))}</td>
-          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (prev && prev.kg != null ? prev.kg : '')}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
+          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : ''))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
           <td><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : 'rip'}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>`);
       }
       return `<div class="card"><div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
-        <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s</div>
+        <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
+        ${x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}
         <div class="msg ${sug.kind === 'up' ? 'ok' : sug.kind === 'warn' ? 'warn' : ''} small">${esc(sug.text)}</div>
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
@@ -205,6 +222,13 @@
     return `<div class="row"><button class="ghost" data-act="pauseSession">← Esci (salva bozza)</button></div>
       <h1>${esc(day.name)}</h1>
       <div class="card"><b>Peso corporeo oggi</b><div class="row" style="margin-top:6px"><input id="bw" inputmode="decimal" placeholder="kg" value="" style="max-width:120px" aria-label="Peso corporeo"><span class="mute small">ultimo: ${lastBW ? lastBW.kg + ' kg' : '—'}</span></div></div>
+      ${ui.sick ? sickCard() : ''}
+      <details class="card"><summary><b>Prima di iniziare</b> <span class="mute small">(1 minuto)</span></summary>
+        <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho mangiato carboidrati e proteine 2-3 ore fa</label>
+        <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho bevuto circa mezzo litro d'acqua</label>
+        <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho dormito bene e sto bene oggi</label>
+        <p class="mute small">Durante le serie espira e non trattenere il fiato. Se senti formicolio, testa leggera o confusione, fermati subito. Alla fine non fermarti di colpo: 5 minuti di camminata lenta. Niente intervalli a tutta nelle prime 4-6 settimane.</p></details>
+      <button class="danger" style="width:100%;margin:0 0 12px" data-act="sick">Mi sento male</button>
       <p class="mute small">RPE = sforzo da 1 a 10 (10 = al limite). Per le piramidi "carico crescente" aumenta il peso a ogni serie.</p>
       ${blocks}<button class="primary" style="width:100%" data-act="finishSession">Termina e salva</button>`;
   }
@@ -233,7 +257,8 @@
         const alts = chk.blocked ? F.alternatives(x.exId, p) : [];
         return `<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b> ${!e ? '<span class="chip warn">non riconosciuto</span>' : ''} ${chk.blocked ? '<span class="chip danger">sconsigliato ora</span>' : ''}
         <div class="row wrap" style="margin:4px 0"><label style="margin:0">Serie</label><input type="number" min="1" max="10" style="width:64px" data-edit="${di}:${xi}:sets" value="${x.sets}" aria-label="Serie ${esc(x.name)}">
-        ${x.repsInfo ? `<span class="mute small">${esc(F.repsLabel(x))}</span>` : `<label style="margin:0">Rip</label><input style="width:90px" data-edit="${di}:${xi}:reps" value="${esc(x.reps)}" aria-label="Ripetizioni ${esc(x.name)}">`}</div>
+        ${x.repsInfo ? `<span class="mute small">${esc(F.repsLabel(x))}${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''} · rec ${x.rest || 90}s${x.rpe ? ' · RPE ' + x.rpe : ''}</span>` : `<label style="margin:0">Rip</label><input style="width:90px" data-edit="${di}:${xi}:reps" value="${esc(x.reps)}" aria-label="Ripetizioni ${esc(x.name)}">`}</div>
+        ${rmInput(p, x)}
         ${(x.flags || []).map(f => `<div class="msg warn small">${esc(f)}</div>`).join('')}
         ${chk.notes.length ? `<div class="msg ${chk.blocked ? 'danger' : 'warn'} small">${esc(chk.notes.join(' · '))}</div>` : ''}
         ${!e ? `<select data-map="${di}:${xi}" aria-label="Collega a un esercizio"><option value="">Collega a un esercizio…</option>${F.EX.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select>` : ''}
@@ -260,13 +285,13 @@
         ${pr.flags.length ? msgs(pr.flags.map(t => ({ k: 'warn', t }))) : ''}
         <div class="row" style="margin-top:12px"><button class="primary grow" data-act="saveImport">Salva scheda</button></div>
         <p class="mute small">Potrai collegare gli esercizi non riconosciuti e correggere serie e ripetizioni nel dettaglio della scheda.</p></div>
-        ${pr.days.map(d => `<div class="card"><h2>${esc(d.name)}</h2>${d.exercises.map(x => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line)"><b>${esc(x.name)}</b> — ${x.sets}× ${esc(F.repsLabel(x))} ${x.exId ? `<span class="chip">${esc(F.EXMAP[x.exId].name)}</span>` : '<span class="chip warn">da collegare</span>'}${x.flags.map(f => `<div class="mute">⚠ ${esc(f)}</div>`).join('')}</div>`).join('')}</div>`).join('')}`;
+        ${pr.days.map(d => `<div class="card"><h2>${esc(d.name)}</h2>${d.exercises.map(x => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line)"><b>${esc(x.name)}</b> — ${x.sets}× ${esc(F.repsLabel(x))}${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rest ? ' · rec ' + x.rest + 's' : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''} ${x.exId ? `<span class="chip">${esc(F.EXMAP[x.exId].name)}</span>` : '<span class="chip warn">da collegare</span>'}${x.flags.map(f => `<div class="mute">⚠ ${esc(f)}</div>`).join('')}</div>`).join('')}</div>`).join('')}`;
     }
     return `<div class="row"><button class="ghost" data-act="cancelSub">← Annulla</button></div><h1>Importa scheda</h1>
       <div class="card"><h2>Schede del vecchio personal trainer</h2><p class="mute small">Già trascritte dalle foto: caricale per analizzarle.</p>
       <div class="row wrap">${F.SAMPLES.map(s => `<button data-act="loadSample" data-id="${s.id}">${esc(s.title)}</button>`).join('')}</div></div>
-      <div class="card"><h2>Incolla il testo</h2><p class="mute small">Un esercizio per riga: <code>NOME | serie | ripetizioni</code>. Le righe che iniziano con # sono i giorni.</p>
-      <textarea id="imp_text" placeholder="# Giorno 1&#10;PANCA PIANA | 4 | 8-10&#10;LAT MACHINE | 3 | 12" aria-label="Testo della scheda"></textarea>
+      <div class="card"><h2>Incolla il testo</h2><p class="mute small">Incolla la scheda come l'ha scritta l'allenatore, anche in inglese: <code>Bench press 4x6 @80% rest 2 min</code>, <code>Lat pulldown 3 x 8-10 RPE 8</code>, <code>Squat 5 serie da 5, 75%, recupero 2'</code>. Riconosco serie, ripetizioni, % del massimale, RPE/RIR, recuperi e tempo. Le righe come <code># Giorno 1</code> o <code>Push day:</code> sono i giorni.</p>
+      <textarea id="imp_text" placeholder="# Day 1&#10;Bench press 4x6 @80% rest 2 min&#10;Lat pulldown 3x8-10 RPE 8&#10;Leg press 3x12 rec 90s" aria-label="Testo della scheda"></textarea>
       <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button></div>
       <div class="card"><h2>Da foto</h2><p class="mute small">La lettura automatica da foto usa l'IA e richiede il server collegato (Profilo → Server IA). Senza server, incolla il testo qui sopra.</p>
       <input type="file" id="imp_photo" accept="image/*" aria-label="Foto della scheda"><button style="margin-top:8px" data-act="parsePhoto">Leggi foto</button></div>`;
@@ -392,6 +417,9 @@
       if (!p.draft || p.draft.planId !== plan.id) p.draft = { planId: plan.id, dayIdx: idx, data: {}, started: Date.now() };
       save(); ui.sub = { type: 'session' }; render(); window.scrollTo(0, 0);
     },
+    sick() { ui.sick = true; render(); window.scrollTo(0, 0); },
+    sickClose() { ui.sick = false; render(); },
+    sickLog() { const p = P(); p.symptoms = p.symptoms || []; p.symptoms.push({ date: F.todayISO(), at: new Date().toISOString() }); save(); ui.sick = false; render(); toast('Episodio registrato. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.'); },
     pauseSession() { save(); ui.sub = null; render(); },
     addSet(t) { const d = P().draft, i = +t.dataset.i; d.data[i] = d.data[i] || []; const plan = planOf(P()), x = plan.days[d.dayIdx].exercises[i]; const n = Math.max(d.data[i].length, x.sets); while (d.data[i].length < n + 1) d.data[i].push({}); save(); render(); },
     finishSession() {
@@ -479,6 +507,7 @@
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
     if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
+    if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
     if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); d.data[i][s].done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i]; startTimer(x.rest || 90); } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
