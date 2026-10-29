@@ -27,6 +27,7 @@
     plan: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
     body: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M7 10l5-2 5 2M9 21l3-6 3 6"/></svg>',
     chart: '<svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16l4-5 3 3 5-7"/></svg>',
+    diet: '<svg viewBox="0 0 24 24"><path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v8M7 7h4M17 3c-2 2-3 5-3 8h3v10"/></svg>',
     user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>'
   };
 
@@ -112,15 +113,15 @@
         <select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button></div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
+    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ['diet', 'Dieta', ICON.diet], ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   function render() {
     const p = P();
     let body;
     if (!p && !(ui.sub && ui.sub.type === 'profile')) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, import: viewImport }[ui.sub.type] || (() => ''))();
-    else body = ({ home: viewHome, plan: viewPlans, body: viewBody, prog: viewProg, me: viewMe }[ui.tab])();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, import: viewImport, recipe: viewRecipe }[ui.sub.type] || (() => ''))();
+    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe }[ui.tab])();
     $('#app').innerHTML = header() + `<main>${body}</main>` + (p ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
@@ -297,6 +298,88 @@
       <input type="file" id="imp_photo" accept="image/*" aria-label="Foto della scheda"><button style="margin-top:8px" data-act="parsePhoto">Leggi foto</button></div>`;
   }
 
+
+  /* --- dieta: 4 pasti, alimenti, ricette --- */
+  const fx = n => fmt(n, 0);
+  const chips = fd => (fd.b12 ? '<span class="chip">B12</span> ' : '') + (fd.d ? '<span class="chip">D</span> ' : '');
+  function ensureNut(p) {
+    p.nutrition = p.nutrition || { days: {}, foods: [], recipes: [] };
+    if (!p.nutrition.seeded) { p.nutrition.seeded = true; F.RECIPE_SAMPLES.forEach(r => p.nutrition.recipes.push({ id: 'r' + uid(), name: r.name, portions: r.portions, items: r.items.map(x => x.slice()), note: r.note })); save(); }
+    return p.nutrition;
+  }
+  function bar(label, val, tgt, unit) {
+    const pc = tgt ? Math.min(100, Math.round(val / tgt * 100)) : 0, over = tgt && val > tgt * 1.05;
+    return `<div style="margin:8px 0"><div class="row small"><span class="grow"><b>${label}</b></span><span>${fx(val)} / ${fx(tgt)} ${unit}</span></div><div class="bar"><i style="width:${pc}%${over ? ';background:var(--warn)' : ''}"></i></div></div>`;
+  }
+  function itemLine(p, it, mi, ii) {
+    const m = F.itemMacros(p, it);
+    if (it.r) {
+      const rec = F.getRecipe(p, it.r); if (!rec) return '';
+      return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(rec.name)}</b><div class="mute small">${fx(m.k)} kcal · P ${fx(m.p)} · C ${fx(m.c)} · G ${fx(m.f)}</div></div>
+        <input inputmode="decimal" style="width:62px" data-dn="${mi}:${ii}" value="${it.n || 1}" aria-label="Porzioni"><span class="mute small">porz.</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
+    }
+    const fd = F.getFood(p, it.f); if (!fd) return '';
+    return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">${fx(m.k)} kcal · P ${fx(m.p)} · C ${fx(m.c)} · G ${fx(m.f)}</div></div>
+      <input inputmode="decimal" style="width:70px" data-dg="${mi}:${ii}" value="${it.g}" aria-label="Grammi ${esc(fd.name)}"><span class="mute small">g</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
+  }
+  function addPanel(p, mi) {
+    const D = ui.diet, nut = p.nutrition, foods = F.allFoods(p), pk = D.pick;
+    let pickBox = '';
+    if (pk) {
+      if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
+      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 g: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>
+        <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="Grammi"><span>g</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
+    }
+    const rec = nut.recipes;
+    const list = F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => `<button class="sm fooditem" style="margin:2px" data-name="${esc(x.name.toLowerCase())}" data-act="dPick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>`; }).join('');
+    return `<div class="card" style="border-color:var(--ion)"><div class="row"><b class="grow">Aggiungi a ${F.MEALS[mi].toLowerCase()}</b><button class="ghost sm" data-act="dClose">Chiudi</button></div>
+      ${pickBox}
+      <input id="dq" placeholder="Cerca un alimento…" aria-label="Cerca alimento" style="margin:8px 0">
+      ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
+      ${list}
+      <details style="margin-top:10px"><summary>Cerca online o aggiungi un alimento nuovo</summary>
+        <div class="row" style="margin:8px 0"><input id="offq" placeholder="Nome o codice a barre" aria-label="Cerca online"><button class="sm" data-act="offSearch">Cerca</button></div>
+        <div id="offRes" class="small mute">La ricerca usa Open Food Facts (database aperto): invia solo il testo che scrivi, nessun dato personale.</div>
+        <h3>Da etichetta (valori per 100 g)</h3>
+        <input id="nf_name" placeholder="Nome" aria-label="Nome alimento"><div class="grid2" style="margin-top:6px"><input id="nf_k" inputmode="decimal" placeholder="kcal" aria-label="kcal"><input id="nf_p" inputmode="decimal" placeholder="proteine g" aria-label="Proteine"><input id="nf_c" inputmode="decimal" placeholder="carboidrati g" aria-label="Carboidrati"><input id="nf_f" inputmode="decimal" placeholder="grassi g" aria-label="Grassi"></div>
+        <button class="sm" style="margin-top:8px" data-act="dNewFood">Salva alimento</button></details></div>`;
+  }
+  function viewDiet() {
+    const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: F.todayISO(), addTo: null, pick: null, fill: false };
+    const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === F.todayISO();
+    const rem = { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f };
+    const liver = day.meals.flat().filter(it => it.f === 'bovino_fegato').reduce((a, it) => a + (it.g || 0), 0);
+    const meals = F.MEALS.map((nm, mi) => {
+      const items = day.meals[mi], mt = F.mealTotal(p, items), tg = F.MEAL_SPLIT[mi];
+      return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">${nm}</h2><span class="small mute">${fx(mt.k)} / ${fx(c.kcal * tg)} kcal · P ${fx(mt.p)} / ${fx(c.protein / 4)} g</span></div>
+        ${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
+        <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
+        ${D.addTo === mi ? addPanel(p, mi) : ''}</div>`;
+    }).join('');
+    const fill = D.fill ? F.suggestFill(p, rem) : null;
+    return `<h1>Dieta</h1>
+      <div class="row" style="margin-bottom:8px"><button class="sm" data-act="dDay" data-d="-1" aria-label="Giorno prima">←</button><div class="grow" style="text-align:center"><b>${isToday ? 'Oggi' : esc(D.date)}</b></div><button class="sm" data-act="dDay" data-d="1" aria-label="Giorno dopo">→</button></div>
+      <div class="card"><h2>Fabbisogno di ${esc(p.name)}</h2>${bar('Calorie', tot.k, c.kcal, 'kcal')}${bar('Proteine', tot.p, c.protein, 'g')}${bar('Carboidrati', tot.c, c.carbs, 'g')}${bar('Grassi', tot.f, c.fat, 'g')}
+        <p class="small" style="margin:8px 0 0">${rem.k > 50 ? `Ti mancano ${fx(rem.k)} kcal (P ${fx(Math.max(0, rem.p))} g · C ${fx(Math.max(0, rem.c))} g · G ${fx(Math.max(0, rem.f))} g).` : rem.k < -100 ? `Sei sopra di ${fx(-rem.k)} kcal.` : 'Giornata a target.'}</p>
+        ${liver > 150 ? '<div class="msg warn small">Fegato oltre 150 g: ha molta vitamina A, tienilo a 100-150 g, 1-2 volte a settimana.</div>' : ''}
+        <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dFill">${D.fill ? 'Nascondi suggerimenti' : 'Bilancia la giornata'}</button><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div>
+        ${fill ? (fill.length ? fill.map(s => `<h3>${s.label}</h3>${s.opts.map(o => `<div class="small" style="padding:2px 0">• ${esc(o.x.name)} <b>${o.g} g</b> <span class="mute">(${fx(o.m.k)} kcal, P ${fx(o.m.p)}, C ${fx(o.m.c)}, G ${fx(o.m.f)})</span></div>`).join('')}`).join('') : '<div class="msg ok small">Macro quasi a target: non serve aggiungere altro.</div>') : ''}</div>
+      ${meals}
+      ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Apri</button></div>`; }).join('')}</div>` : ''}
+      <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
+  }
+  function viewRecipe() {
+    const p = P(), R = ui.sub.draft, foods = F.allFoods(p);
+    const tot = F.recipeTotal(p, R), n = R.portions || 1;
+    return `<div class="row"><button class="ghost" data-act="rCancel">← Dieta</button></div><h1>${ui.sub.id ? 'Ricetta' : 'Nuova ricetta'}</h1>
+      <div class="card"><label for="rc_name">Nome</label><input id="rc_name" value="${esc(R.name)}" placeholder="Es. Torta proteica"><label for="rc_por">Porzioni</label><input id="rc_por" inputmode="numeric" style="width:90px" value="${R.portions}">
+      <h3>Ingredienti</h3>${R.items.map((x, i) => { const fd = F.getFood(p, x[0]); return fd ? `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><span class="grow">${esc(fd.name)}</span><input inputmode="decimal" style="width:80px" data-ri="${i}" value="${x[1]}" aria-label="Grammi ${esc(fd.name)}"><span class="mute small">g</span><button class="ghost sm danger" data-act="rIngRm" data-i="${i}" aria-label="Rimuovi">✕</button></div>` : ''; }).join('') || '<p class="mute small">Aggiungi gli ingredienti.</p>'}
+      <div class="row wrap" style="margin-top:8px"><select id="rc_add" style="flex:1" aria-label="Ingrediente"><option value="">Aggiungi ingrediente…</option>${foods.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="rc_g" inputmode="decimal" style="width:80px" placeholder="g" aria-label="Grammi"><button class="sm" data-act="rIngAdd">Aggiungi</button></div>
+      <label for="rc_note">Note</label><textarea id="rc_note" style="min-height:60px;font-family:inherit">${esc(R.note || '')}</textarea></div>
+      <div class="card"><h2>Valori</h2><div class="grid3 k4"><div class="kpi"><b>${fx(tot.k / n)}</b><span>kcal a porz.</span></div><div class="kpi"><b>${fx(tot.p / n)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c / n)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f / n)} g</b><span>grassi</span></div></div><p class="mute small">Totale ricetta: ${fx(tot.k)} kcal · P ${fx(tot.p)} · C ${fx(tot.c)} · G ${fx(tot.f)}.</p></div>
+      <div class="row"><button class="primary grow" data-act="rSave">Salva ricetta</button>${ui.sub.id ? '<button class="danger" data-act="rDel">Elimina</button>' : ''}</div>`;
+  }
+
   /* --- corpo --- */
   function viewBody() {
     const p = P(), pain = p.pain || {}, z = ui.zone;
@@ -385,6 +468,47 @@
     catch (e) { toast('Server IA non raggiungibile.'); return null; }
   }
   const act = {
+    dDay(t) { const d = new Date(ui.diet.date + 'T12:00:00'); d.setDate(d.getDate() + +t.dataset.d); ui.diet.date = d.toISOString().slice(0, 10); ui.diet.addTo = null; ui.diet.pick = null; render(); },
+    dOpen(t) { ui.diet.addTo = +t.dataset.m; ui.diet.pick = null; render(); },
+    dClose() { ui.diet.addTo = null; ui.diet.pick = null; render(); },
+    dPick(t) { const fd = F.getFood(P(), t.dataset.id); ui.diet.pick = { f: t.dataset.id, g: fd.units && fd.units[0] ? fd.units[0][1] : 100 }; render(); const e = $('#dg'); if (e) { e.scrollIntoView({ block: 'center' }); } },
+    dPickR(t) { ui.diet.pick = { r: t.dataset.id, n: 1 }; render(); },
+    dUnit(t) { const e = $('#dg'); if (e) e.value = t.dataset.g; },
+    dAdd(t) {
+      const p = P(), D = ui.diet, pk = D.pick, mi = +t.dataset.m, day = F.dayOf(p, D.date); if (!pk) return;
+      if (pk.r) { const n = parseFloat(String($('#dn').value).replace(',', '.')); if (!(n > 0)) return toast('Inserisci le porzioni'); day.meals[mi].push({ r: pk.r, n }); }
+      else { const g = parseFloat(String($('#dg').value).replace(',', '.')); if (!(g > 0)) return toast('Inserisci i grammi'); day.meals[mi].push({ f: pk.f, g }); }
+      D.pick = null; save(); render();
+    },
+    dRm(t) { const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
+    dFill() { ui.diet.fill = !ui.diet.fill; render(); },
+    dCopy() { const p = P(), y = new Date(ui.diet.date + 'T12:00:00'); y.setDate(y.getDate() - 1); const src = p.nutrition.days[y.toISOString().slice(0, 10)]; if (!src || !src.meals.some(m => m.length)) return toast('Il giorno prima è vuoto'); if (!confirm('Copiare i pasti del giorno prima? Sostituisce quelli di questo giorno.')) return; F.dayOf(p, ui.diet.date).meals = JSON.parse(JSON.stringify(src.meals)); save(); render(); },
+    dNewFood() {
+      const n = ($('#nf_name').value || '').trim(), v = id => parseFloat(String($('#' + id).value).replace(',', '.')) || 0;
+      if (!n || !(v('nf_k') > 0 || v('nf_p') > 0)) return toast('Scrivi nome e valori per 100 g');
+      const p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: n, k: v('nf_k'), p: v('nf_p'), c: v('nf_c'), f: v('nf_f') }); ui.diet.pick = { f: id, g: 100 }; save(); render(); toast('Alimento salvato');
+    },
+    async offSearch() {
+      const q = ($('#offq').value || '').trim(), out = $('#offRes'); if (!q) return toast('Scrivi cosa cercare');
+      out.innerHTML = 'Ricerca…';
+      try {
+        const fields = 'code,product_name,brands,nutriments';
+        const url = /^\d{8,14}$/.test(q) ? `https://world.openfoodfacts.org/api/v2/product/${q}.json?fields=${fields}` : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=8&fields=${fields}&lc=it`;
+        const r = await fetch(url); if (!r.ok) throw 0; const d = await r.json(); const list = d.products || (d.product ? [d.product] : []);
+        ui.offList = list.filter(x => x.product_name && x.nutriments && x.nutriments['energy-kcal_100g'] != null).slice(0, 8);
+        out.innerHTML = ui.offList.length ? ui.offList.map((x, i) => `<div class="row" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow small">${esc(x.product_name)}${x.brands ? ' · ' + esc(x.brands) : ''}<br><span class="mute">${fx(x.nutriments['energy-kcal_100g'])} kcal · P ${fx(x.nutriments.proteins_100g || 0)} · C ${fx(x.nutriments.carbohydrates_100g || 0)} · G ${fx(x.nutriments.fat_100g || 0)} (per 100 g)</span></span><button class="sm" data-act="offUse" data-i="${i}">Usa</button></div>`).join('') : 'Nessun risultato.';
+      } catch (e) { out.innerHTML = 'Ricerca non riuscita: serve internet. Puoi inserire i valori dall\'etichetta qui sotto.'; }
+    },
+    offUse(t) { const x = (ui.offList || [])[+t.dataset.i]; if (!x) return; const n = x.nutriments, p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: x.product_name + (x.brands ? ' (' + x.brands.split(',')[0] + ')' : ''), k: Math.round(n['energy-kcal_100g']), p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0) }); ui.diet.pick = { f: id, g: 100 }; save(); render(); },
+    newRecipe() { ui.sub = { type: 'recipe', id: null, draft: { name: '', portions: 1, items: [], note: '' } }; render(); window.scrollTo(0, 0); },
+    editRecipe(t) { const r = P().nutrition.recipes.find(x => x.id === t.dataset.id); ui.sub = { type: 'recipe', id: r.id, draft: JSON.parse(JSON.stringify(r)) }; render(); window.scrollTo(0, 0); },
+    rIngAdd() { readRecipe(); const id = $('#rc_add').value, g = parseFloat(String($('#rc_g').value).replace(',', '.')); if (!id || !(g > 0)) return toast('Scegli un ingrediente e i grammi'); ui.sub.draft.items.push([id, g]); render(); },
+    rIngRm(t) { readRecipe(); ui.sub.draft.items.splice(+t.dataset.i, 1); render(); },
+    rSave() { readRecipe(); const R = ui.sub.draft, p = P(); if (!R.name.trim()) return toast('Dai un nome alla ricetta'); if (!R.items.length) return toast('Aggiungi almeno un ingrediente');
+      R.name = R.name.trim(); if (ui.sub.id) { const i = p.nutrition.recipes.findIndex(x => x.id === ui.sub.id); p.nutrition.recipes[i] = Object.assign({ id: ui.sub.id }, R); } else p.nutrition.recipes.push(Object.assign({ id: 'r' + uid() }, R));
+      save(); ui.sub = null; render(); toast('Ricetta salvata'); },
+    rDel() { if (!confirm('Eliminare questa ricetta?')) return; const p = P(); p.nutrition.recipes = p.nutrition.recipes.filter(x => x.id !== ui.sub.id); save(); ui.sub = null; render(); },
+    rCancel() { ui.sub = null; render(); },
     tab(t) { ui.tab = t.dataset.tab; ui.sub = null; render(); window.scrollTo(0, 0); },
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
     editProfile() { ui.sub = { type: 'profile', id: S.active }; render(); },
@@ -468,6 +592,7 @@
     S.profiles = d.profiles; S.active = d.profiles.length ? d.profiles[0].id : null; S.settings = Object.assign({ aiUrl: '' }, S.settings, d.settings, { backup: S.settings.backup }); S.requests = d.requests;
     save(); ui.sub = null; render(); toast('Backup importato');
   }
+  function readRecipe() { const R = ui.sub.draft; const n = $('#rc_name'), q = $('#rc_por'), no = $('#rc_note'); if (n) R.name = n.value; if (q) R.portions = Math.max(1, parseInt(q.value, 10) || 1); if (no) R.note = no.value; }
   function reqText() { const t = ($('#reqText').value || '').trim(); if (t.length < 5) { toast('Scrivi cosa vuoi cambiare'); return ''; } return t; }
   function logReq(text, how) { S.requests = S.requests || []; S.requests.push({ id: uid(), date: F.todayISO(), text, how }); save(); const el = $('#reqText'); if (el) el.value = ''; render(); }
   async function checkVersion(manual) {
@@ -507,6 +632,11 @@
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
     if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
+    if (t.dataset.dg) { const [m, i] = t.dataset.dg.split(':').map(Number), v = parseFloat(String(t.value).replace(',', '.')); const it = F.dayOf(p, ui.diet.date).meals[m][i]; if (v > 0) it.g = v; save(); render(); return; }
+    if (t.dataset.dn) { const [m, i] = t.dataset.dn.split(':').map(Number), v = parseFloat(String(t.value).replace(',', '.')); const it = F.dayOf(p, ui.diet.date).meals[m][i]; if (v > 0) it.n = v; save(); render(); return; }
+    if (t.dataset.ri) { readRecipe(); const v = parseFloat(String(t.value).replace(',', '.')); if (v > 0) ui.sub.draft.items[+t.dataset.ri][1] = v; render(); return; }
+    if (t.id === 'rc_name' || t.id === 'rc_note') { readRecipe(); return; }
+    if (t.id === 'rc_por') { readRecipe(); render(); return; }
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
     if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); d.data[i][s].done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i]; startTimer(x.rest || 90); } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
@@ -514,6 +644,7 @@
   });
   document.addEventListener('input', e => {
     const t = e.target, p = P();
+    if (t.id === 'dq') { const q = t.value.toLowerCase().trim(); document.querySelectorAll('.fooditem').forEach(b => { b.style.display = !q || b.dataset.name.includes(q) ? '' : 'none'; }); return; }
     if (t.id === 'painR') { const v = +t.value; $('#painV').textContent = v; clearTimeout(t._d); t._d = setTimeout(() => setPain(t.dataset.zone, v), 350); return; }
     if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); }
   });

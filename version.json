@@ -1,11 +1,11 @@
 {
-  "version": "1.3.0",
-  "build": 4,
-  "date": "2026-10-28",
+  "version": "1.4.0",
+  "build": 5,
+  "date": "2026-10-29",
   "notes": [
-    "Importa schede anche in inglese: riconosce esercizi, serie, ripetizioni, percentuali di carico (% del massimale), RPE, tempo e recuperi.",
-    "Con una scheda a percentuali, l'app calcola i kg dal tuo massimale (1RM) e li precompila in seduta.",
-    "Nuova checklist \"Prima di iniziare\" e tasto \"Mi sento male\" con istruzioni e registro degli episodi.",
-    "Oltre 20 esercizi nuovi (T-bar row, hack squat, hip thrust, curl su panca inclinata e altri)."
+    "Nuova sezione Dieta: 4 pasti con i tuoi alimenti, calcolo automatico di calorie e macro rispetto al tuo fabbisogno.",
+    "Ricette: unisci gli ingredienti (torta proteica, frullato) e aggiungile ai pasti per porzione.",
+    "Tasto \"Bilancia la giornata\": ti dice cosa e quanto aggiungere per arrivare al fabbisogno.",
+    "Ricerca online opzionale con Open Food Facts e alimenti da etichetta."
   ]
 }
