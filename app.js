@@ -322,19 +322,26 @@
     return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">${fx(m.k)} kcal · P ${fx(m.p)} · C ${fx(m.c)} · G ${fx(m.f)}</div></div>
       <input inputmode="decimal" style="width:70px" data-dg="${mi}:${ii}" value="${it.g}" aria-label="Grammi ${esc(fd.name)}"><span class="mute small">g</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
   }
+  function limitBox(p, fd) {
+    const l = fd.lim; if (!l) return '';
+    const ud = F.usageOf(p, ui.diet.date)[fd.id] || 0, left = F.capLeft(p, fd, ui.diet.date);
+    return `<div class="small" style="margin-top:6px"><b>Limite:</b> ${l.d ? 'fino a ' + l.d + ' g al giorno' : ''}${l.w ? (l.d ? ', ' : '') + 'massimo ' + l.w + ' g a settimana' : ''}. ${esc(l.t || '')}<div id="dgwarn" class="mute" data-left="${Math.round(left)}">Oggi ne hai già ${fx(ud)} g: puoi aggiungerne ancora ${fx(left)} g.</div></div>`;
+  }
+  function seasonTag(fd) { return fd.se && fd.se.length < 12 ? ' <span class="chip">stagione</span>' : ''; }
   function addPanel(p, mi) {
     const D = ui.diet, nut = p.nutrition, foods = F.allFoods(p), pk = D.pick;
     let pickBox = '';
     if (pk) {
       if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
-      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 g: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>
+      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 g: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${limitBox(p, fd)}
         <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="Grammi"><span>g</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
     }
     const rec = nut.recipes;
-    const list = F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => `<button class="sm fooditem" style="margin:2px" data-name="${esc(x.name.toLowerCase())}" data-act="dPick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div>`; }).join('');
+    const mo = new Date(D.date + 'T12:00:00').getMonth() + 1;
+    const list = F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g && (!D.season || F.inSeason(x, mo))); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => `<button class="sm fooditem" style="margin:2px" data-name="${esc(x.name.toLowerCase())}" data-act="dPick" data-id="${x.id}">${esc(x.name)}${F.inSeason(x, mo) && x.se && x.se.length < 12 ? ' ·' : ''}</button>`).join('')}</div>`; }).join('');
     return `<div class="card" style="border-color:var(--ion)"><div class="row"><b class="grow">Aggiungi a ${F.MEALS[mi].toLowerCase()}</b><button class="ghost sm" data-act="dClose">Chiudi</button></div>
       ${pickBox}
-      <input id="dq" placeholder="Cerca un alimento…" aria-label="Cerca alimento" style="margin:8px 0">
+      <input id="dq" placeholder="Cerca un alimento…" aria-label="Cerca alimento" style="margin:8px 0"><div class="row small" style="margin-bottom:4px"><button class="sm ${D.season ? 'primary' : ''}" data-act="dSeason">${D.season ? 'Solo frutta e verdura di stagione: sì' : 'Mostra solo di stagione'}</button><span class="mute grow">il punto · = di stagione a ${F.monthName(mo)}</span></div>
       ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
       ${list}
       <details style="margin-top:10px"><summary>Cerca online o aggiungi un alimento nuovo</summary>
@@ -344,11 +351,22 @@
         <input id="nf_name" placeholder="Nome" aria-label="Nome alimento"><div class="grid2" style="margin-top:6px"><input id="nf_k" inputmode="decimal" placeholder="kcal" aria-label="kcal"><input id="nf_p" inputmode="decimal" placeholder="proteine g" aria-label="Proteine"><input id="nf_c" inputmode="decimal" placeholder="carboidrati g" aria-label="Carboidrati"><input id="nf_f" inputmode="decimal" placeholder="grassi g" aria-label="Grassi"></div>
         <button class="sm" style="margin-top:8px" data-act="dNewFood">Salva alimento</button></details></div>`;
   }
+  const MEAL_PLAN_LABEL = ['colazione', 'pranzo', 'spuntino', 'cena'];
+  function planHtml(plan, rem) {
+    if (!plan.items.length) return '<div class="msg ok small">Macro quasi a target: non serve aggiungere altro.</div>';
+    const L = plan.left, short = [];
+    if (L.p > 12) short.push(`${fx(L.p)} g di proteine`); if (L.c > 25) short.push(`${fx(L.c)} g di carboidrati`); if (L.f > 8) short.push(`${fx(L.f)} g di grassi`);
+    return `<h3>Per chiudere la giornata mangia ancora</h3>
+      ${plan.items.map((o, i) => `<div style="padding:6px 0;border-top:1px solid var(--line)"><div class="row"><div class="grow small"><b>${esc(o.fd.name)} ${o.g} g</b>${o.fd.units && o.fd.units[0] && o.fd.units[0][1] <= 60 && o.g >= o.fd.units[0][1] ? ' <span class="mute">(circa ' + Math.round(o.g / o.fd.units[0][1]) + ' × ' + esc(o.fd.units[0][0].replace(/^1 /, '')) + ')</span>' : ''} ${o.capped ? '<span class="chip warn">al limite</span>' : ''}<div class="mute">${fx(o.m.k)} kcal · P ${fx(o.m.p)} · C ${fx(o.m.c)} · G ${fx(o.m.f)} · per ${esc(o.why)} · di solito a ${MEAL_PLAN_LABEL[F.mealGuess(o.fd)]}</div>${o.alts.length ? `<div class="mute">Al posto suo: ${o.alts.map(a => `${esc(a.x.name)} ${a.g} g${a.ok ? '' : ' (non basta da solo)'}`).join(' oppure ')}</div>` : ''}</div><button class="sm" data-act="dPlanAdd" data-i="${i}">Aggiungi</button></div></div>`).join('')}
+      <div class="small" style="margin-top:6px">Totale proposto: <b>${fx(plan.added.k)} kcal</b> · P ${fx(plan.added.p)} · C ${fx(plan.added.c)} · G ${fx(plan.added.f)}.${short.length ? ` Con i limiti di salute restano scoperti ${short.join(', ')}: ripeti dopo il prossimo pasto o aggiungi altri alimenti.` : ' Il fabbisogno è coperto.'}</div>
+      <div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="dPlanAll">Aggiungi tutto ai pasti</button></div>`;
+  }
   function viewDiet() {
     const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: F.todayISO(), addTo: null, pick: null, fill: false };
     const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === F.todayISO();
     const rem = { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f };
-    const liver = day.meals.flat().filter(it => it.f === 'bovino_fegato').reduce((a, it) => a + (it.g || 0), 0);
+    const lims = F.checkLimits(p, D.date), mon = new Date(D.date + 'T12:00:00').getMonth() + 1;
+    const inSeasonNow = F.allFoods(p).filter(x => (x.grp === 'Frutta' || x.grp === 'Verdura') && x.se && x.se.length < 12 && F.inSeason(x, mon));
     const meals = F.MEALS.map((nm, mi) => {
       const items = day.meals[mi], mt = F.mealTotal(p, items), tg = F.MEAL_SPLIT[mi];
       return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">${nm}</h2><span class="small mute">${fx(mt.k)} / ${fx(c.kcal * tg)} kcal · P ${fx(mt.p)} / ${fx(c.protein / 4)} g</span></div>
@@ -356,17 +374,27 @@
         <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
         ${D.addTo === mi ? addPanel(p, mi) : ''}</div>`;
     }).join('');
-    const fill = D.fill ? F.suggestFill(p, rem) : null;
+    const plan = D.fill ? F.planFill(p, rem, D.date) : null;
     return `<h1>Dieta</h1>
       <div class="row" style="margin-bottom:8px"><button class="sm" data-act="dDay" data-d="-1" aria-label="Giorno prima">←</button><div class="grow" style="text-align:center"><b>${isToday ? 'Oggi' : esc(D.date)}</b></div><button class="sm" data-act="dDay" data-d="1" aria-label="Giorno dopo">→</button></div>
       <div class="card"><h2>Fabbisogno di ${esc(p.name)}</h2>${bar('Calorie', tot.k, c.kcal, 'kcal')}${bar('Proteine', tot.p, c.protein, 'g')}${bar('Carboidrati', tot.c, c.carbs, 'g')}${bar('Grassi', tot.f, c.fat, 'g')}
         <p class="small" style="margin:8px 0 0">${rem.k > 50 ? `Ti mancano ${fx(rem.k)} kcal (P ${fx(Math.max(0, rem.p))} g · C ${fx(Math.max(0, rem.c))} g · G ${fx(Math.max(0, rem.f))} g).` : rem.k < -100 ? `Sei sopra di ${fx(-rem.k)} kcal.` : 'Giornata a target.'}</p>
-        ${liver > 150 ? '<div class="msg warn small">Fegato oltre 150 g: ha molta vitamina A, tienilo a 100-150 g, 1-2 volte a settimana.</div>' : ''}
+        ${lims.map(w => `<div class="msg warn small">${esc(w.text)}</div>`).join('')}
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dFill">${D.fill ? 'Nascondi suggerimenti' : 'Bilancia la giornata'}</button><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div>
-        ${fill ? (fill.length ? fill.map(s => `<h3>${s.label}</h3>${s.opts.map(o => `<div class="small" style="padding:2px 0">• ${esc(o.x.name)} <b>${o.g} g</b> <span class="mute">(${fx(o.m.k)} kcal, P ${fx(o.m.p)}, C ${fx(o.m.c)}, G ${fx(o.m.f)})</span></div>`).join('')}`).join('') : '<div class="msg ok small">Macro quasi a target: non serve aggiungere altro.</div>') : ''}</div>
+        ${plan ? planHtml(plan, rem) : ''}</div>
       ${meals}
+      <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
       ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Apri</button></div>`; }).join('')}</div>` : ''}
       <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
+  }
+  function recipeCheck(p, R, tot, n) {
+    const c = F.calc(p), date = F.todayISO(), day = F.dayTotal(p, F.dayOf(p, date));
+    const ud = F.usageOf(p, date), uw = F.weekUsage(p, date), w = [];
+    R.items.forEach(([id, g]) => { const fd = F.getFood(p, id); if (!fd || !fd.lim) return; const per = g / n, left = F.capLeft(p, fd, date, ud, uw); if (per > left + 1) w.push(`${fd.name}: ${fx(per)} g a porzione, oggi ne puoi ancora mangiare ${fx(left)} g. ${fd.lim.t}`); });
+    const rem = { k: c.kcal - day.k - tot.k / n, p: c.protein - day.p - tot.p / n, c: c.carbs - day.c - tot.c / n, f: c.fat - day.f - tot.f / n };
+    const plan = R.items.length ? F.planFill(p, rem, date) : null;
+    return `<h3>Controllo prima di prepararla</h3>${w.map(x => `<div class="msg warn small">${esc(x)}</div>`).join('') || '<div class="msg ok small">Gli ingredienti rispettano i limiti di oggi.</div>'}
+      ${plan ? `<p class="small mute" style="margin:6px 0">Se oggi mangi una porzione, ti restano ${fx(Math.max(0, rem.k))} kcal.</p>${planHtml(plan, rem).replace(/<div class="row"><div class="grow small">/g, '<div class="row"><div class="grow small">').replace(/<button[^>]*data-act="dPlan[^>]*>[^<]*<\/button>/g, '')}` : ''}`;
   }
   function viewRecipe() {
     const p = P(), R = ui.sub.draft, foods = F.allFoods(p);
@@ -376,7 +404,7 @@
       <h3>Ingredienti</h3>${R.items.map((x, i) => { const fd = F.getFood(p, x[0]); return fd ? `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><span class="grow">${esc(fd.name)}</span><input inputmode="decimal" style="width:80px" data-ri="${i}" value="${x[1]}" aria-label="Grammi ${esc(fd.name)}"><span class="mute small">g</span><button class="ghost sm danger" data-act="rIngRm" data-i="${i}" aria-label="Rimuovi">✕</button></div>` : ''; }).join('') || '<p class="mute small">Aggiungi gli ingredienti.</p>'}
       <div class="row wrap" style="margin-top:8px"><select id="rc_add" style="flex:1" aria-label="Ingrediente"><option value="">Aggiungi ingrediente…</option>${foods.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="rc_g" inputmode="decimal" style="width:80px" placeholder="g" aria-label="Grammi"><button class="sm" data-act="rIngAdd">Aggiungi</button></div>
       <label for="rc_note">Note</label><textarea id="rc_note" style="min-height:60px;font-family:inherit">${esc(R.note || '')}</textarea></div>
-      <div class="card"><h2>Valori</h2><div class="grid3 k4"><div class="kpi"><b>${fx(tot.k / n)}</b><span>kcal a porz.</span></div><div class="kpi"><b>${fx(tot.p / n)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c / n)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f / n)} g</b><span>grassi</span></div></div><p class="mute small">Totale ricetta: ${fx(tot.k)} kcal · P ${fx(tot.p)} · C ${fx(tot.c)} · G ${fx(tot.f)}.</p></div>
+      <div class="card"><h2>Valori</h2><div class="grid3 k4"><div class="kpi"><b>${fx(tot.k / n)}</b><span>kcal a porz.</span></div><div class="kpi"><b>${fx(tot.p / n)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c / n)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f / n)} g</b><span>grassi</span></div></div><p class="mute small">Totale ricetta: ${fx(tot.k)} kcal · P ${fx(tot.p)} · C ${fx(tot.c)} · G ${fx(tot.f)}.</p>${recipeCheck(p, R, tot, n)}</div>
       <div class="row"><button class="primary grow" data-act="rSave">Salva ricetta</button>${ui.sub.id ? '<button class="danger" data-act="rDel">Elimina</button>' : ''}</div>`;
   }
 
@@ -481,6 +509,15 @@
       D.pick = null; save(); render();
     },
     dRm(t) { const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
+    dSeason() { ui.diet.season = !ui.diet.season; render(); },
+    dPlanAdd(t) {
+      const p = P(), D = ui.diet, c = F.calc(p), tot = F.dayTotal(p, F.dayOf(p, D.date)), plan = F.planFill(p, { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f }, D.date), o = plan.items[+t.dataset.i];
+      if (!o) return; F.dayOf(p, D.date).meals[F.mealGuess(o.fd)].push({ f: o.fd.id, g: o.g }); save(); render(); toast(o.fd.name + ' aggiunto a ' + MEAL_PLAN_LABEL[F.mealGuess(o.fd)]);
+    },
+    dPlanAll() {
+      const p = P(), D = ui.diet, c = F.calc(p), tot = F.dayTotal(p, F.dayOf(p, D.date)), plan = F.planFill(p, { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f }, D.date), day = F.dayOf(p, D.date);
+      plan.items.forEach(o => day.meals[F.mealGuess(o.fd)].push({ f: o.fd.id, g: o.g })); save(); render(); toast('Aggiunto tutto ai pasti');
+    },
     dFill() { ui.diet.fill = !ui.diet.fill; render(); },
     dCopy() { const p = P(), y = new Date(ui.diet.date + 'T12:00:00'); y.setDate(y.getDate() - 1); const src = p.nutrition.days[y.toISOString().slice(0, 10)]; if (!src || !src.meals.some(m => m.length)) return toast('Il giorno prima è vuoto'); if (!confirm('Copiare i pasti del giorno prima? Sostituisce quelli di questo giorno.')) return; F.dayOf(p, ui.diet.date).meals = JSON.parse(JSON.stringify(src.meals)); save(); render(); },
     dNewFood() {
@@ -644,6 +681,7 @@
   });
   document.addEventListener('input', e => {
     const t = e.target, p = P();
+    if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { const q = t.value.toLowerCase().trim(); document.querySelectorAll('.fooditem').forEach(b => { b.style.display = !q || b.dataset.name.includes(q) ? '' : 'none'; }); return; }
     if (t.id === 'painR') { const v = +t.value; $('#painV').textContent = v; clearTimeout(t._d); t._d = setTimeout(() => setPain(t.dataset.zone, v), 350); return; }
     if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); }

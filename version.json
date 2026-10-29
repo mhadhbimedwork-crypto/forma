@@ -1,11 +1,12 @@
 {
-  "version": "1.4.0",
-  "build": 5,
+  "version": "1.5.0",
+  "build": 6,
   "date": "2026-10-29",
   "notes": [
-    "Nuova sezione Dieta: 4 pasti con i tuoi alimenti, calcolo automatico di calorie e macro rispetto al tuo fabbisogno.",
-    "Ricette: unisci gli ingredienti (torta proteica, frullato) e aggiungile ai pasti per porzione.",
-    "Tasto \"Bilancia la giornata\": ti dice cosa e quanto aggiungere per arrivare al fabbisogno.",
-    "Ricerca online opzionale con Open Food Facts e alimenti da etichetta."
+    "Dieta: limite di consumo per ogni alimento (giorno e settimana) con avvisi quando lo superi.",
+    "\"Bilancia la giornata\" ora propone un piano completo dei soli alimenti mancanti, con quantità esatte, alternative e mix quando un alimento arriva al limite.",
+    "Controllo prima di preparare una ricetta: limiti di oggi e cosa ti resta da mangiare.",
+    "Nuovi alimenti: gallette di riso e di mais, yogurt greco, skyr, quinoa, legumi, patate dolci, tofu, datteri, creatina e altri.",
+    "Frutta e verdura di stagione (castagne, cachi, zucca, melograno, broccoli…) con filtro."
   ]
 }
