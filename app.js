@@ -346,12 +346,24 @@
       <input id="dq" placeholder="Cerca un alimento…" aria-label="Cerca alimento" style="margin:8px 0"><div class="row small" style="margin-bottom:4px"><button class="sm ${D.season ? 'primary' : ''}" data-act="dSeason">${D.season ? 'Solo frutta e verdura di stagione: sì' : 'Mostra solo di stagione'}</button><span class="mute grow">il punto · = di stagione a ${F.monthName(mo)}</span></div>
       ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
       ${list}
-      <details style="margin-top:10px"><summary>Cerca online o aggiungi un alimento nuovo</summary>
+      <div class="row" style="margin-top:8px"><button class="sm primary" data-act="scan">Scansiona codice a barre</button></div>
+      <details style="margin-top:10px" ${D.scanned ? 'open' : ''}><summary>Cerca online o aggiungi un alimento nuovo</summary>
         <div class="row" style="margin:8px 0"><input id="offq" placeholder="Nome o codice a barre" aria-label="Cerca online"><button class="sm" data-act="offSearch">Cerca</button></div>
         <div id="offRes" class="small mute">La ricerca usa Open Food Facts (database aperto): invia solo il testo che scrivi, nessun dato personale.</div>
         <h3>Da etichetta (valori per 100 g)</h3>
         <input id="nf_name" placeholder="Nome" aria-label="Nome alimento"><div class="grid2" style="margin-top:6px"><input id="nf_k" inputmode="decimal" placeholder="kcal" aria-label="kcal"><input id="nf_p" inputmode="decimal" placeholder="proteine g" aria-label="Proteine"><input id="nf_c" inputmode="decimal" placeholder="carboidrati g" aria-label="Carboidrati"><input id="nf_f" inputmode="decimal" placeholder="grassi g" aria-label="Grassi"></div>
         <button class="sm" style="margin-top:8px" data-act="dNewFood">Salva alimento</button></details></div>`;
+  }
+  const GOAL_NAME = { mass: 'massa', strength: 'forza', cut: 'dimagrimento', recomp: 'ricomposizione' };
+  function guideHtml(p, D) {
+    const open = D.guide || {}, c = F.calc(p), goal = c.minor && p.goal === 'cut' ? 'recomp' : p.goal;
+    const sec = (k, title, body) => `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dGuide" data-k="${k}" aria-expanded="${!!open[k]}"><h2 style="margin:0">${open[k] ? '▾' : '▸'} ${title}</h2></button>${open[k] ? body : ''}</div>`;
+    const li = arr => arr.map(x => `<div class="small" style="padding:4px 0;border-top:1px solid var(--line)"><b>${esc(x[0])}</b><div class="mute">${esc(x[1])}</div></div>`).join('');
+    const mine = F.SUPER.filter(x => x.g.indexOf(goal) >= 0), rest = F.SUPER.filter(x => x.g.indexOf(goal) < 0);
+    return sec('best', 'Migliori proteine, carboidrati e grassi', F.BEST.map(b => `<h3>${esc(b.t)}</h3><p class="mute small" style="margin:0 0 4px">${esc(b.note)}</p>${li(b.items)}`).join('')) +
+      sec('who', 'Linee guida OMS e piramide alimentare', `<h3>Valori OMS per un adulto</h3>${li(F.WHO)}<h3>Piramide alimentare mediterranea</h3>${li(F.PYRAMID)}<p class="mute small">Fonti: ${F.GUIDE_SOURCES.map(s => `<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}. L'app non scarica questi dati ogni volta: sono un riassunto da controllare sulle fonti.</p>`) +
+      sec('safe', 'Sicurezza, tossicità e catena alimentare', li(F.SAFETY)) +
+      sec('super', 'Super food per il tuo obiettivo', `<p class="mute small" style="margin:0 0 6px">${esc(F.SUPER_NOTE)}</p><h3>Per ${esc(GOAL_NAME[goal] || 'il tuo obiettivo')}</h3>${li(mine.map(x => [x.n, x.b]))}${rest.length ? `<h3>Altri alimenti utili</h3>${li(rest.map(x => [x.n, x.b]))}` : ''}`);
   }
   const MEAL_PLAN_LABEL = ['colazione', 'pranzo', 'spuntino', 'cena'];
   function planHtml(plan, rem) {
@@ -371,10 +383,14 @@
     const inSeasonNow = F.allFoods(p).filter(x => (x.grp === 'Frutta' || x.grp === 'Verdura') && x.se && x.se.length < 12 && F.inSeason(x, mon));
     const meals = F.MEALS.map((nm, mi) => {
       const items = day.meals[mi], mt = F.mealTotal(p, items), tg = F.MEAL_SPLIT[mi];
-      return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">${nm}</h2><span class="small mute">${fx(mt.k)} / ${fx(c.kcal * tg)} kcal · P ${fx(mt.p)} / ${fx(c.protein / 4)} g</span></div>
-        ${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
+      const open = !!(D.open && D.open[mi]) || D.addTo === mi, tk = c.kcal * tg, left = tk - mt.k;
+      const pcs = [['P', mt.p, c.protein * tg], ['C', mt.c, c.carbs * tg], ['G', mt.f, c.fat * tg]];
+      return `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)} / ${fx(tk)} kcal</span></div>
+        <div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, Math.round(mt.k / tk * 100))}%${left < -tk * 0.05 ? ';background:var(--warn)' : ''}"></i></div>
+        <div class="small mute">${left > 20 ? 'mancano ' + fx(left) + ' kcal' : left < -tk * 0.05 ? 'sopra di ' + fx(-left) + ' kcal' : 'a target'} · ${pcs.map(([l, v, t]) => `${l} ${fx(v)}/${fx(t)}`).join(' · ')} g</div></button>
+        ${open ? `${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
         <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
-        ${D.addTo === mi ? addPanel(p, mi) : ''}</div>`;
+        ${D.addTo === mi ? addPanel(p, mi) : ''}` : ''}</div>`;
     }).join('');
     const plan = D.fill ? F.planFill(p, rem, D.date, { exclude: D.skip }) : null;
     return `<h1>Dieta</h1>
@@ -385,6 +401,7 @@
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dFill">${D.fill ? 'Nascondi suggerimenti' : 'Bilancia la giornata'}</button><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div>
         ${plan ? planHtml(plan, rem) : ''}</div>
       ${meals}
+      ${guideHtml(p, D)}
       <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
       ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Apri</button></div>`; }).join('')}</div>` : ''}
       <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
@@ -511,6 +528,28 @@
       D.pick = null; save(); render();
     },
     dRm(t) { const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
+    dToggle(t) { const D = ui.diet; D.open = D.open || {}; const m = +t.dataset.m; D.open[m] = !D.open[m]; if (!D.open[m] && D.addTo === m) { D.addTo = null; D.pick = null; } render(); },
+    dGuide(t) { const D = ui.diet; D.guide = D.guide || {}; D.guide[t.dataset.k] = !D.guide[t.dataset.k]; render(); },
+    async scan() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('Fotocamera non disponibile: scrivi il codice a barre nella ricerca');
+      if (!('BarcodeDetector' in window)) { ui.diet.scanned = true; render(); return toast('Questo browser non legge i codici: scrivi le cifre nella ricerca'); }
+      const ov = document.createElement('div'); ov.id = 'scanov'; ov.style.cssText = 'position:fixed;inset:0;background:#000d;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
+      ov.innerHTML = '<video id="scanv" playsinline muted style="width:100%;max-width:420px;border-radius:12px;border:2px solid var(--accent)"></video><div class="small">Inquadra il codice a barre del prodotto</div><button class="sm" id="scanx">Annulla</button>';
+      document.body.appendChild(ov);
+      let stream, stop = false; const done = () => { stop = true; if (stream) stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+      $('#scanx').onclick = done;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        const v = $('#scanv'); v.srcObject = stream; await v.play();
+        const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+        const loop = async () => {
+          if (stop) return;
+          try { const r = await det.detect(v); if (r.length) { const code = r[0].rawValue; done(); ui.diet.scanned = true; render(); const q = $('#offq'); if (q) { q.value = code; act.offSearch(); } return; } } catch (e) {}
+          setTimeout(loop, 250);
+        };
+        loop();
+      } catch (e) { done(); toast('Permesso alla fotocamera negato o non disponibile'); }
+    },
     dSkip(t) { const D = ui.diet; D.skip = D.skip || {}; D.skip[t.dataset.id] = true; render(); },
     dSeason() { ui.diet.season = !ui.diet.season; render(); },
     dPlanAdd(t) {

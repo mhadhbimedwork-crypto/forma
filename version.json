@@ -1,12 +1,10 @@
 {
-  "version": "1.5.0",
-  "build": 6,
+  "version": "1.6.0",
+  "build": 7,
   "date": "2026-10-29",
   "notes": [
-    "Dieta: limite di consumo per ogni alimento (giorno e settimana) con avvisi quando lo superi.",
-    "\"Bilancia la giornata\" ora propone un piano completo dei soli alimenti mancanti, con quantità esatte, alternative e mix quando un alimento arriva al limite.",
-    "Controllo prima di preparare una ricetta: limiti di oggi e cosa ti resta da mangiare.",
-    "Nuovi alimenti: gallette di riso e di mais, yogurt greco, skyr, quinoa, legumi, patate dolci, tofu, datteri, creatina e altri.",
-    "Frutta e verdura di stagione (castagne, cachi, zucca, melograno, broccoli…) con filtro."
+    "Dieta: colazione, pranzo, spuntino e cena a tendina; da chiusi mostrano calorie e macro registrati e mancanti.",
+    "Scansione del codice a barre con la fotocamera (richiede l'APK aggiornato per il permesso fotocamera).",
+    "Guida: migliori proteine, carboidrati e grassi, valori OMS, piramide mediterranea, sicurezza alimentare e super food per il tuo obiettivo."
   ]
 }
