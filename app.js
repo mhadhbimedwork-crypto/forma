@@ -90,7 +90,7 @@
   function backupBanner() {
     const b = F.backupInfo(S); if (!b.due || ui.bkHide) return '';
     return `<div class="card" style="border-color:var(--warn)"><b>Backup da fare</b><div class="small">${b.last ? 'Sono passati più di ' + F.BACKUP_EVERY_DAYS + ' giorni dall\'ultimo backup.' : 'Non hai ancora fatto nessun backup dei tuoi dati.'}</div>
-      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button><button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
+      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button>${F.isNative() ? '<button class="sm" data-act="bkShare">Invia su Drive / WhatsApp</button>' : ''}<button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
   }
   async function refreshDir() { if (!F.fsSupported()) return; const h = await F.getDir(); ui.bkDir = h ? h.name : null; }
   async function autoBackup() {
@@ -125,16 +125,28 @@
     $('#app').innerHTML = header() + `<main>${body}</main>` + (p ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
+  /* suoni del timer (generati con Web Audio: nessun file) */
+  let actx = null;
+  function audio() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch (e) { return null; } }
+  function tone(freq, start, dur, vol, type) {
+    const c = audio(); if (!c) return; const t0 = c.currentTime + start, o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'square'; o.frequency.value = freq; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol || 0.25, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  const soundOn = () => S.settings.sound !== false;
+  function playTick() { if (soundOn()) tone(660, 0, 0.09, 0.2); }
+  function playEnd() { if (!soundOn()) return; [0, 0.16, 0.32].forEach(t => tone(880, t, 0.11, 0.3)); tone(1320, 0.5, 0.55, 0.35, 'sawtooth'); }
   function timerBar() {
     if (!ui.timer) return '';
-    return `<div class="timer" role="timer"><span>Recupero <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
+    return `<div class="timer" role="timer"><span>Recupero <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
   }
   function startTimer(sec) {
-    clearInterval(ui.tick); ui.timer = { left: sec };
+    clearInterval(ui.tick); ui.timer = { left: sec }; audio();
     ui.tick = setInterval(() => {
       ui.timer.left--;
       const el = $('#tleft'); if (el) el.textContent = ui.timer.left;
-      if (ui.timer.left <= 0) { clearInterval(ui.tick); ui.timer = null; try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) { } toast('Recupero finito: prossima serie'); const th = $('#timerHost'); if (th) th.innerHTML = ''; }
+      if (ui.timer.left > 0 && ui.timer.left <= 3) playTick();
+      if (ui.timer.left <= 0) { clearInterval(ui.tick); ui.timer = null; playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } toast('Recupero finito: prossima serie'); const th = $('#timerHost'); if (th) th.innerHTML = ''; }
     }, 1000);
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
@@ -632,6 +644,7 @@
       const bw = parseFloat(($('#bw') || {}).value); if (bw > 20) { p.weights.push({ date: F.todayISO(), kg: bw }); p.weight = bw; }
       p.sessions.push({ id: 's' + uid(), date: F.todayISO(), planId: plan.id, dayName: day.name, ex }); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
     },
+    timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
     timerAdd() { if (ui.timer) { ui.timer.left += 30; const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
     timerStop() { clearInterval(ui.tick); ui.timer = null; const th = $('#timerHost'); if (th) th.innerHTML = ''; },
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
