@@ -38,6 +38,15 @@
   f('parmigiano', 'Parmigiano Reggiano', 392, 33, 0, 28.4, 'Formaggi', { b12: 1, al: ['parmigiano', 'grana', 'grana padano', 'parmigiano reggiano'], lim: { d: 40, w: 200, t: 'Sale e grassi saturi: 30-40 g al giorno, massimo 200 g a settimana.' }, pr: 3 });
   f('mozzarella', 'Mozzarella', 253, 18.7, 0.4, 19.5, 'Formaggi', { b12: 1, units: [['1 mozzarella 125 g', 125]], al: ['mozzarella', 'fiordilatte'], lim: { d: 125, w: 375, t: 'Massimo 2-3 porzioni a settimana (125 g).' }, pr: 3 });
   f('scamorza', 'Scamorza', 334, 25, 1, 25, 'Formaggi', { b12: 1, al: ['scamorza', 'provola', 'formaggio', 'formaggi'], lim: { d: 80, w: 250, t: 'Formaggio stagionato o filante: circa 50-80 g, 2-3 volte a settimana.' }, pr: 3 });
+  // ---- Affettati e panini
+  const AFF = 'Affettato: sale e conservanti, non tutti i giorni (circa 50-100 g, massimo 3-4 volte a settimana).';
+  f('prosciutto_cotto', 'Prosciutto cotto (affettato)', 125, 19.5, 0.8, 4.5, 'Affettati e panini', { al: ['prosciutto cotto', 'cotto', 'prosciutto', 'affettato', 'affettati'], units: [['1 fetta', 20]], lim: { d: 80, w: 300, t: AFF }, pr: 2.5 });
+  f('prosciutto_crudo', 'Prosciutto crudo (affettato)', 220, 26, 0, 13, 'Affettati e panini', { al: ['prosciutto crudo', 'crudo', 'speck'], units: [['1 fetta', 15]], lim: { d: 60, w: 250, t: 'Molto salato: circa 50 g, massimo 3 volte a settimana.' }, pr: 3 });
+  f('bresaola', 'Bresaola', 150, 32, 0.5, 2.6, 'Affettati e panini', { b12: 1, al: ['bresaola'], units: [['1 fetta', 12]], lim: { d: 80, w: 300, t: AFF }, pr: 2 });
+  f('salame', 'Salame / mortadella', 400, 24, 1, 33, 'Affettati e panini', { al: ['salame', 'mortadella', 'salamino', 'salsiccia'], units: [['1 fetta', 8]], lim: { d: 40, w: 120, t: 'Grasso e sale: solo ogni tanto, massimo 40 g e 1-2 volte a settimana.' }, pr: 9 });
+  f('panino', 'Panino (1 panino = 50 g)', 270, 9, 55, 1.5, 'Affettati e panini', { al: ['panino', 'panini', 'rosetta', 'michetta', 'ciabatta'], units: [['1 panino piccolo', 50], ['1 panino medio', 80], ['1 panino grande', 100]], lim: { d: 250, t: 'Fino a 2-3 panini al giorno nei giorni di allenamento, meno nei giorni di riposo.' }, pr: 1.3 });
+  f('pane_tramezzino', 'Pane in cassetta (fetta)', 265, 8, 49, 3.5, 'Affettati e panini', { al: ['pane in cassetta', 'pane da toast', 'toast', 'tramezzino'], units: [['1 fetta', 30]], lim: { d: 150, t: 'Fino a 4-5 fette al giorno.' }, pr: 2 });
+  f('hummus', 'Hummus', 230, 8, 14, 17, 'Altro', { al: ['hummus'], units: [['1 cucchiaio', 25]], lim: { d: 80, t: 'Circa 50-80 g al giorno.' }, pr: 3 });
   // ---- Cereali, gallette, carboidrati
   f('riso', 'Riso (crudo)', 340, 7, 79, 0.6, 'Cereali', { al: ['riso', 'riso basmati', 'riso bianco', 'riso integrale'], lim: { d: 150, t: 'Fino a 120-150 g crudi al giorno; alterna con altri cereali (il riso contiene arsenico).' } });
   f('riso_cotto', 'Riso (cotto)', 130, 2.7, 28, 0.3, 'Cereali', { al: ['riso cotto', 'riso lessato'], lim: { d: 450, t: 'Fino a 400 g cotti al giorno.' }, pr: 1.5 });
@@ -117,7 +126,8 @@
   // ricette di esempio (modificabili): [foodId, grammi]
   F.RECIPE_SAMPLES = [
     { id: 'r_torta', name: 'Torta proteica ricotta e cioccolato', portions: 4, items: [['ricotta', 250], ['uovo', 150], ['albume', 100], ['avena', 60], ['miele', 30], ['fondente', 30]], note: 'Mescola, cuoci in forno a 170 °C per 30-35 minuti.' },
-    { id: 'r_frullato', name: 'Frullato albume, banana e kefir', portions: 1, items: [['albume', 200], ['banana', 110], ['kefir', 200], ['miele', 10], ['burro_arachidi', 16]], note: 'Frulla tutto con ghiaccio. Usa albume pastorizzato.' }
+    { id: 'r_frullato', name: 'Frullato albume, banana e kefir', portions: 1, items: [['albume', 200], ['banana', 110], ['kefir', 200], ['miele', 10], ['burro_arachidi', 16]], note: 'Frulla tutto con ghiaccio. Usa albume pastorizzato.' },
+    { id: 'r_panino', name: 'Panino con affettato e provola', portions: 1, items: [['panino', 80], ['prosciutto_cotto', 40], ['scamorza', 30]], note: 'Cambia pane, affettato e formaggio con quello che mangia davvero: pesa il panino intero a casa una volta e usa quel peso.' }
   ];
   const r1 = v => Math.round(v * 10) / 10;
   const zero = () => ({ k: 0, p: 0, c: 0, f: 0 });
@@ -193,7 +203,9 @@
     const month = opt.month || (new Date(date + 'T12:00:00').getMonth() + 1);
     const ud = F.usageOf(p, date), uw = F.weekUsage(p, date);
     const rem = { k: rem0.k, p: rem0.p, c: rem0.c, f: rem0.f };
-    const foods = F.allFoods(p).filter(x => (x.pr || 1) < 99 && x.k > 0 && F.inSeason(x, month));
+    const c0 = F.calc(p), minor = c0.minor, goal = minor && p.goal === 'cut' ? 'recomp' : p.goal, ex = opt.exclude || {};
+    const lean = goal === 'cut' || goal === 'recomp';
+    const foods = F.allFoods(p).filter(x => (x.pr || 1) < 99 && x.k > 0 && F.inSeason(x, month) && !ex[x.id] && !(minor && (x.grp === 'Integratori' || x.id === 'cacao')) && !(lean && (x.id === 'miele' || x.grp === 'Dolci')));
     const used = {}, items = [];
     const take = (fd, key, need, why, maxShare) => {
       const dens = fd[key] / 100; if (dens <= 0) return 0;
@@ -211,7 +223,7 @@
       rem.k -= m.k; rem.p -= m.p; rem.c -= m.c; rem.f -= m.f;
       return g;
     };
-    const rank = (key, filt) => foods.filter(x => x[key] > 0 && filt(x)).map(x => ({ x, s: (x[key] / (x.k + 40)) / (x.pr || 1) })).sort((a, b) => b.s - a.s).map(o => o.x);
+    const rank = (key, filt) => foods.filter(x => x[key] > 0 && filt(x)).map(x => ({ x, s: (x[key] / (x.k + (lean ? 40 : goal === 'mass' ? 250 : 120))) / (x.pr || 1) })).sort((a, b) => b.s - a.s).map(o => o.x);
     // 1) proteine: mescola fino a 3 alimenti
     if (rem.p > 8) {
       const c = rank('p', x => x.p >= 8 && x.grp !== 'Integratori' && x.k <= 260);
@@ -241,6 +253,6 @@
       }).filter(a => a.g >= 5).sort((a, b) => (b.ok - a.ok) || ((a.x.pr || 1) - (b.x.pr || 1))).slice(0, 2);
     });
     const added = items.reduce((a, o) => ({ k: a.k + o.m.k, p: a.p + o.m.p, c: a.c + o.m.c, f: a.f + o.m.f }), { k: 0, p: 0, c: 0, f: 0 });
-    return { items, added, left: rem, month };
+    return { items, added, left: rem, month, goal, minor };
   };
 })(window.FORMA);
