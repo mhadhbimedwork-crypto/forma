@@ -1,0 +1,14 @@
+name: Mantieni la chiave di firma
+on:
+  schedule:
+    - cron: '17 5 * * 1,4'
+  workflow_dispatch:
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Riattiva la cache della chiave di firma (evita che GitHub la cancelli per inattività)
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: forma-firma-v1
