@@ -99,6 +99,12 @@
   V('asparagi', 'Asparagi', 24, 2.5, 2, 0.2, [3, 4, 5], ['asparagi']);
   V('piselli', 'Piselli freschi', 80, 5.5, 12, 0.4, [4, 5, 6], ['piselli']);
   V('fave', 'Fave fresche', 70, 5.5, 9, 0.5, [4, 5, 6], ['fave']);
+  V('lattuga', 'Lattuga / insalate a foglia', 15, 1.4, 2.2, 0.2, [3, 4, 5, 6, 9, 10, 11], ['lattuga', 'insalata verde', 'rucola', 'songino', 'valeriana']);
+  V('sedano', 'Sedano / porri', 20, 1, 3, 0.2, [9, 10, 11, 12, 1, 2, 3], ['sedano', 'porri', 'porro']);
+  V('cipolle', 'Cipolle / aglio', 40, 1.1, 9, 0.1, [6, 7, 8, 9, 10, 11], ['cipolla', 'cipolle', 'aglio', 'scalogno']);
+  V('topinambur', 'Topinambur / rape / rafano', 35, 1.8, 7, 0.1, [10, 11, 12, 1, 2], ['topinambur', 'rape', 'rapa']);
+  V('fagiolini', 'Fagiolini', 31, 1.8, 5, 0.2, [6, 7, 8, 9], ['fagiolini']);
+  V('cetrioli', 'Cetrioli', 12, 0.7, 2, 0.1, [5, 6, 7, 8, 9], ['cetrioli', 'cetriolo']);
   V('avocado', 'Avocado', 160, 2, 1.8, 15, ALLY, ['avocado'], { lim: { d: 150, t: 'Mezzo-un avocado al giorno (calorico, grassi buoni).' }, pr: 2 });
   // ---- Frutta (di stagione)
   const DMAX = { caco: 300, castagne: 200, uva: 200, datteri: 40, anguria: 500 };
@@ -111,6 +117,11 @@
   Fr('castagne', 'Castagne (crude)', 165, 3.2, 36, 1.5, [10, 11, 12], ['castagne', 'castagna', 'caldarroste', 'castagne lesse', 'marroni'], [['1 manciata (6-7 castagne)', 60]], 'Molti carboidrati e poche proteine: come una porzione di cereali, 100-200 g al giorno. Se sono già arrostite pesa la polpa.');
   f('castagne', 'Castagne (crude)', 165, 3.2, 36, 1.5, 'Frutta', { se: [10, 11, 12], al: ['castagne', 'castagna', 'caldarroste', 'castagne lesse', 'marroni'], units: [['1 manciata (6-7 castagne)', 60]], lim: { d: 200, t: 'Molti carboidrati e poche proteine: contale come una porzione di cereali (100-200 g al giorno). Se sono già arrostite pesa la polpa.' } });
   L.splice(L.findIndex(x => x.id === 'castagne'), 1); // evita il duplicato creato dalla scorciatoia sopra
+  Fr('limoni', 'Limoni / pompelmo', 29, 0.7, 6, 0.3, [11, 12, 1, 2, 3, 4], ['limone', 'limoni', 'pompelmo', 'cedro']);
+  Fr('cotogne', 'Cotogne / nespole / melagrane', 57, 0.4, 15, 0.1, [10, 11, 12], ['cotogna', 'cotogne', 'nespole']);
+  Fr('ciliegie', 'Ciliegie / prugne', 50, 0.9, 12, 0.3, [5, 6, 7, 8, 9], ['ciliegie', 'prugne', 'susine']);
+  Fr('frutti_bosco', 'Frutti di bosco', 43, 1, 9, 0.4, [6, 7, 8, 9], ['frutti di bosco', 'mirtilli', 'lamponi', 'more', 'ribes']);
+  Fr('noci_fresche', 'Noci e nocciole (nuove)', 654, 15, 7, 65, [9, 10, 11, 12], ['noci fresche', 'nocciole fresche'], [], 'Circa 30 g al giorno (una manciata).');
   Fr('uva', 'Uva', 61, 0.6, 16, 0.2, [8, 9, 10], ['uva'], [], 'Zuccheri alti: circa 150-200 g al giorno.');
   Fr('melograno', 'Melograno', 68, 1, 17, 0.3, [10, 11, 12], ['melograno'], [['1 melograno (chicchi)', 150]]);
   Fr('kiwi', 'Kiwi', 44, 1.2, 9, 0.6, [11, 12, 1, 2, 3, 4], ['kiwi'], [['1 kiwi', 80]]);

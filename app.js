@@ -342,10 +342,10 @@
     return `<div class="small" style="margin-top:6px"><b>Limite:</b> ${l.d ? 'fino a ' + l.d + ' g al giorno' : ''}${l.w ? (l.d ? ', ' : '') + 'massimo ' + l.w + ' g a settimana' : ''}. ${esc(l.t || '')}<div id="dgwarn" class="mute" data-left="${Math.round(left)}">Oggi ne hai già ${fx(ud)} g: puoi aggiungerne ancora ${fx(left)} g.</div></div>`;
   }
   function seasonTag(fd) { return fd.se && fd.se.length < 12 ? ' <span class="chip">stagione</span>' : ''; }
-  const foodBtn = (x, mo) => `<button class="sm fooditem" style="margin:2px" data-act="dPick" data-id="${x.id}">${esc(x.name)}${F.inSeason(x, mo) && x.se && x.se.length < 12 ? ' ·' : ''}</button>`;
+  const foodBtn = (x, mo) => `<button class="sm fooditem" style="margin:2px" data-act="dPick" data-id="${x.id}">${esc(x.name)}</button>`;
   function foodList(p, D, mo) {
     const foods = F.allFoods(p);
-    return F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g && (!D.season || F.inSeason(x, mo))); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => foodBtn(x, mo)).join('')}</div>`; }).join('');
+    return F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g && true); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => foodBtn(x, mo)).join('')}</div>`; }).join('');
   }
   function resultsHtml(p, q) {
     const res = F.searchFoods(p, q, 15);
@@ -370,6 +370,16 @@
     res.innerHTML = resultsHtml(p, q); onl.innerHTML = '';
     if (q.length >= 3 && navigator.onLine !== false) { onl.innerHTML = '<span class="mute">Cerco anche online…</span>'; offTimer = setTimeout(() => { const cur = $('#dq'); if (cur && cur.value.trim() === q) offFetch(q, $('#donl')); }, 600); }
   }
+  function seasonSheet(p) {
+    const m = new Date().getMonth() + 1, foods = F.allFoods(p).filter(x => x.se && x.se.length < 12 && F.inSeason(x, m));
+    const grp = g => foods.filter(x => x.grp === g);
+    const block = (g, title) => grp(g).length ? `<div class="mute small" style="margin:10px 0 4px">${title} (${grp(g).length})</div>${grp(g).map(x => `<button class="sm" style="margin:2px" data-act="dSeasonPick" data-id="${x.id}">${esc(x.name)}</button>`).join('')}` : '';
+    return `<div data-act="dSeason" style="position:fixed;inset:0;background:#000a;z-index:90" aria-hidden="true"></div>
+      <div role="dialog" aria-label="Alimenti di stagione" style="position:fixed;left:0;right:0;bottom:0;max-height:75vh;overflow:auto;z-index:91;background:var(--panel);border-top:2px solid var(--accent);border-radius:16px 16px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom))">
+        <div class="row"><h2 class="grow" style="margin:0">Di stagione: ${F.monthName(m)}</h2><button class="ghost sm" data-act="dSeason">Chiudi</button></div>
+        <p class="mute small" style="margin:4px 0 0">Secondo la data del tuo telefono. Tocca un alimento per aggiungerlo.</p>
+        ${block('Verdura', 'Verdura')}${block('Frutta', 'Frutta e frutta secca')}</div>`;
+  }
   function addPanel(p, mi) {
     const D = ui.diet, nut = p.nutrition, foods = F.allFoods(p), pk = D.pick;
     let pickBox = '';
@@ -383,9 +393,9 @@
     const list = foodList(p, D, mo);
     return `<div class="card" style="border-color:var(--ion)"><div class="row"><b class="grow">Aggiungi a ${F.MEALS[mi].toLowerCase()}</b><button class="ghost sm" data-act="dClose">Chiudi</button></div>
       ${pickBox}
-      <input id="dq" placeholder="Scrivi un alimento: pollo, latte, gallette…" autocomplete="off" aria-label="Cerca alimento" style="margin:8px 0"><div class="row small" style="margin-bottom:4px"><button class="sm ${D.season ? 'primary' : ''}" data-act="dSeason">${D.season ? 'Solo frutta e verdura di stagione: sì' : 'Mostra solo di stagione'}</button><span class="mute grow">il punto · = di stagione a ${F.monthName(mo)}</span></div>
+      <input id="dq" placeholder="Scrivi un alimento: pollo, latte, gallette…" autocomplete="off" aria-label="Cerca alimento" style="margin:8px 0"><div class="row" style="margin-bottom:6px"><button class="sm" data-act="dSeason">Frutta e verdura di stagione: ${F.monthName(new Date().getMonth() + 1)}</button></div>
       ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
-      <div id="dres"></div><div id="donl" class="small" style="margin:6px 0"></div><div id="dlist">${list}</div>
+      ${D.sheet ? seasonSheet(p) : ''}<div id="dres"></div><div id="donl" class="small" style="margin:6px 0"></div><div id="dlist">${list}</div>
       <div class="row" style="margin-top:8px"><button class="sm primary" data-act="scan">Scansiona codice a barre</button></div>
       <details style="margin-top:10px" ${D.scanned ? 'open' : ''}><summary>Cerca online o aggiungi un alimento nuovo</summary>
         <div class="row" style="margin:8px 0"><input id="offq" placeholder="Nome o codice a barre" aria-label="Cerca online"><button class="sm" data-act="offSearch">Cerca</button></div>
@@ -419,7 +429,7 @@
     const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: F.todayISO(), addTo: null, pick: null, fill: false };
     const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === F.todayISO();
     const rem = { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f };
-    const lims = F.checkLimits(p, D.date), mon = new Date(D.date + 'T12:00:00').getMonth() + 1;
+    const lims = F.checkLimits(p, D.date), mon = new Date().getMonth() + 1;
     const inSeasonNow = F.allFoods(p).filter(x => (x.grp === 'Frutta' || x.grp === 'Verdura') && x.se && x.se.length < 12 && F.inSeason(x, mon));
     const meals = F.MEALS.map((nm, mi) => {
       const items = day.meals[mi], mt = F.mealTotal(p, items), tg = F.MEAL_SPLIT[mi];
@@ -592,7 +602,8 @@
       } catch (e) { done(); toast('Permesso alla fotocamera negato o non disponibile'); }
     },
     dSkip(t) { const D = ui.diet; D.skip = D.skip || {}; D.skip[t.dataset.id] = true; render(); },
-    dSeason() { ui.diet.season = !ui.diet.season; render(); },
+    dSeason() { ui.diet.sheet = !ui.diet.sheet; render(); },
+    dSeasonPick(t) { ui.diet.sheet = false; act.dPick(t); },
     dPlanAdd(t) {
       const p = P(), D = ui.diet, c = F.calc(p), tot = F.dayTotal(p, F.dayOf(p, D.date)), plan = F.planFill(p, { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f }, D.date, { exclude: D.skip }), o = plan.items[+t.dataset.i];
       if (!o) return; F.dayOf(p, D.date).meals[F.mealGuess(o.fd)].push({ f: o.fd.id, g: o.g }); save(); render(); toast(o.fd.name + ' aggiunto a ' + MEAL_PLAN_LABEL[F.mealGuess(o.fd)]);
