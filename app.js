@@ -389,7 +389,7 @@
     let pickBox = '';
     if (pk) {
       if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
-      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
+      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${fd.custom ? `<div class="row small" style="margin-top:6px"><span class="mute grow">Misurato in <b>${F.unitOf(fd)}</b></span><button class="sm" data-act="foodUnit" data-id="${fd.id}">Cambia in ${fd.liq ? 'grammi' : 'millilitri'}</button></div>` : ''}${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
         <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'}"><span>${F.unitOf(fd)}</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
     }
     const rec = nut.recipes;
@@ -640,6 +640,7 @@
       } catch (e) { done(); toast('Permesso alla fotocamera negato o non disponibile'); }
     },
     dSkip(t) { const D = ui.diet; D.skip = D.skip || {}; D.skip[t.dataset.id] = true; render(); },
+    foodUnit(t) { const p = P(), f = p.nutrition.foods.find(x => x.id === t.dataset.id); if (!f) return; f.liq = f.liq ? 0 : 1; save(); render(); },
     dSeason() { ui.diet.sheet = !ui.diet.sheet; render(); },
     dSeasonPick(t) { ui.diet.sheet = false; act.dPick(t); },
     dPlanAdd(t) {
@@ -663,7 +664,7 @@
       const p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: n, k: v('nf_k'), p: v('nf_p'), c: v('nf_c'), f: v('nf_f') }); ui.diet.pick = { f: id, g: 100 }; save(); render(); toast('Alimento salvato');
     },
     async offSearch() { const q = ($('#offq').value || '').trim(); if (!q) return toast('Scrivi cosa cercare'); return offFetch(q, $('#offRes')); },
-    offUse(t) { const x = (ui.offList || [])[+t.dataset.i]; if (!x) return; const n = x.nutriments, p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: x.product_name + (x.brands ? ' (' + x.brands.split(',')[0] + ')' : ''), k: Math.round(n['energy-kcal_100g']), p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), liq: (x.categories_tags || []).some(c => /beverages|drinks/.test(c)) ? 1 : 0 }); ui.diet.pick = { f: id, g: 100 }; save(); render(); },
+    offUse(t) { const x = (ui.offList || [])[+t.dataset.i]; if (!x) return; const n = x.nutriments, p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: x.product_name + (x.brands ? ' (' + x.brands.split(',')[0] + ')' : ''), k: Math.round(n['energy-kcal_100g']), p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), liq: (x.categories_tags || []).some(c => /^en:(beverages|non-alcoholic-beverages|alcoholic-beverages|waters|juices-and-nectars|fruit-juices|sodas|teas|coffees|plant-based-beverages|milks|dairy-drinks)$/.test(c)) ? 1 : 0 }); ui.diet.pick = { f: id, g: 100 }; save(); render(); },
     newRecipe() { ui.sub = { type: 'recipe', id: null, draft: { name: '', portions: 1, items: [], note: '' } }; render(); window.scrollTo(0, 0); },
     editRecipe(t) { const r = P().nutrition.recipes.find(x => x.id === t.dataset.id); ui.sub = { type: 'recipe', id: r.id, draft: JSON.parse(JSON.stringify(r)) }; render(); window.scrollTo(0, 0); },
     rIngAdd() { readRecipe(); const typed = ($('#rc_add').value || '').trim(), p0 = P(), hit = F.allFoods(p0).find(x => x.name === typed) || F.searchFoods(p0, typed, 1)[0], id = hit && hit.id, g = parseFloat(String($('#rc_g').value).replace(',', '.')); if (!id || !(g > 0)) return toast('Scegli un ingrediente e i grammi'); ui.sub.draft.items.push([id, g]); render(); },
