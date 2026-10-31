@@ -574,7 +574,10 @@
       <input id="aiUrl" placeholder="https://il-tuo-server" value="${esc(S.settings.aiUrl || '')}" aria-label="Indirizzo server IA"><button class="sm" style="margin-top:8px" data-act="saveAI">Salva</button></div>
       <div class="card"><h2>Backup automatico ogni ${F.BACKUP_EVERY_DAYS} giorni</h2>${backupCard()}</div>
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
-      <hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><button class="sm danger" data-act="delProfile">Elimina questo profilo e tutti i suoi dati</button></div>
+</div>
+      <div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
+        ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
+        <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>
       <p class="mute small">FORGIA dà indicazioni generali di allenamento e alimentazione, non sostituisce medico, fisioterapista o allenatore.</p>`;
   }
 
@@ -754,7 +757,15 @@
     async bkShare() { try { await F.nativeShare(F.allFiles(S)); } catch (e) { toast('Condivisione annullata'); } },
     bkLater() { ui.bkHide = true; render(); },
     export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo_' + F.todayISO() + '.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
-    delProfile() { const p = P(); if (!confirm(`Eliminare il profilo di ${p.name} con schede, sedute e dolori? Non si può annullare.`)) return; S.profiles = S.profiles.filter(x => x.id !== p.id); S.active = S.profiles.length ? S.profiles[0].id : null; save(); ui.sub = null; ui.tab = 'home'; render(); },
+    profUse(t) { S.active = t.dataset.id; save(); ui.sub = null; ui.zone = null; render(); window.scrollTo(0, 0); },
+    delProfile(t) {
+      const id = (t && t.dataset && t.dataset.id) || S.active, p = S.profiles.find(x => x.id === id); if (!p) return;
+      const info = `${(p.sessions || []).length} sedute, ${(p.plans || []).length} schede, ${(p.weights || []).length} pesi e la dieta`;
+      if (!confirm(`Eliminare il profilo di ${p.name}?\n\nSi cancellano ${info}. Hai fatto il backup?`)) return;
+      if (!confirm(`ULTIMA CONFERMA\n\nIl profilo di ${p.name} verrà cancellato in modo definitivo e si recupera solo da un file di backup. Vuoi davvero eliminarlo?`)) return;
+      S.profiles = S.profiles.filter(x => x.id !== p.id); if (S.active === p.id) S.active = S.profiles.length ? S.profiles[0].id : null;
+      save(); ui.sub = null; ui.tab = S.profiles.length ? 'me' : 'home'; render(); toast('Profilo eliminato');
+    },
     async askAI() {
       const p = P(), plan = planOf(p); const out = $('#aiOut'); out.innerHTML = '<p class="mute small">Analisi in corso…</p>';
       const r = await ai('analyze', { profile: { age: F.ageOf(p.birth), sex: p.sex, height: p.height, weight: p.weight, goal: F.effGoal(p), style: p.style, level: p.level, stopMonths: p.stopMonths, pain: p.pain }, targets: F.calc(p), plan, analysis: plan ? F.analyzePlan(plan, p).flags : [], weights: p.weights.slice(-20), sessions: p.sessions.slice(-10) });
