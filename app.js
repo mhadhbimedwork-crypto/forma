@@ -415,6 +415,7 @@
       ${meals}
       ${guideHtml(p, D)}
       <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
+      <div class="card"><details ${D.imp ? 'open' : ''}><summary>Importa una ricetta ricevuta</summary><p class="mute small" style="margin:6px 0">Incolla qui il testo che ti hanno mandato (inizia con FORGIA-RICETTA). Resta solo sul tuo telefono.</p><textarea id="rcImp" style="min-height:70px;font-family:inherit" aria-label="Testo della ricetta"></textarea><button class="sm primary" style="margin-top:6px" data-act="rImport">Importa</button></details></div>
       ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Apri</button></div>`; }).join('')}</div>` : ''}
       <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
   }
@@ -436,7 +437,7 @@
       <div class="row wrap" style="margin-top:8px"><select id="rc_add" style="flex:1" aria-label="Ingrediente"><option value="">Aggiungi ingrediente…</option>${foods.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><input id="rc_g" inputmode="decimal" style="width:80px" placeholder="g" aria-label="Grammi"><button class="sm" data-act="rIngAdd">Aggiungi</button></div>
       <label for="rc_note">Note</label><textarea id="rc_note" style="min-height:60px;font-family:inherit">${esc(R.note || '')}</textarea></div>
       <div class="card"><h2>Valori</h2><div class="grid3 k4"><div class="kpi"><b>${fx(tot.k / n)}</b><span>kcal a porz.</span></div><div class="kpi"><b>${fx(tot.p / n)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c / n)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f / n)} g</b><span>grassi</span></div></div><p class="mute small">Totale ricetta: ${fx(tot.k)} kcal · P ${fx(tot.p)} · C ${fx(tot.c)} · G ${fx(tot.f)}.</p>${recipeCheck(p, R, tot, n)}</div>
-      <div class="row"><button class="primary grow" data-act="rSave">Salva ricetta</button>${ui.sub.id ? '<button class="danger" data-act="rDel">Elimina</button>' : ''}</div>`;
+      <div class="row"><button class="primary grow" data-act="rSave">Salva ricetta</button>${ui.sub.id ? '<button data-act="rShare">Condividi</button><button class="danger" data-act="rDel">Elimina</button>' : ''}</div>`;
   }
 
   /* --- corpo --- */
@@ -599,6 +600,24 @@
       R.name = R.name.trim(); if (ui.sub.id) { const i = p.nutrition.recipes.findIndex(x => x.id === ui.sub.id); p.nutrition.recipes[i] = Object.assign({ id: ui.sub.id }, R); } else p.nutrition.recipes.push(Object.assign({ id: 'r' + uid() }, R));
       save(); ui.sub = null; render(); toast('Ricetta salvata'); },
     rDel() { if (!confirm('Eliminare questa ricetta?')) return; const p = P(); p.nutrition.recipes = p.nutrition.recipes.filter(x => x.id !== ui.sub.id); save(); ui.sub = null; render(); },
+    async rShare() {
+      readRecipe(); const R = ui.sub.draft, p = P(), cust = {};
+      R.items.forEach(([id]) => { if (/^c/.test(id)) { const f = p.nutrition.foods.find(x => x.id === id); if (f) cust[id] = f; } });
+      const txt = 'FORGIA-RICETTA ' + JSON.stringify({ v: 1, name: R.name, portions: R.portions, note: R.note || '', items: R.items, foods: Object.values(cust) });
+      try { if (navigator.share) { await navigator.share({ title: R.name, text: txt }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(txt); toast('Ricetta copiata: incollala in un messaggio'); } catch (e) { prompt('Copia questo testo e mandalo:', txt); }
+    },
+    rImport() {
+      const t = ($('#rcImp').value || '').trim(), i = t.indexOf('FORGIA-RICETTA'); if (i < 0) return toast('Testo non valido');
+      let d; try { d = JSON.parse(t.slice(i + 14).trim()); } catch (e) { return toast('Testo incompleto: copialo tutto'); }
+      if (!d || !d.name || !Array.isArray(d.items)) return toast('Ricetta non valida');
+      const p = P(), nut = ensureNut(p), map = {};
+      (d.foods || []).forEach(f => { const nid = 'c' + uid(); map[f.id] = nid; nut.foods.push({ id: nid, name: String(f.name).slice(0, 80), k: +f.k || 0, p: +f.p || 0, c: +f.c || 0, f: +f.f || 0 }); });
+      const items = d.items.map(([id, g]) => [map[id] || id, +g || 0]).filter(([id, g]) => g > 0 && F.getFood(p, id));
+      if (!items.length) return toast('Nessun ingrediente riconosciuto');
+      nut.recipes.push({ id: 'r' + uid(), name: String(d.name).slice(0, 80), portions: +d.portions || 1, items, note: String(d.note || '').slice(0, 500) });
+      save(); render(); toast('Ricetta importata: ' + d.name);
+    },
     rCancel() { ui.sub = null; render(); },
     tab(t) { ui.tab = t.dataset.tab; ui.sub = null; render(); window.scrollTo(0, 0); },
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },

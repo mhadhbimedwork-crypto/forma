@@ -1,9 +1,8 @@
 {
-  "version": "1.6.1",
-  "build": 8,
+  "version": "1.7.0",
+  "build": 9,
   "date": "2026-10-29",
   "notes": [
-    "Timer di recupero: suono di fine recupero da allenamento (tre beep e un tono lungo), bip negli ultimi 3 secondi e vibrazione. Si può spegnere dal timer.",
-    "Promemoria backup: sul telefono puoi inviare il backup a Drive o WhatsApp con un tocco."
+    "Ricette: tasto Condividi (WhatsApp o messaggio) e Importa una ricetta ricevuta. Passa solo il testo della ricetta, nessun dato personale e niente su GitHub."
   ]
 }
