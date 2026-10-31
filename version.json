@@ -1,8 +1,10 @@
 {
-  "version": "1.7.0",
-  "build": 9,
+  "version": "1.8.0",
+  "build": 10,
   "date": "2026-10-29",
   "notes": [
-    "Ricette: tasto Condividi (WhatsApp o messaggio) e Importa una ricetta ricevuta. Passa solo il testo della ricetta, nessun dato personale e niente su GitHub."
+    "Dieta: ricerca istantanea. Scrivi l'alimento (anche con refusi, senza accenti o con sinonimi) e compare subito; sotto, i risultati online di Open Food Facts.",
+    "Bevande in ml (acqua, caffè, tè, bevande vegetali, succhi, brodo, isotonico) con i loro limiti.",
+    "Ricette: l'ingrediente si cerca scrivendo."
   ]
 }

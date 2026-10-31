@@ -27,17 +27,31 @@
   f('gamberi', 'Gamberi / mazzancolle', 85, 18, 0.5, 1, 'Pesce', { b12: 1, al: ['gamberi', 'mazzancolle', 'gamberetti', 'gamberoni'], lim: { d: 250, t: 'Va bene un paio di volte a settimana.' }, pr: 2 });
   // ---- Uova e latticini
   f('uovo', 'Uovo intero', 143, 12.6, 0.7, 9.9, 'Uova e latticini', { b12: 1, d: 1, units: [['1 uovo', 50]], al: ['uovo', 'uova', 'uova intere', 'uovo intero', 'uova sode'], lim: { d: 150, w: 700, t: 'Fino a 3 uova intere al giorno; per più proteine usa l\'albume.' } });
-  f('albume', 'Albume d\'uovo pastorizzato', 48, 10.6, 0.7, 0.1, 'Uova e latticini', { units: [['100 ml', 103], ['bottiglia 500 ml', 515], ['bottiglia 1 L', 1030]], al: ['albume', 'albumi', 'albume pastorizzato', 'albume d uovo', 'bianco d uovo'], lim: { d: 400, t: 'Cotto si assorbe quasi del tutto; crudo (frullato o bevuto) circa la metà, e l\'avidina lega la biotina. Pastorizzato e in frigo va bene, ma tieni il crudo sotto i 250 g al giorno e cuoci quando puoi.' } });
-  f('kefir', 'Kefir naturale', 62, 3.5, 4.5, 3.5, 'Uova e latticini', { b12: 1, units: [['1 vasetto 200 g', 200]], al: ['kefir'], lim: { d: 500, t: 'Fino a 400-500 g al giorno.' } });
+  f('albume', 'Albume d\'uovo pastorizzato', 48, 10.6, 0.7, 0.1, 'Uova e latticini', { liq: 1, units: [['100 ml', 103], ['bottiglia 500 ml', 515], ['bottiglia 1 L', 1030]], al: ['albume', 'albumi', 'albume pastorizzato', 'albume d uovo', 'bianco d uovo'], lim: { d: 400, t: 'Cotto si assorbe quasi del tutto; crudo (frullato o bevuto) circa la metà, e l\'avidina lega la biotina. Pastorizzato e in frigo va bene, ma tieni il crudo sotto i 250 g al giorno e cuoci quando puoi.' } });
+  f('kefir', 'Kefir naturale', 62, 3.5, 4.5, 3.5, 'Uova e latticini', { liq: 1, b12: 1, units: [['1 vasetto 200 g', 200]], al: ['kefir'], lim: { d: 500, t: 'Fino a 400-500 g al giorno.' } });
   f('yogurt_greco', 'Yogurt greco 0%', 57, 10, 4, 0.2, 'Uova e latticini', { b12: 1, units: [['1 vasetto 170 g', 170]], al: ['yogurt greco', 'yogurt', 'yogurt magro', 'greco'], lim: { d: 500, t: 'Fino a 400-500 g al giorno.' } });
   f('skyr', 'Skyr', 63, 11, 4, 0.2, 'Uova e latticini', { b12: 1, units: [['1 vasetto 150 g', 150]], al: ['skyr'], lim: { d: 500, t: 'Fino a 400-500 g al giorno.' } });
   f('fiocchi_latte', 'Fiocchi di latte', 98, 11.5, 3, 4.5, 'Uova e latticini', { b12: 1, units: [['1 vaschetta 200 g', 200]], al: ['fiocchi di latte', 'cottage', 'fiocchi latte'], lim: { d: 300, t: 'Fino a 300 g al giorno (contiene sale).' } });
   f('ricotta', 'Ricotta vaccina', 146, 8.8, 3.5, 10.9, 'Uova e latticini', { b12: 1, al: ['ricotta'], lim: { d: 150, w: 700, t: 'Circa 100-150 g al giorno, grassi saturi: non esagerare.' }, pr: 2 });
-  f('latte', 'Latte intero', 64, 3.3, 4.9, 3.6, 'Uova e latticini', { b12: 1, units: [['1 bicchiere', 200]], al: ['latte', 'latte intero'], lim: { d: 500, t: 'Fino a 500 ml al giorno.' } });
-  f('latte_ps', 'Latte parzialmente scremato', 46, 3.4, 5, 1.6, 'Uova e latticini', { b12: 1, units: [['1 bicchiere', 200]], al: ['latte scremato', 'latte parzialmente scremato', 'latte magro'], lim: { d: 500, t: 'Fino a 500 ml al giorno.' } });
+  f('latte', 'Latte intero', 64, 3.3, 4.9, 3.6, 'Uova e latticini', { liq: 1, b12: 1, units: [['1 bicchiere', 200]], al: ['latte', 'latte intero'], lim: { d: 500, t: 'Fino a 500 ml al giorno.' } });
+  f('latte_ps', 'Latte parzialmente scremato', 46, 3.4, 5, 1.6, 'Uova e latticini', { liq: 1, b12: 1, units: [['1 bicchiere', 200]], al: ['latte scremato', 'latte parzialmente scremato', 'latte magro'], lim: { d: 500, t: 'Fino a 500 ml al giorno.' } });
   f('parmigiano', 'Parmigiano Reggiano', 392, 33, 0, 28.4, 'Formaggi', { b12: 1, al: ['parmigiano', 'grana', 'grana padano', 'parmigiano reggiano'], lim: { d: 40, w: 200, t: 'Sale e grassi saturi: 30-40 g al giorno, massimo 200 g a settimana.' }, pr: 3 });
   f('mozzarella', 'Mozzarella', 253, 18.7, 0.4, 19.5, 'Formaggi', { b12: 1, units: [['1 mozzarella 125 g', 125]], al: ['mozzarella', 'fiordilatte'], lim: { d: 125, w: 375, t: 'Massimo 2-3 porzioni a settimana (125 g).' }, pr: 3 });
   f('scamorza', 'Scamorza', 334, 25, 1, 25, 'Formaggi', { b12: 1, al: ['scamorza', 'provola', 'formaggio', 'formaggi'], lim: { d: 80, w: 250, t: 'Formaggio stagionato o filante: circa 50-80 g, 2-3 volte a settimana.' }, pr: 3 });
+  // ---- Bevande (si misurano in ml)
+  const BV = (id, name, k, p, c, g, al, d, t, x) => f(id, name, k, p, c, g, 'Bevande', Object.assign({ liq: 1, al, lim: { d, t } }, x || {}));
+  BV('acqua', 'Acqua', 0, 0, 0, 0, ['acqua', 'acqua naturale', 'acqua frizzante'], 4000, 'Circa 35 ml per kg di peso al giorno, di più se ti alleni o fa caldo.', { pr: 99 });
+  BV('caffe', 'Caffè (senza zucchero)', 2, 0.1, 0, 0, ['caffe', 'espresso', 'caffè'], 400, 'Massimo circa 400 mg di caffeina al giorno (3-4 caffè); meno per i minorenni.', { units: [['1 tazzina', 30]], pr: 99 });
+  BV('te', 'Tè / tisane (senza zucchero)', 1, 0, 0.2, 0, ['te', 'tè', 'tisana', 'tisane', 'te verde'], 1000, 'Va bene anche più volte al giorno; il tè contiene caffeina.', { units: [['1 tazza', 200]], pr: 99 });
+  BV('latte_soia', 'Bevanda di soia (non zuccherata)', 33, 3.3, 0.8, 1.8, ['latte di soia', 'bevanda di soia', 'soia'], 500, 'Fino a 500 ml al giorno.', { units: [['1 bicchiere', 200]] });
+  BV('latte_avena', 'Bevanda di avena', 46, 0.4, 8, 1.4, ['latte di avena', 'bevanda di avena'], 500, 'Fino a 500 ml al giorno.', { units: [['1 bicchiere', 200]] });
+  BV('latte_mandorla', 'Bevanda di mandorla (non zuccherata)', 15, 0.5, 0.3, 1.2, ['latte di mandorla', 'bevanda di mandorla'], 500, 'Fino a 500 ml al giorno; poche proteine.', { units: [['1 bicchiere', 200]] });
+  BV('spremuta', 'Spremuta / succo di frutta', 42, 0.6, 9.5, 0.1, ['spremuta', 'succo', 'succo di frutta', 'succo di arancia', 'spremuta di arancia'], 250, 'Zuccheri liberi: massimo 1 bicchiere (200-250 ml) al giorno, meglio il frutto intero.', { units: [['1 bicchiere', 200]], pr: 3 });
+  BV('bibita', 'Bibita zuccherata (cola, aranciata)', 40, 0, 10, 0, ['cola', 'coca cola', 'aranciata', 'bibita', 'bibite', 'the freddo'], 200, 'Zuccheri liberi: da evitare, massimo ogni tanto 1 lattina (330 ml) a settimana.', { units: [['1 lattina', 330]], pr: 99 });
+  BV('isotonico', 'Bevanda isotonica / sali', 25, 0, 6, 0, ['isotonico', 'gatorade', 'powerade', 'sali minerali', 'maltodestrine'], 700, 'Solo se ti alleni più di un\'ora o fa molto caldo: 500-700 ml.', { units: [['1 borraccia', 500]], pr: 99 });
+  BV('brodo', 'Brodo vegetale / di carne', 6, 0.5, 0.8, 0.1, ['brodo', 'brodo vegetale', 'brodo di carne'], 500, 'Contiene sale: massimo 1-2 tazze al giorno.', { units: [['1 tazza', 250]], pr: 99 });
+  BV('birra', 'Birra', 43, 0.5, 3.6, 0, ['birra'], 330, 'L\'alcol rallenta il recupero e la crescita muscolare: massimo ogni tanto, mai sotto i 18 anni.', { units: [['1 bottiglia', 330]], pr: 99 });
+  BV('vino', 'Vino', 80, 0.1, 2.6, 0, ['vino', 'vino rosso', 'vino bianco'], 150, 'L\'alcol rallenta il recupero e la crescita muscolare: massimo ogni tanto, mai sotto i 18 anni.', { units: [['1 calice', 150]], pr: 99 });
   // ---- Affettati e panini
   const AFF = 'Affettato: sale e conservanti, non tutti i giorni (circa 50-100 g, massimo 3-4 volte a settimana).';
   f('prosciutto_cotto', 'Prosciutto cotto (affettato)', 125, 19.5, 0.8, 4.5, 'Affettati e panini', { al: ['prosciutto cotto', 'cotto', 'prosciutto', 'affettato', 'affettati'], units: [['1 fetta', 20]], lim: { d: 80, w: 300, t: AFF }, pr: 2.5 });
@@ -113,7 +127,7 @@
   f('noci', 'Noci', 654, 15, 7, 65, 'Grassi e secchi', { al: ['noci', 'noce'], lim: { d: 40, t: 'Circa 30 g al giorno (una manciata).' }, pr: 2 });
   f('mandorle', 'Mandorle', 600, 21, 6, 53, 'Grassi e secchi', { al: ['mandorle', 'mandorla'], lim: { d: 40, t: 'Circa 30 g al giorno (una manciata).' }, pr: 2 });
   f('frutta_secca', 'Frutta secca (mix)', 620, 18, 8, 57, 'Grassi e secchi', { units: [['1 manciata', 30]], al: ['frutta secca', 'noccioline', 'pistacchi', 'nocciole', 'anacardi'], lim: { d: 40, t: 'Circa 30 g al giorno (una manciata); fino a 40 g se ti alleni.' }, pr: 2 });
-  f('olio', 'Olio extravergine d\'oliva', 900, 0, 0, 100, 'Grassi e secchi', { units: [['1 cucchiaio', 10]], al: ['olio', 'olio evo', 'olio d oliva', 'olio extravergine'], lim: { d: 40, t: 'Circa 3-4 cucchiai (30-40 g) al giorno.' }, pr: 2.5 });
+  f('olio', 'Olio extravergine d\'oliva', 900, 0, 0, 100, 'Grassi e secchi', { liq: 1, units: [['1 cucchiaio', 10]], al: ['olio', 'olio evo', 'olio d oliva', 'olio extravergine'], lim: { d: 40, t: 'Circa 3-4 cucchiai (30-40 g) al giorno.' }, pr: 2.5 });
   f('miele', 'Miele', 304, 0.3, 82, 0, 'Dolci', { units: [['1 cucchiaino', 7], ['1 cucchiaio', 20]], al: ['miele'], lim: { d: 30, t: 'Zuccheri aggiunti: massimo 25-30 g al giorno.' }, pr: 6 });
   f('fondente', 'Cioccolato fondente (70%)', 580, 9, 33, 43, 'Dolci', { units: [['1 quadretto', 10]], al: ['cioccolato', 'cioccolato fondente', 'fondente', 'gocce di cioccolato', 'gocce di cioccolato fondente'], lim: { d: 30, t: 'Circa 20-30 g al giorno.' }, pr: 8 });
   f('cacao', 'Cacao amaro', 230, 20, 10, 12, 'Dolci', { al: ['cacao', 'cacao amaro'], lim: { d: 20, t: 'Circa 10-20 g al giorno.' }, pr: 9 });
@@ -153,6 +167,28 @@
   F.round1 = r1;
 
   /** Suggerimenti per colmare ciò che manca: cibi che l'utente mangia di solito, con i grammi da aggiungere */
+  F.unitOf = fd => (fd && fd.liq ? 'ml' : 'g');
+  const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  F.normText = norm;
+  const lev = (a, b) => { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; let prev = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return prev[n]; };
+  // tolleranza ai refusi: una parola scritta con 1 errore (2 se lunga) vale come trovata
+  const fuzzy = (t, words) => t.length >= 4 && words.some(w => { const d = lev(t, w.slice(0, t.length + 1)) , d2 = lev(t, w); return Math.min(d, d2) <= (t.length >= 7 ? 2 : 1); });
+  // ricerca istantanea: nome, sinonimi, parole in qualsiasi ordine, senza accenti
+  F.searchFoods = function (p, q, max) {
+    const nq = norm(q); if (!nq) return [];
+    const toks = nq.split(' ');
+    return F.allFoods(p).map(fd => {
+      const name = norm(fd.name), al = (fd.al || []).map(norm);
+      let s = 0;
+      if (name === nq || al.indexOf(nq) >= 0) s = 100;
+      else if (name.indexOf(nq) === 0 || al.some(a => a.indexOf(nq) === 0)) s = 80;
+      else if (name.indexOf(nq) >= 0 || al.some(a => a.indexOf(nq) >= 0)) s = 60;
+      else if (toks.every(t => name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0))) s = 40;
+      else if (toks.some(t => t.length >= 3 && (name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0)))) s = 20;
+      if (!s) { const words = (name + ' ' + al.join(' ')).split(' '); if (toks.every(t => name.indexOf(t) >= 0 || al.some(x => x.indexOf(t) >= 0) || fuzzy(t, words))) s = 10; }
+      return { fd, s };
+    }).filter(o => o.s > 0).sort((a, b) => b.s - a.s || (a.fd.custom ? -1 : 0) - (b.fd.custom ? -1 : 0)).slice(0, max || 15).map(o => o.fd);
+  };
   /* ---- limiti, stagione, piano dei soli alimenti mancanti ---- */
   const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
   F.monthName = m => MESI[m - 1];
