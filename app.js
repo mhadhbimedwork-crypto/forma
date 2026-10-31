@@ -18,7 +18,7 @@
   let toastT;
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 3200); }
   const fmt = (n, d) => (Math.round(n * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).toLocaleString('it-IT');
-  const GOALS = { recomp: 'Definizione + massa magra (ricomposizione)', cut: 'Dimagrire / definizione', mass: 'Mettere massa muscolare', strength: 'Forza' };
+  const GOALS = { auto: 'Guidato dai miei dati (consigliato)', recomp: 'Definizione + massa magra (ricomposizione)', cut: 'Dimagrire / definizione', mass: 'Mettere massa muscolare', strength: 'Forza' };
   const STYLES = { cali: 'Calisthenics', gym: 'Palestra (pesi/macchine)', mix: 'Palestra + calisthenics' };
   const LEVELS = { 1: 'Principiante', 2: 'Intermedio', 3: 'Avanzato' };
   F.LABELS = { GOALS, STYLES, LEVELS };
@@ -101,6 +101,8 @@
     render();
   }
 
+  const GOAL_SHORT = { recomp: 'Definizione e massa magra', cut: 'Dimagrire', mass: 'Massa muscolare', strength: 'Forza' };
+  function goalLabel(p) { return p.goal === 'auto' ? 'Automatico · ' + (GOAL_SHORT[F.effGoal(p)] || '') : GOALS[p.goal].split(' (')[0]; }
   /* ---------- VISTE ---------- */
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
@@ -109,7 +111,7 @@
     const c = F.calc(p);
     return `<header class="top">${brand}
       <div class="who"><div class="avatar" aria-hidden="true">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
-        <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni · ${esc(GOALS[p.goal].split(' (')[0])}</div></div>
+        <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni · ${esc(goalLabel(p))}</div></div>
         <select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button></div></header>`;
   }
   function nav() {
@@ -161,7 +163,7 @@
   /* --- profilo (form) --- */
   function viewProfileForm() {
     const old = ui.sub.id ? S.profiles.find(p => p.id === ui.sub.id) : null;
-    const v = old || { name: '', birth: '', sex: 'M', height: '', weight: '', goal: 'recomp', style: 'mix', days: 3, level: 2, stopMonths: 0 };
+    const v = old || { name: '', birth: '', sex: 'M', height: '', weight: '', goal: 'auto', style: 'mix', days: 3, level: 2, stopMonths: 0 };
     const sel = (name, map, cur) => `<select name="${name}">${Object.entries(map).map(([k, l]) => `<option value="${k}" ${String(cur) === String(k) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
     return `<h1>${old ? 'Modifica profilo' : 'Nuovo profilo'}</h1><form class="card" id="pform" autocomplete="off">
       <label for="f_name">Nome</label><input id="f_name" name="name" required value="${esc(v.name)}">
@@ -169,7 +171,9 @@
       <div><label>Sesso</label>${sel('sex', { M: 'Uomo', F: 'Donna' }, v.sex)}</div></div>
       <div class="grid2"><div><label for="f_h">Altezza (cm)</label><input id="f_h" type="number" name="height" min="100" max="230" required value="${esc(v.height)}"></div>
       <div><label for="f_w">Peso (kg)</label><input id="f_w" type="number" step="0.1" name="weight" min="30" max="250" required value="${esc(v.weight)}"></div></div>
-      <label>Obiettivo</label>${sel('goal', GOALS, v.goal)}
+      <label>Obiettivo</label>${sel('goal', GOALS, v.goal)}<p class="mute small" style="margin:4px 0 0">"Guidato dai miei dati" sceglie da solo tra ingrassare in modo sano, mettere massa, ricomposizione o dimagrire in base a età, peso e altezza (soglie OMS), e si aggiorna quando cambia il tuo peso.</p>
+      <div class="grid2"><div><label for="f_waist">Vita (cm), facoltativa</label><input id="f_waist" type="number" inputmode="decimal" name="waist" min="40" max="200" value="${esc(v.waist || '')}"></div>
+      <div><label for="f_bf">Grasso corporeo %, facoltativo</label><input id="f_bf" type="number" inputmode="decimal" step="0.1" name="bf" min="3" max="60" value="${esc(v.bf || '')}"></div></div>
       <label>Tipo di allenamento</label>${sel('style', STYLES, v.style)}
       <div class="grid2"><div><label>Giorni a settimana</label>${sel('days', { 2: '2', 3: '3', 4: '4', 5: '5' }, v.days)}</div>
       <div><label>Livello</label>${sel('level', LEVELS, v.level)}</div></div>
@@ -406,7 +410,7 @@
   }
   const GOAL_NAME = { mass: 'massa', strength: 'forza', cut: 'dimagrimento', recomp: 'ricomposizione' };
   function guideHtml(p, D) {
-    const open = D.guide || {}, c = F.calc(p), goal = c.minor && p.goal === 'cut' ? 'recomp' : p.goal;
+    const open = D.guide || {}, c = F.calc(p), goal = c.goal;
     const sec = (k, title, body) => `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dGuide" data-k="${k}" aria-expanded="${!!open[k]}"><h2 style="margin:0">${open[k] ? '▾' : '▸'} ${title}</h2></button>${open[k] ? body : ''}</div>`;
     const li = arr => arr.map(x => `<div class="small" style="padding:4px 0;border-top:1px solid var(--line)"><b>${esc(x[0])}</b><div class="mute">${esc(x[1])}</div></div>`).join('');
     const mine = F.SUPER.filter(x => x.g.indexOf(goal) >= 0), rest = F.SUPER.filter(x => x.g.indexOf(goal) < 0);
@@ -550,7 +554,7 @@
   function viewMe() {
     const p = P(), c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
-      <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
+      <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
         <button class="sm" data-act="editProfile">Modifica</button></div>${c.minor ? '<div class="msg tip">Profilo minorenne: regole di tutela attive. Programma da condividere con l\'allenatore.</div>' : ''}</div>
       <div class="card"><h2>Alimentazione su misura</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal/giorno</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="small">Metabolismo basale ${fmt(c.bmr)} kcal · fabbisogno stimato ${fmt(c.tdee)} kcal (${c.delta > 0 ? '+' : ''}${c.delta} per l'obiettivo).</p>${msgs(c.notes.map(t => ({ t })))}
@@ -753,7 +757,7 @@
     delProfile() { const p = P(); if (!confirm(`Eliminare il profilo di ${p.name} con schede, sedute e dolori? Non si può annullare.`)) return; S.profiles = S.profiles.filter(x => x.id !== p.id); S.active = S.profiles.length ? S.profiles[0].id : null; save(); ui.sub = null; ui.tab = 'home'; render(); },
     async askAI() {
       const p = P(), plan = planOf(p); const out = $('#aiOut'); out.innerHTML = '<p class="mute small">Analisi in corso…</p>';
-      const r = await ai('analyze', { profile: { age: F.ageOf(p.birth), sex: p.sex, height: p.height, weight: p.weight, goal: p.goal, style: p.style, level: p.level, stopMonths: p.stopMonths, pain: p.pain }, targets: F.calc(p), plan, analysis: plan ? F.analyzePlan(plan, p).flags : [], weights: p.weights.slice(-20), sessions: p.sessions.slice(-10) });
+      const r = await ai('analyze', { profile: { age: F.ageOf(p.birth), sex: p.sex, height: p.height, weight: p.weight, goal: F.effGoal(p), style: p.style, level: p.level, stopMonths: p.stopMonths, pain: p.pain }, targets: F.calc(p), plan, analysis: plan ? F.analyzePlan(plan, p).flags : [], weights: p.weights.slice(-20), sessions: p.sessions.slice(-10) });
       out.innerHTML = r && r.text ? `<div class="msg" style="white-space:pre-wrap">${esc(r.text)}</div>` : '';
     }
   };
@@ -797,7 +801,7 @@
   document.addEventListener('submit', e => {
     if (e.target.id !== 'pform') return; e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target).entries());
-    const base = { name: fd.name.trim(), birth: fd.birth, sex: fd.sex, height: +fd.height, weight: +fd.weight, goal: fd.goal, style: fd.style, days: +fd.days, level: +fd.level, stopMonths: +fd.stopMonths || 0 };
+    const base = { name: fd.name.trim(), birth: fd.birth, sex: fd.sex, height: +fd.height, weight: +fd.weight, goal: fd.goal, waist: +fd.waist || 0, bf: +fd.bf || 0, style: fd.style, days: +fd.days, level: +fd.level, stopMonths: +fd.stopMonths || 0 };
     if (new Date(base.birth) > new Date()) return toast('Data di nascita non valida');
     if (ui.sub.id) { const p = S.profiles.find(x => x.id === ui.sub.id); Object.assign(p, base); if (!p.weights.length || p.weights[p.weights.length - 1].kg !== base.weight) p.weights.push({ date: F.todayISO(), kg: base.weight }); save(); ui.sub = null; render(); toast('Profilo aggiornato'); return; }
     const p = Object.assign({ id: 'u' + uid(), pain: {}, painLog: [], weights: [{ date: F.todayISO(), kg: base.weight }], sessions: [], plans: [], activePlan: null, draft: null, createdAt: F.todayISO() }, base);

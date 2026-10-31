@@ -62,7 +62,7 @@
   F.planDay = function (p, date, opt) {
     opt = opt || {};
     const c = F.calc(p), day = F.dayOf(p, date), tot = F.dayTotal(p, day), month = new Date(date + 'T12:00:00').getMonth() + 1;
-    const goal = c.minor && p.goal === 'cut' ? 'recomp' : p.goal, lean = goal === 'cut' || goal === 'recomp', ex = opt.exclude || {}, mode = opt.mode === 'tune' ? 'tune' : 'fill';
+    const goal = c.goal, lean = goal === 'cut' || goal === 'recomp', ex = opt.exclude || {}, mode = opt.mode === 'tune' ? 'tune' : 'fill';
     const ud = F.usageOf(p, date), uw = F.weekUsage(p, date);
     const target = { k: c.kcal, p: c.protein, c: c.carbs, f: c.fat };
     const rem = { k: target.k - tot.k, p: target.p - tot.p, c: target.c - tot.c, f: target.f - tot.f };

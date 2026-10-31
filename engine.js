@@ -14,6 +14,37 @@
   F.isMinor = p => F.ageOf(p.birth) < 18;
   F.isReturning = p => (+p.stopMonths || 0) >= 12;
 
+  /* ---------- OBIETTIVO AUTOMATICO (dai dati dell'utente) ---------- */
+  // BMI secondo le soglie OMS per adulti; vita/altezza e grasso corporeo (se noti) correggono i limiti del BMI.
+  F.resolveGoal = function (p) {
+    const age = F.ageOf(p.birth), h = +p.height, w = +p.weight, bmi = w / Math.pow(h / 100, 2), waist = +p.waist || 0, bf = +p.bf || 0, f = p.sex === 'F';
+    const whtr = waist && h ? waist / h : 0, why = [];
+    const bmiTxt = `BMI ${bmi.toFixed(1)}`;
+    if (age < 18) {
+      why.push(`${bmiTxt}. Sotto i 18 anni non si fa mai un deficit calorico: si cresce con un piccolo surplus e allenamento di forza moderato.`);
+      if (bmi < 17.5) why.push('Il BMI è basso per l\'età: parlane con il pediatra e punta a mangiare di più e con regolarità.');
+      if (bmi >= 25) { why.push('Il peso è alto per l\'altezza: niente dieta restrittiva, solo ricomposizione (movimento, proteine, meno cibi molto calorici) e parere del pediatra.'); return { goal: 'recomp', auto: true, bmi, why }; }
+      return { goal: 'mass', auto: true, bmi, why };
+    }
+    const fatHigh = bf ? (f ? bf >= 32 : bf >= 25) : (whtr ? whtr >= 0.58 : false);
+    const lean = bf ? (f ? bf < 23 : bf < 15) : (whtr ? whtr < 0.5 : false);
+    const extra = (bf ? ` Grasso corporeo ${bf}%.` : '') + (whtr ? ` Vita/altezza ${whtr.toFixed(2)} (sotto 0,5 è un buon valore).` : '');
+    if (bmi < 18.5) { why.push(`${bmiTxt}: sottopeso (OMS sotto 18,5). Obiettivo: ingrassare in modo sano, con surplus di circa 400 kcal, tante proteine e allenamento di forza per aumentare massa muscolare e non solo grasso.${extra}`); why.push('Se il BMI è sotto 17 o hai perso peso senza volerlo, fai una visita medica prima di cambiare dieta.'); return { goal: 'mass', auto: true, bmi, why, gain: true }; }
+    if (bmi < 22) { why.push(`${bmiTxt}: peso normale basso. Obiettivo: mettere massa muscolare con un piccolo surplus (circa 250 kcal).${extra}`); return { goal: 'mass', auto: true, bmi, why }; }
+    if (bmi < 25) {
+      if (lean && !fatHigh) { why.push(`${bmiTxt}: peso normale e poco grasso. Obiettivo: massa muscolare con piccolo surplus.${extra}`); return { goal: 'mass', auto: true, bmi, why }; }
+      why.push(`${bmiTxt}: peso normale. Obiettivo: ricomposizione, cioè perdere un po' di grasso e costruire muscolo insieme.${extra}`); return { goal: 'recomp', auto: true, bmi, why };
+    }
+    if (bmi < 30) {
+      if (lean && !fatHigh) { why.push(`${bmiTxt}: il BMI è alto ma il grasso è basso, quindi probabilmente hai molta massa muscolare. Obiettivo: massa muscolare con surplus lieve.${extra}`); return { goal: 'mass', auto: true, bmi, why }; }
+      why.push(`${bmiTxt}: sovrappeso (OMS 25-29,9). Obiettivo: ricomposizione, dimagrire in modo graduale e costruire muscolo con la forza e tante proteine.${extra}${waist ? '' : ' Per dati più precisi inserisci la misura della vita nel profilo.'}`); return { goal: 'recomp', auto: true, bmi, why };
+    }
+    why.push(`${bmiTxt}: obesità (OMS da 30). Obiettivo: dimagrire in modo graduale (circa 0,5 kg a settimana) mantenendo e costruendo muscolo con l'allenamento di forza e proteine alte.${extra}`);
+    why.push('Con BMI alto o problemi di salute (pressione, glicemia, articolazioni) fai una visita medica prima di iniziare.');
+    return { goal: 'cut', auto: true, bmi, why };
+  };
+  F.effGoal = p => (p.goal === 'auto' ? F.resolveGoal(p).goal : p.goal);
+
   /* ---------- CALCOLATORE ---------- */
   F.calc = function (p) {
     const age = F.ageOf(p.birth), minor = age < 18;
@@ -22,25 +53,26 @@
     const bmr = 10 * w + 6.25 * h - 5 * age + (p.sex === 'F' ? -161 : 5);
     const act = { 2: 1.4, 3: 1.5, 4: 1.55, 5: 1.65 }[+p.days] || 1.5;
     const tdee = bmr * act;
-    const notes = [];
+    const notes = [], rg = p.goal === 'auto' ? F.resolveGoal(p) : null, goal = rg ? rg.goal : p.goal;
+    if (rg) rg.why.forEach(t => notes.push(t));
     let delta = 0;
     if (minor) {
       delta = 250;
       notes.push('Profilo minorenne: nessun deficit calorico. Si cresce con un piccolo surplus, sonno 8-10 ore e carichi moderati.');
-      if (p.goal === 'cut') notes.push('L\'obiettivo "dimagrire" non è previsto sotto i 18 anni: l\'app lo trasforma in ricomposizione corporea.');
-    } else if (p.goal === 'cut') {
+      if (goal === 'cut') notes.push('L\'obiettivo "dimagrire" non è previsto sotto i 18 anni: l\'app lo trasforma in ricomposizione corporea.');
+    } else if (goal === 'cut') {
       delta = bmi < 22 ? 0 : -500;
       if (bmi < 22) notes.push('Il tuo BMI è già basso: niente deficit, meglio mantenimento e costruire muscolo.');
-    } else if (p.goal === 'recomp') {
-      delta = bmi < 21 ? 100 : -350;
+    } else if (goal === 'recomp') {
+      delta = bmi < 21 ? 100 : (rg && bmi < 25 ? 0 : -350);
       notes.push('Ricomposizione: deficit lieve, proteine alte e allenamento di forza permettono di perdere grasso e mettere muscolo, soprattutto dopo uno stop.');
-    } else if (p.goal === 'mass') { delta = 250; }
-    else if (p.goal === 'strength') { delta = 100; }
+    } else if (goal === 'mass') { delta = rg && rg.gain ? 400 : 250; }
+    else if (goal === 'strength') { delta = 100; }
     const kcal = Math.round((tdee + delta) / 10) * 10;
-    const protein = Math.round(w * (minor ? 1.8 : p.goal === 'cut' || p.goal === 'recomp' ? 2.0 : 1.8));
+    const protein = Math.round(w * (minor ? 1.8 : goal === 'cut' || goal === 'recomp' ? 2.0 : 1.8));
     const fat = Math.round(w * (minor ? 1.0 : 0.9));
     const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4));
-    return { age, minor, bmi, bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, fat, carbs, delta, notes,
+    return { goal: minor && goal === 'cut' ? 'recomp' : goal, age, minor, bmi, bmr: Math.round(bmr), tdee: Math.round(tdee), kcal, protein, fat, carbs, delta, notes,
       water: Math.round(w * 35 / 100) / 10 };
   };
 
@@ -107,7 +139,7 @@
     const days = LAYOUT[Math.min(5, Math.max(2, +p.days || 3))];
     const lvl = Math.max(1, Math.min(3, +p.level || 1));
     const style = p.style || 'mix';
-    const goal = minor && p.goal === 'cut' ? 'recomp' : p.goal;
+    const goal = minor && F.effGoal(p) === 'cut' ? 'recomp' : F.effGoal(p);
     const notes = [], used = new Set(), skipped = [];
     const repsFor = (ex) => {
       if (ex.unit === 'sec') return minor ? '20-30 s' : '20-45 s';

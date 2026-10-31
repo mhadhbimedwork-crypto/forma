@@ -63,7 +63,8 @@
     o.id = String(p.id || 'u' + Date.now().toString(36));
     o.name = String(p.name).slice(0, 60); o.sex = p.sex === 'F' ? 'F' : 'M';
     o.height = num(p.height, 170); o.weight = num(p.weight, 70);
-    o.goal = ['recomp', 'cut', 'mass', 'strength'].includes(p.goal) ? p.goal : 'recomp';
+    o.goal = ['auto', 'recomp', 'cut', 'mass', 'strength'].includes(p.goal) ? p.goal : 'recomp';
+    o.waist = num(p.waist, 0); o.bf = num(p.bf, 0);
     o.style = ['cali', 'gym', 'mix'].includes(p.style) ? p.style : 'mix';
     o.days = Math.min(5, Math.max(2, +p.days || 3)); o.level = Math.min(3, Math.max(1, +p.level || 1)); o.stopMonths = Math.max(0, +p.stopMonths || 0);
     o.pain = (p.pain && typeof p.pain === 'object') ? p.pain : {}; Object.keys(o.pain).forEach(z => { o.pain[z] = Math.min(10, Math.max(0, +o.pain[z] || 0)); if (!o.pain[z] || !F.ZONES[z]) delete o.pain[z]; });

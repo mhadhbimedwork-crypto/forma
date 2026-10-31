@@ -1,8 +1,9 @@
 {
-  "version": "1.9.1",
-  "build": 13,
+  "version": "1.10.0",
+  "build": 14,
   "date": "2026-10-29",
   "notes": [
-    "Ricette: pulsanti Modifica ed Elimina nell'elenco; l'eliminazione chiede una doppia conferma."
+    "Nuovo obiettivo \"Guidato dai miei dati\": sceglie da solo tra ingrassare in modo sano e mettere massa, ricomposizione o dimagrire con soglie OMS su BMI, vita e grasso corporeo, e spiega il perché.",
+    "Nel profilo puoi inserire vita e grasso corporeo (facoltativi) per correggere i limiti del BMI."
   ]
 }

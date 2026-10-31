@@ -250,7 +250,7 @@
     const month = opt.month || (new Date(date + 'T12:00:00').getMonth() + 1);
     const ud = F.usageOf(p, date), uw = F.weekUsage(p, date);
     const rem = { k: rem0.k, p: rem0.p, c: rem0.c, f: rem0.f };
-    const c0 = F.calc(p), minor = c0.minor, goal = minor && p.goal === 'cut' ? 'recomp' : p.goal, ex = opt.exclude || {};
+    const c0 = F.calc(p), minor = c0.minor, goal = c0.goal, ex = opt.exclude || {};
     const lean = goal === 'cut' || goal === 'recomp';
     const foods = F.allFoods(p).filter(x => (x.pr || 1) < 99 && x.k > 0 && F.inSeason(x, month) && !ex[x.id] && !(minor && (x.grp === 'Integratori' || x.id === 'cacao')) && !(lean && (x.id === 'miele' || x.grp === 'Dolci')));
     const used = {}, items = [];
