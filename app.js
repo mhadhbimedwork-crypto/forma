@@ -435,6 +435,14 @@
       ${pl.meals.length || pl.raises.length ? '<div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="dPlanAllDay">Applica tutto il piano</button></div>' : ''}
       <p class="mute small" style="margin:6px 0 0">Se un alimento non lo hai tocca "Non ce l'ho": passo a un altro che si abbina bene e ricalcolo le quantità. Se qualcosa ti dà fastidio, segnalo nelle intolleranze qui sotto.</p>`;
   }
+  // eliminazione con doppia conferma; avvisa se la ricetta è usata nei pasti
+  function delRecipe(id) {
+    const p = P(), r = p.nutrition.recipes.find(x => x.id === id); if (!r) return false;
+    const used = Object.values(p.nutrition.days || {}).reduce((n, d) => n + (d.meals || []).reduce((m, it) => m + it.filter(x => x.r === id).length, 0), 0);
+    if (!confirm(`Eliminare la ricetta "${r.name}"?${used ? `\n\nÈ usata ${used} volt${used === 1 ? 'a' : 'e'} nei tuoi pasti: quelle voci scompariranno dal diario.` : ''}`)) return false;
+    if (!confirm(`ULTIMA CONFERMA\n\n"${r.name}" verrà cancellata in modo definitivo e non si può recuperare (solo da un backup). Vuoi davvero eliminarla?`)) return false;
+    p.nutrition.recipes = p.nutrition.recipes.filter(x => x.id !== id); save(); toast('Ricetta eliminata'); return true;
+  }
   const MEAL_PLAN_LABEL = ['colazione', 'pranzo', 'spuntino', 'cena'];
   function planHtml(plan, rem) {
     if (!plan.items.length) return '<div class="msg ok small">Macro quasi a target: non serve aggiungere altro.</div>';
@@ -476,7 +484,7 @@
       ${guideHtml(p, D)}
       <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
       <div class="card"><details ${D.imp ? 'open' : ''}><summary>Importa una ricetta ricevuta</summary><p class="mute small" style="margin:6px 0">Incolla qui il testo che ti hanno mandato (inizia con FORGIA-RICETTA). Resta solo sul tuo telefono.</p><textarea id="rcImp" style="min-height:70px;font-family:inherit" aria-label="Testo della ricetta"></textarea><button class="sm primary" style="margin-top:6px" data-act="rImport">Importa</button></details></div>
-      ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Apri</button></div>`; }).join('')}</div>` : ''}
+      ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Modifica</button><button class="sm danger" data-act="rDelList" data-id="${r.id}" aria-label="Elimina ${esc(r.name)}">Elimina</button></div>`; }).join('')}</div>` : ''}
       <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
   }
   function recipeCheck(p, R, tot, n) {
@@ -656,7 +664,8 @@
     rSave() { readRecipe(); const R = ui.sub.draft, p = P(); if (!R.name.trim()) return toast('Dai un nome alla ricetta'); if (!R.items.length) return toast('Aggiungi almeno un ingrediente');
       R.name = R.name.trim(); if (ui.sub.id) { const i = p.nutrition.recipes.findIndex(x => x.id === ui.sub.id); p.nutrition.recipes[i] = Object.assign({ id: ui.sub.id }, R); } else p.nutrition.recipes.push(Object.assign({ id: 'r' + uid() }, R));
       save(); ui.sub = null; render(); toast('Ricetta salvata'); },
-    rDel() { if (!confirm('Eliminare questa ricetta?')) return; const p = P(); p.nutrition.recipes = p.nutrition.recipes.filter(x => x.id !== ui.sub.id); save(); ui.sub = null; render(); },
+    rDel() { const id = ui.sub && ui.sub.id; if (id && delRecipe(id)) { ui.sub = null; render(); } },
+    rDelList(t) { if (delRecipe(t.dataset.id)) render(); },
     async rShare() {
       readRecipe(); const R = ui.sub.draft, p = P(), cust = {};
       R.items.forEach(([id]) => { if (/^c/.test(id)) { const f = p.nutrition.foods.find(x => x.id === id); if (f) cust[id] = f; } });

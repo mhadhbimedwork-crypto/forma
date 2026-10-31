@@ -1,10 +1,8 @@
 {
-  "version": "1.9.0",
-  "build": 12,
+  "version": "1.9.1",
+  "build": 13,
   "date": "2026-10-29",
   "notes": [
-    "Bilancia la giornata ora propone pasti veri: alimenti che si abbinano bene (niente accostamenti che gonfiano), dosi realistiche entro i massimi consigliati, con una riga che spiega il perché.",
-    "Due modalità: riempi solo i pasti mancanti oppure ritocca anche le dosi di quello che hai già mangiato.",
-    "Intolleranze e alimenti che danno fastidio: li togli dai piani e ricevi un avviso se li inserisci."
+    "Ricette: pulsanti Modifica ed Elimina nell'elenco; l'eliminazione chiede una doppia conferma."
   ]
 }
