@@ -385,7 +385,7 @@
     let pickBox = '';
     if (pk) {
       if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
-      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${limitBox(p, fd)}
+      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
         <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'}"><span>${F.unitOf(fd)}</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
     }
     const rec = nut.recipes;
@@ -415,6 +415,26 @@
       sec('safe', 'Sicurezza, tossicità e catena alimentare', li(F.SAFETY)) +
       sec('super', 'Super food per il tuo obiettivo', `<p class="mute small" style="margin:0 0 6px">${esc(F.SUPER_NOTE)}</p><h3>Per ${esc(GOAL_NAME[goal] || 'il tuo obiettivo')}</h3>${li(mine.map(x => [x.n, x.b]))}${rest.length ? `<h3>Altri alimenti utili</h3>${li(rest.map(x => [x.n, x.b]))}` : ''}`);
   }
+  function intolCard(p) {
+    const it = p.intol || {};
+    return `<div class="card"><h2>Intolleranze e alimenti che ti danno fastidio</h2><p class="small mute" style="margin:0 0 6px">Segna quello che non tolleri: l'app lo toglie dai piani e ti avvisa se lo inserisci. Per allergie vere o patologie parla con il medico.</p>
+      <div class="row wrap">${F.INTOL.map(([k, l]) => `<button class="sm ${it[k] ? 'primary' : ''}" data-act="intolTog" data-k="${k}" aria-pressed="${!!it[k]}">${it[k] ? '✓ ' : ''}${esc(l)}</button>`).join('')}</div>
+      <label for="intolOther" style="margin-top:8px">Altri alimenti da evitare (separati da virgola)</label><input id="intolOther" value="${esc(it.other || '')}" placeholder="Es. cipolla, cavolfiore, pomodoro" autocomplete="off"></div>`;
+  }
+  function planDayHtml(pl) {
+    const D = ui.diet, GN = { mass: 'massa', strength: 'forza', cut: 'dimagrimento', recomp: 'ricomposizione' }, tune = pl.mode === 'tune';
+    const row = (o) => `<div class="small" style="padding:3px 0;display:flex;gap:8px;align-items:center"><span class="grow"><b>${esc(o.fd.name)}</b> ${o.g} ${F.unitOf(o.fd)}${o.fd.units && o.fd.units[0] && o.fd.units[0][1] <= 60 && o.fd.units[0][1] >= 8 && o.g >= o.fd.units[0][1] ? ` <span class="mute">(circa ${Math.round(o.g / o.fd.units[0][1])} ${esc(o.fd.units[0][0].replace(/^1 /, ''))})</span>` : ''}</span><button class="ghost sm" data-act="dSkip" data-id="${o.fd.id}" aria-label="Non ho ${esc(o.fd.name)}">Non ce l'ho</button></div>`;
+    const miss = []; const g = pl.gap; if (g.p > 12) miss.push(fx(g.p) + ' g di proteine'); if (g.c > 25) miss.push(fx(g.c) + ' g di carboidrati'); if (g.f > 8) miss.push(fx(g.f) + ' g di grassi');
+    return `<h3>Piano per chiudere la giornata</h3>
+      <p class="mute small" style="margin:0 0 6px">Pensato per il tuo obiettivo (${esc(GN[pl.goal] || 'mantenimento')})${pl.minor ? ', in crescita (niente integratori)' : ''}. Pasti con alimenti che si abbinano bene e dosi entro i massimi consigliati.${pl.avoided.length ? ` <b>Escluso:</b> ${esc(pl.avoided.join(', '))}.` : ''}</p>
+      <div class="row wrap" style="margin-bottom:6px"><button class="sm ${!tune ? 'primary' : ''}" data-act="dPlanMode" data-m="fill">Riempi solo i pasti mancanti</button><button class="sm ${tune ? 'primary' : ''}" data-act="dPlanMode" data-m="tune">Ritocca anche quello che ho mangiato</button></div>
+      ${pl.raises.length ? `<div style="padding:6px 0;border-top:1px solid var(--line)"><b class="small">Aumenta le dosi già inserite</b>${pl.raises.map((w, i) => `<div class="small" style="padding:3px 0;display:flex;gap:8px;align-items:center"><span class="grow">${esc(F.MEALS[w.mi])}: ${esc(w.fd.name)} da ${w.from} a <b>${w.to}</b> ${F.unitOf(w.fd)}</span><button class="sm" data-act="dPlanRaise" data-i="${i}">Applica</button></div>`).join('')}</div>` : ''}
+      ${pl.meals.length ? pl.meals.map(m => `<div style="padding:8px 0;border-top:1px solid var(--line)"><div class="row"><b class="grow">${esc(m.nm)}</b><span class="mute small">${fx(m.tot.k)} kcal · P ${fx(m.tot.p)} · C ${fx(m.tot.c)} · G ${fx(m.tot.f)}</span></div>${m.items.map(row).join('')}
+        ${m.why.map(w => `<div class="mute small" style="margin:2px 0">• ${esc(w)}</div>`).join('')}<button class="sm primary" style="margin-top:4px" data-act="dPlanMeal" data-m="${m.mi}">Aggiungi a ${esc(m.nm.toLowerCase())}</button></div>`).join('') : '<div class="msg ok small" style="margin-top:6px">I pasti sono già pieni: niente da aggiungere. Se vuoi limare le dosi usa "Ritocca anche quello che ho mangiato".</div>'}
+      <div class="small" style="margin-top:6px">A fine giornata: <b>${fx(pl.final.k)} / ${fx(pl.target.k)} kcal</b> · P ${fx(pl.final.p)}/${fx(pl.target.p)} · C ${fx(pl.final.c)}/${fx(pl.target.c)} · G ${fx(pl.final.f)}/${fx(pl.target.f)}.${miss.length ? ` Restano scoperti ${miss.join(', ')}: i limiti di salute non permettono di coprirli oggi senza esagerare.` : ' Il fabbisogno è coperto.'}</div>
+      ${pl.meals.length || pl.raises.length ? '<div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="dPlanAllDay">Applica tutto il piano</button></div>' : ''}
+      <p class="mute small" style="margin:6px 0 0">Se un alimento non lo hai tocca "Non ce l'ho": passo a un altro che si abbina bene e ricalcolo le quantità. Se qualcosa ti dà fastidio, segnalo nelle intolleranze qui sotto.</p>`;
+  }
   const MEAL_PLAN_LABEL = ['colazione', 'pranzo', 'spuntino', 'cena'];
   function planHtml(plan, rem) {
     if (!plan.items.length) return '<div class="msg ok small">Macro quasi a target: non serve aggiungere altro.</div>';
@@ -442,15 +462,17 @@
         <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
         ${D.addTo === mi ? addPanel(p, mi) : ''}` : ''}</div>`;
     }).join('');
-    const plan = D.fill ? F.planFill(p, rem, D.date, { exclude: D.skip }) : null;
+    const plan = D.fill ? F.planDay(p, D.date, { mode: D.mode, exclude: D.skip }) : null;
     return `<h1>Dieta</h1>
       <div class="row" style="margin-bottom:8px"><button class="sm" data-act="dDay" data-d="-1" aria-label="Giorno prima">←</button><div class="grow" style="text-align:center"><b>${isToday ? 'Oggi' : esc(D.date)}</b></div><button class="sm" data-act="dDay" data-d="1" aria-label="Giorno dopo">→</button></div>
       <div class="card"><h2>Fabbisogno di ${esc(p.name)}</h2>${bar('Calorie', tot.k, c.kcal, 'kcal')}${bar('Proteine', tot.p, c.protein, 'g')}${bar('Carboidrati', tot.c, c.carbs, 'g')}${bar('Grassi', tot.f, c.fat, 'g')}
         <p class="small" style="margin:8px 0 0">${rem.k > 50 ? `Ti mancano ${fx(rem.k)} kcal (P ${fx(Math.max(0, rem.p))} g · C ${fx(Math.max(0, rem.c))} g · G ${fx(Math.max(0, rem.f))} g).` : rem.k < -100 ? `Sei sopra di ${fx(-rem.k)} kcal.` : 'Giornata a target.'}</p>
+        ${F.intolWarnings(p, D.date).map(w => `<div class="msg danger small">${esc(w.text)}</div>`).join('')}
         ${lims.map(w => `<div class="msg warn small">${esc(w.text)}</div>`).join('')}
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dFill">${D.fill ? 'Nascondi suggerimenti' : 'Bilancia la giornata'}</button><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div>
-        ${plan ? planHtml(plan, rem) : ''}</div>
+        ${plan ? planDayHtml(plan) : ''}</div>
       ${meals}
+      ${intolCard(p)}
       ${guideHtml(p, D)}
       <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
       <div class="card"><details ${D.imp ? 'open' : ''}><summary>Importa una ricetta ricevuta</summary><p class="mute small" style="margin:6px 0">Incolla qui il testo che ti hanno mandato (inizia con FORGIA-RICETTA). Resta solo sul tuo telefono.</p><textarea id="rcImp" style="min-height:70px;font-family:inherit" aria-label="Testo della ricetta"></textarea><button class="sm primary" style="margin-top:6px" data-act="rImport">Importa</button></details></div>
@@ -527,6 +549,7 @@
       <h3>Come distribuirle</h3><p class="small">4 pasti con circa <b>${pm} g di proteine</b> ciascuno, carboidrati attorno all'allenamento, verdure ad ogni pasto, acqua ${fmt(c.water, 1)} l.</p>
       <h3>Equivalenze di circa 30 g di proteine</h3><p class="small mute">130 g petto di pollo crudo · 125 g tonno al naturale · 5 albumi + 1 uovo · 250 g yogurt greco · 40 g proteine in polvere · 170 g pesce bianco.</p>
       ${c.minor ? '<div class="msg warn">Per i minorenni: niente integratori e niente bruciagrassi. Le proteine si coprono con il cibo.</div>' : '<div class="msg">Integratori con evidenza: creatina monoidrato 3-5 g/giorno, proteine in polvere solo se non arrivi col cibo. Maltodestrine, destrosio e BCAA non servono per questo obiettivo.</div>'}</div>
+      ${intolCard(p)}
       <div class="card"><h2>Aggiornamenti e richieste</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${ui.update ? ` · <span class="chip warn">disponibile v${esc(ui.update.version)}</span>` : ''}</p>
       <div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}</div>
@@ -612,6 +635,11 @@
       const p = P(), D = ui.diet, c = F.calc(p), tot = F.dayTotal(p, F.dayOf(p, D.date)), plan = F.planFill(p, { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f }, D.date, { exclude: D.skip }), day = F.dayOf(p, D.date);
       plan.items.forEach(o => day.meals[F.mealGuess(o.fd)].push({ f: o.fd.id, g: o.g })); save(); render(); toast('Aggiunto tutto ai pasti');
     },
+    dPlanMode(t) { ui.diet.mode = t.dataset.m; render(); },
+    dPlanRaise(t) { const p = P(), D = ui.diet, pl = F.planDay(p, D.date, { mode: 'tune', exclude: D.skip }), w = pl.raises[+t.dataset.i]; if (!w) return; const it = F.dayOf(p, D.date).meals[w.mi][w.ii]; if (it && it.f === w.fd.id) it.g = w.to; save(); render(); toast('Dose aggiornata'); },
+    dPlanMeal(t) { const p = P(), D = ui.diet, pl = F.planDay(p, D.date, { mode: D.mode, exclude: D.skip }), m = pl.meals.find(x => x.mi === +t.dataset.m); if (!m) return; const day = F.dayOf(p, D.date); m.items.forEach(o => day.meals[m.mi].push({ f: o.fd.id, g: o.g })); D.open = D.open || {}; D.open[m.mi] = true; save(); render(); toast(m.nm + ' aggiornato'); },
+    dPlanAllDay() { const p = P(), D = ui.diet, pl = F.planDay(p, D.date, { mode: D.mode, exclude: D.skip }), day = F.dayOf(p, D.date); pl.raises.forEach(w => { const it = day.meals[w.mi][w.ii]; if (it && it.f === w.fd.id) it.g = w.to; }); pl.meals.forEach(m => m.items.forEach(o => day.meals[m.mi].push({ f: o.fd.id, g: o.g }))); save(); render(); toast('Piano applicato'); },
+    intolTog(t) { const p = P(); p.intol = p.intol || {}; p.intol[t.dataset.k] = !p.intol[t.dataset.k]; save(); render(); },
     dFill() { ui.diet.fill = !ui.diet.fill; render(); },
     dCopy() { const p = P(), y = new Date(ui.diet.date + 'T12:00:00'); y.setDate(y.getDate() - 1); const src = p.nutrition.days[y.toISOString().slice(0, 10)]; if (!src || !src.meals.some(m => m.length)) return toast('Il giorno prima è vuoto'); if (!confirm('Copiare i pasti del giorno prima? Sostituisce quelli di questo giorno.')) return; F.dayOf(p, ui.diet.date).meals = JSON.parse(JSON.stringify(src.meals)); save(); render(); },
     dNewFood() {
@@ -772,6 +800,7 @@
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
     if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
+    if (t.id === 'intolOther') { const p = P(); p.intol = p.intol || {}; p.intol.other = t.value.trim(); save(); toast('Salvato'); return; }
     if (t.dataset.dg) { const [m, i] = t.dataset.dg.split(':').map(Number), v = parseFloat(String(t.value).replace(',', '.')); const it = F.dayOf(p, ui.diet.date).meals[m][i]; if (v > 0) it.g = v; save(); render(); return; }
     if (t.dataset.dn) { const [m, i] = t.dataset.dn.split(':').map(Number), v = parseFloat(String(t.value).replace(',', '.')); const it = F.dayOf(p, ui.diet.date).meals[m][i]; if (v > 0) it.n = v; save(); render(); return; }
     if (t.dataset.ri) { readRecipe(); const v = parseFloat(String(t.value).replace(',', '.')); if (v > 0) ui.sub.draft.items[+t.dataset.ri][1] = v; render(); return; }

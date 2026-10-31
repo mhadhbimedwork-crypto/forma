@@ -1,7 +1,7 @@
 /* FORGIA – dati: esercizi, zone del corpo, schede di esempio. Script classico (funziona anche da file://). */
 window.FORMA = window.FORMA || {};
 (function (F) {
-  F.VERSION = { version: '1.8.1', build: 11 };
+  F.VERSION = { version: '1.9.0', build: 12 };
   F.REPO = 'mhadhbimedwork-crypto/forma';
   // muscolo -> zona di dolore associata
   F.MUSCLE_ZONE = {
