@@ -1,8 +1,8 @@
 {
-  "version": "1.10.8",
-  "build": 22,
+  "version": "1.11.0",
+  "build": 23,
   "date": "2026-11-02",
   "notes": [
-    "Import scheda: riconosce MAV + back-off, dropset sull'ultima serie, AMRAP e stacco rumeno."
+    "Preparata la versione per la palestra THE LIFTING ZONE (solo allenamento, dati separati). Questa app non cambia."
   ]
 }

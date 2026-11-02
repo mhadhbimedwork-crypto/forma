@@ -1,7 +1,8 @@
 /* FORGIA – interfaccia. Dati salvati sul dispositivo (localStorage). */
 (function (F) {
   'use strict';
-  const KEY = 'forma.v1';
+  const GYM = window.FORMA_GYM || null, BRAND = GYM ? GYM.name : 'FORGIA';
+  const KEY = GYM ? GYM.key : 'forma.v1';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = s => document.querySelector(s);
   let mem = null;
@@ -106,16 +107,16 @@
   /* ---------- VISTE ---------- */
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const brand = `<div class="brandrow"><img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">FORGIA</span><span class="tag">NO PAIN · NO GAIN</span></div>`;
+    const brand = `<div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span><span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>`;
     if (!p) return `<header class="top">${brand}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}
       <div class="who"><div class="avatar" aria-hidden="true">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
-        <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni · ${esc(goalLabel(p))}</div></div>
+        <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni${GYM ? '' : ' · ' + esc(goalLabel(p))}</div></div>
         <select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button></div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ['diet', 'Dieta', ICON.diet], ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
+    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   function render() {
@@ -156,8 +157,8 @@
   }
 
   function viewWelcome() {
-    return `<div class="card hero"><h1>Benvenuto in FORGIA</h1>
-      <p>Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.</p>
+    return `<div class="card hero"><h1>Benvenuto in ${esc(BRAND)}</h1>
+      <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.'}</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
       <p class="mute small">I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).</p>`;
   }
@@ -205,11 +206,11 @@
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
     return `${upd}${news}${backupBanner()}${symCard}${next}
-      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
-      <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>
+      ${GYM ? '' : `      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
+      <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>`}
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
       ${pains.length ? `<h3>Zone con dolore</h3>${pains.map(([z, v]) => `<span class="chip ${v >= 7 ? 'danger' : v >= 4 ? 'warn' : ''}">${esc(F.ZONES[z])} ${v}/10</span>`).join(' ')}` : ''}
-      <div class="row wrap" style="margin-top:10px"><button class="sm" data-act="askAI">Chiedi all'analista IA</button><span class="mute small">${done} sedute registrate</span></div><div id="aiOut"></div></div>`;
+      <div class="row wrap" style="margin-top:10px">${GYM ? '' : '<button class="sm" data-act="askAI">Chiedi all\'analista IA</button>'}<span class="mute small">${done} sedute registrate</span></div><div id="aiOut"></div></div>`;
   }
 
   /* --- tecniche della scheda: ruolo, recupero e carico suggerito per ogni serie --- */
@@ -585,29 +586,35 @@
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
         <button class="sm" data-act="editProfile">Modifica</button></div>${c.minor ? '<div class="msg tip">Profilo minorenne: regole di tutela attive. Programma da condividere con l\'allenatore.</div>' : ''}</div>
+      ${GYM ? '' : `
       <div class="card"><h2>Alimentazione su misura</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal/giorno</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="small">Metabolismo basale ${fmt(c.bmr)} kcal · fabbisogno stimato ${fmt(c.tdee)} kcal (${c.delta > 0 ? '+' : ''}${c.delta} per l'obiettivo).</p>${msgs(c.notes.map(t => ({ t })))}
       <h3>Come distribuirle</h3><p class="small">4 pasti con circa <b>${pm} g di proteine</b> ciascuno, carboidrati attorno all'allenamento, verdure ad ogni pasto, acqua ${fmt(c.water, 1)} l.</p>
       <h3>Equivalenze di circa 30 g di proteine</h3><p class="small mute">130 g petto di pollo crudo · 125 g tonno al naturale · 5 albumi + 1 uovo · 250 g yogurt greco · 40 g proteine in polvere · 170 g pesce bianco.</p>
       ${c.minor ? '<div class="msg warn">Per i minorenni: niente integratori e niente bruciagrassi. Le proteine si coprono con il cibo.</div>' : '<div class="msg">Integratori con evidenza: creatina monoidrato 3-5 g/giorno, proteine in polvere solo se non arrivi col cibo. Maltodestrine, destrosio e BCAA non servono per questo obiettivo.</div>'}</div>
       ${intolCard(p)}
+`}
       <div class="card"><h2>Aggiornamenti e richieste</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${ui.update ? ` · <span class="chip warn">disponibile v${esc(ui.update.version)}</span>` : ''}</p>
       <div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}</div>
+      ${GYM ? '</div>' : `
       <h3>Chiedi una modifica o una funzione nuova</h3>
       <textarea id="reqText" style="min-height:90px;font-family:inherit;font-size:.95rem" placeholder="Es. aggiungi un esercizio, cambia i colori, correggi un errore…" aria-label="Richiesta di modifica"></textarea>
       <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="sendReq">Invia richiesta (GitHub)</button><button class="sm" data-act="copyReq">Copia per la chat</button></div>
       <p class="mute small">"Invia" apre GitHub con la richiesta già scritta (serve essere collegati a GitHub). Non vengono inclusi dati personali o di salute: solo versione dell'app e il tuo testo. Chi gestisce l'app la legge e la applica; l'aggiornamento arriva da solo alla prossima apertura.</p>
       ${(S.requests || []).slice(-5).reverse().map(r => `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}<br><span class="mute">${r.date} · ${esc(r.how)}</span></span><button class="ghost sm danger" data-act="delReq" data-id="${r.id}" aria-label="Elimina richiesta">✕</button></div>`).join('')}</div>
+`}
+      ${GYM ? '' : `
       <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORGIA (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
       <input id="aiUrl" placeholder="https://il-tuo-server" value="${esc(S.settings.aiUrl || '')}" aria-label="Indirizzo server IA"><button class="sm" style="margin-top:8px" data-act="saveAI">Salva</button></div>
+`}
       <div class="card"><h2>Backup automatico ogni ${F.BACKUP_EVERY_DAYS} giorni</h2>${backupCard()}</div>
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
 </div>
       <div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
         <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>
-      <p class="mute small">FORGIA dà indicazioni generali di allenamento e alimentazione, non sostituisce medico, fisioterapista o allenatore.</p>`;
+      <p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento${GYM ? '' : ' e alimentazione'}, non sostituisce medico, fisioterapista o allenatore.</p>`;
   }
 
   /* ---------- azioni ---------- */
