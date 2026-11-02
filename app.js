@@ -591,7 +591,8 @@
     const ser = measSeries(p, sel), last = ser[ser.length - 1], first = ser[0], prev = ser[ser.length - 2];
     const d = (a, b) => { const v = Math.round((a - b) * 10) / 10; return (v > 0 ? '+' : '') + v; };
     const lastOf = k => { const s = measSeries(p, k); return s.length ? s[s.length - 1].y : null; };
-    const inputs = F.MEASURES.map(([k, n, u]) => `<div><label for="ms_${k}" style="margin:0">${esc(n)} (${u})</label><input id="ms_${k}" data-ms="${k}" inputmode="decimal" placeholder="${lastOf(k) != null ? lastOf(k) : '—'}" aria-label="${esc(n)}"></div>`).join('');
+    const ORD = ['thighR', 'thighL', 'calfR', 'calfL', 'bicR', 'bicL', 'forR', 'forL', 'weight', 'bf', 'chest', 'waist', 'hip', 'shoulder', 'neck', 'wrist'];
+    const inputs = ORD.map(k => F.MEASURES.find(m => m[0] === k)).map(([k, n, u]) => `<div><label for="ms_${k}" style="margin:0">${esc(n)} (${u})</label><input id="ms_${k}" data-ms="${k}" inputmode="decimal" placeholder="${lastOf(k) != null ? lastOf(k) : '—'}" aria-label="${esc(n)}"></div>`).join('');
     const rows = F.MEASURES.map(([k, n, u]) => { const s = measSeries(p, k); if (!s.length) return ''; const l = s[s.length - 1], pv = s[s.length - 2], f = s[0]; return `<tr><td>${esc(n)}</td><td><b>${fmt(l.y, 1)}</b> ${u}</td><td>${pv ? d(l.y, pv.y) : '—'}</td><td>${s.length > 1 ? d(l.y, f.y) : '—'}</td></tr>`; }).join('');
     const asym = [['thighR', 'thighL', 'Cosce'], ['calfR', 'calfL', 'Polpacci'], ['bicR', 'bicL', 'Bicipiti'], ['forR', 'forL', 'Avambracci']].map(([a, b, n]) => { const x = lastOf(a), y = lastOf(b); return x && y && Math.abs(x - y) / Math.max(x, y) > 0.03 ? `${n}: differenza di ${fmt(Math.abs(x - y), 1)} cm (${x > y ? 'destra' : 'sinistra'} più grande)` : null; }).filter(Boolean);
     return `<div class="card"><h2>Misure corporee</h2>
