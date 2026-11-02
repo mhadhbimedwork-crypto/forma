@@ -1,8 +1,8 @@
 {
-  "version": "1.15.0",
-  "build": 34,
+  "version": "1.15.1",
+  "build": 35,
   "date": "2026-11-02",
   "notes": [
-    "Importa scheda da file: Excel (.xlsx), CSV, PDF con testo e TXT. Riconosce colonne (esercizio, serie, ripetizioni, recupero, carico, RPE, note) e giorni."
+    "Misure: sinistra a sinistra e destra a destra (cosce, polpacci, bicipiti, avambracci)."
   ]
 }
