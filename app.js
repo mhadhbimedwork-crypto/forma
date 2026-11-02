@@ -1039,6 +1039,8 @@
   const X = F.mountExtras({ S: () => S, P, save, render, toast, esc, ui, fmt, lineChart, onSignIn, onSignOut });
   Object.assign(act, X.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
+  /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
+  if (AC.mode === 'admin') { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();

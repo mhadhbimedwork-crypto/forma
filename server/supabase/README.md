@@ -14,3 +14,9 @@ Ruoli: `admin` (fornitore: console separata su `/admin/`, verifica a due passagg
 Regole di sicurezza: nessuno può leggere le password (si reimpostano). L'amministratore legge tutto ma di base non scrive nei dati degli altri: il blocco in scrittura lo gestisce solo lui dalla console (sblocca per il tempo che sceglie, ogni cambio è nel registro). L'accesso dell'amministratore va dichiarato nel contratto e nell'informativa privacy.
 
 Indirizzi: app dei clienti e allenatori `.../gym/`, console amministratore `.../admin/` (non collegata da nessuna parte, `noindex`).
+
+## Sicurezza e backup
+- L'app ha una Content-Security-Policy (niente script esterni) e non invia l'indirizzo di provenienza.
+- Funzione `admin-users`: imposta `ALLOWED_ORIGINS` (indirizzi di /gym/ e /admin/ separati da virgola) per accettare solo quelli.
+- Console amministratore: disconnessione automatica dopo 15 minuti di inattività; verifica a due passaggi obbligatoria.
+- Dopo ogni aggiornamento la console propone (l'admin: parte da sola) il backup Excel di tutti gli utenti da tenere sul PC.

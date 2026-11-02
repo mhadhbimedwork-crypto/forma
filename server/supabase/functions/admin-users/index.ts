@@ -5,7 +5,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const DOMAIN = Deno.env.get('LOGIN_DOMAIN') ?? 'login.tlz.app';
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type, apikey', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
+// CORS: solo gli indirizzi dell'app (variabile ALLOWED_ORIGINS, separati da virgola). Se manca, resta aperto: il token e il controllo dei ruoli proteggono comunque.
+const ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+let cors: Record<string, string> = {};
+const mkCors = (req: Request) => ({ 'Access-Control-Allow-Origin': ORIGINS.length ? (ORIGINS.includes(req.headers.get('Origin') ?? '') ? req.headers.get('Origin')! : ORIGINS[0]) : '*', 'Vary': 'Origin', 'Access-Control-Allow-Headers': 'authorization, content-type, apikey', 'Access-Control-Allow-Methods': 'POST, OPTIONS' });
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const RANK: Record<string, number> = { client: 0, coach: 1, head: 2, admin: 3 };
@@ -13,6 +16,7 @@ const MAY: Record<string, string[]> = { coach: ['client'], head: ['coach', 'clie
 const aalOf = (jwt: string) => { try { return JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).aal; } catch { return null; } };
 
 Deno.serve(async (req) => {
+  cors = mkCors(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');

@@ -163,7 +163,11 @@
       const q = (ui.clQ || '').toLowerCase(), list = X.clients().filter(p => !q || p.name.toLowerCase().includes(q))
         .sort((a, b) => (F.clientStats(b).alerts.length - F.clientStats(a).alerts.length) || a.name.localeCompare(b.name));
       const all = X.clients();
+      const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
+      const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
+      if (needBk && A.isAdmin() && !ui.bkAuto) { ui.bkAuto = true; setTimeout(() => acts.bkUpdate(), 400); }
       return `<h1>Clienti</h1>
+        ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Scarica subito il file Excel con i dati di tutti, da tenere sul PC. Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup completo adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
         <div class="card"><div class="row wrap"><button class="sm primary" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button>
@@ -213,6 +217,7 @@
     acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
     acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: 'clients' }; c.render(); window.scrollTo(0, 0); };
     acts.clientsReload = async () => { ui.clLoaded = false; ui.clBusy = false; await loadClients(); c.render(); toast('Elenco aggiornato'); };
+    acts.bkUpdate = async () => { const all = X.clients(); if (!all.length) return; try { await exportXlsx(all, 'BACKUP_TLZ_v' + F.VERSION.version + '_' + (A.enabled ? 'tutti' : 'profili')); localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); c.render(); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.xlsxClient = t => { const p = find(t.dataset.id); if (p) exportXlsx([p], F.safeName(p.name)); };
