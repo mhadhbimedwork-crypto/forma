@@ -361,6 +361,8 @@
       <div class="card"><h2>Incolla il testo</h2><p class="mute small">Incolla la scheda come l'ha scritta l'allenatore, anche in inglese: <code>Bench press 4x6 @80% rest 2 min</code>, <code>Lat pulldown 3 x 8-10 RPE 8</code>, <code>Squat 5 serie da 5, 75%, recupero 2'</code>. Riconosco serie, ripetizioni, % del massimale, RPE/RIR, recuperi e tempo. Le righe come <code># Giorno 1</code> o <code>Push day:</code> sono i giorni.</p>
       <textarea id="imp_text" placeholder="# Day 1&#10;Bench press 4x6 @80% rest 2 min&#10;Lat pulldown 3x8-10 RPE 8&#10;Leg press 3x12 rec 90s" aria-label="Testo della scheda"></textarea>
       <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button></div>
+      <div class="card"><h2>Da file: Excel, PDF, CSV</h2><p class="mute small">Carica la scheda dell'allenatore come file <b>.xlsx</b>, <b>.csv</b>, <b>.pdf</b> o <b>.txt</b>. Riconosco le colonne (esercizio, serie, ripetizioni, recupero, carico, RPE, note) e i giorni (un foglio per giorno, oppure una riga titolo o la colonna Giorno). I PDF devono contenere testo; se è una scansione usa la foto.</p>
+      <input type="file" id="imp_file" accept=".xlsx,.csv,.pdf,.txt,application/pdf" aria-label="File della scheda"></div>
       <div class="card"><h2>Da foto</h2><p class="mute small">La lettura automatica da foto usa l'IA e richiede il server collegato (Profilo → Server IA). Senza server, incolla il testo qui sopra.</p>
       <input type="file" id="imp_photo" accept="image/*" aria-label="Foto della scheda"><button style="margin-top:8px" data-act="parsePhoto">Leggi foto</button></div>`;
   }

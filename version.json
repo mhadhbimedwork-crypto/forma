@@ -1,8 +1,8 @@
 {
-  "version": "1.14.1",
-  "build": 33,
+  "version": "1.15.0",
+  "build": 34,
   "date": "2026-11-02",
   "notes": [
-    "Importa scheda: tolte le schede di esempio del vecchio personal trainer. Resta solo l'importazione della tua scheda (testo, foto o file)."
+    "Importa scheda da file: Excel (.xlsx), CSV, PDF con testo e TXT. Riconosce colonne (esercizio, serie, ripetizioni, recupero, carico, RPE, note) e giorni."
   ]
 }
