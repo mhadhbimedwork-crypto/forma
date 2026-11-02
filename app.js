@@ -190,11 +190,14 @@
     const done = (p.sessions || []).length;
     let next = '';
     if (plan && plan.days.length) {
-      const cnt = (p.sessions || []).filter(s => s.planId === plan.id).length, idx = cnt % plan.days.length, d = plan.days[idx];
-      const early = F.isReturning(p) && (Date.now() - new Date(plan.createdAt)) / 864e5 < 28;
-      next = `<div class="card hero"><div class="mute small">Prossima seduta · ${esc(plan.title)}</div><h1 style="margin:.1em 0">${esc(d.name)}</h1>
-        <p>${d.exercises.length} esercizi · ${d.exercises.reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>
-        <button class="primary" data-act="startSession" data-day="${idx}">${p.draft && p.draft.planId === plan.id ? 'Riprendi seduta' : 'Inizia'}</button></div>`;
+      const cnt = (p.sessions || []).filter(s => s.planId === plan.id).length, ls = (p.sessions || []).filter(s => s.planId === plan.id).slice(-1)[0], li = ls ? plan.days.findIndex(x => x.name === ls.dayName) : -1, auto = li >= 0 ? (li + 1) % plan.days.length : cnt % plan.days.length;
+      const hasDraft = p.draft && p.draft.planId === plan.id;
+      const idx = hasDraft ? p.draft.dayIdx : (ui.pickDay != null && ui.pickDay < plan.days.length ? ui.pickDay : auto), d = plan.days[idx];
+      const early = early0(p, plan);
+      const picker = hasDraft ? '' : `<div class="row wrap" style="margin:8px 0" role="group" aria-label="Scegli il giorno">${plan.days.map((x, k) => `<button class="sm ${k === idx ? 'primary' : 'ghost'}" data-act="pickDay" data-day="${k}">${esc(x.name.length > 14 ? x.name.slice(0, 14) + '…' : x.name)}${k === auto ? ' ★' : ''}</button>`).join('')}</div><div class="mute small">★ = prossimo giorno in ordine. Scegli tu quello che vuoi fare oggi.</div>`;
+      next = `<div class="card hero"><div class="mute small">${hasDraft ? 'Seduta in corso' : 'Seduta di oggi'} · ${esc(plan.title)}</div><h1 style="margin:.1em 0">${esc(d.name)}</h1>
+        <p>${d.exercises.length} esercizi · ${d.exercises.reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${picker}
+        <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
@@ -746,6 +749,8 @@
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
       p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
+    pickDay(t) { ui.pickDay = +t.dataset.day; render(); },
+    dropDraft() { if (!confirm('Scartare la seduta in corso? I dati inseriti non salvati andranno persi.')) return; P().draft = null; save(); render(); },
     startSession(t) {
       const p = P(), plan = planOf(p); const idx = +t.dataset.day;
       if (!p.draft || p.draft.planId !== plan.id) p.draft = { planId: plan.id, dayIdx: idx, data: {}, started: Date.now() };

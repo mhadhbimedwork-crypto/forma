@@ -1,10 +1,9 @@
 {
-  "version": "1.10.5",
-  "build": 19,
+  "version": "1.10.6",
+  "build": 20,
   "date": "2026-11-02",
   "notes": [
-    "Allenamento guidato: topset con back-off (carico suggerito -15%), EMOM con timer a minuti, myo-reps, dropset e fermi.",
-    "Recupero diverso per ogni serie. Ripetizioni sempre modificabili con − e +. Pulsanti + serie e − serie corretti.",
-    "Le schede importate dall'allenatore non riducono più le serie nella fase di rientro."
+    "Scegli tu il giorno di allenamento dalla home (Giorno 1, 2, 3...). La stella indica il prossimo in ordine.",
+    "Puoi scartare una seduta in corso per cambiare giorno."
   ]
 }
