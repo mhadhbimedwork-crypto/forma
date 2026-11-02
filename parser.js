@@ -90,9 +90,9 @@
 
   /* Tecniche avanzate: topset + back-off, EMOM, myo-reps, dropset, pause, alternative. Le trasforma in serie normali + una nota. */
   function advanced(line) {
-    const notes = [];
+    const notes = []; const tech = {};
     let s = line.trim(); const sp = s.split(/\s+[-–—]\s+/);
-    if (sp.length < 2) return { line, note: '' };
+    if (sp.length < 2) return { line, note: '', tech: null };
     let name = sp[0].trim(), scheme = sp.slice(1).join(' - ').trim();
     // alternativa "A / B - 3x8-10 / EMOM 6'"
     let m = scheme.match(/^(.*?)\s*\/\s*(EMOM\s*\d+.*)$/i);
@@ -101,6 +101,10 @@
     scheme = scheme.replace(/\(([^)]*)\)/g, (all, inner) => {
       if (/^\s*(rir|rpe|@)/i.test(inner) || /^[\s\d\-–.,%]*$/.test(inner) && !/-\s*\d+\s*%/.test(inner)) return all;
       if (/^\s*-\s*\d+\s*%\s*$/.test(inner)) return all;
+      let dm = inner.match(/drop\s*-?set\s*[-–]?\s*(\d+)\s*%/i);
+      if (dm) { const sm = inner.match(/(\d)\s*[ªa°]?\s*serie/i), rm = inner.match(/(\d+)\s*["″”]\s*(?:di\s*)?rest/i) || inner.match(/rest\s*(\d+)/i); tech.drop = { after: sm ? +sm[1] - 1 : 0, pct: +dm[1], rest: rm ? +rm[1] : 30 }; }
+      let pm = inner.match(/(\d+)\s*["″”]\s*fermo(?:\s*ogni\s*(\d+)\s*rep)?/i);
+      if (pm) tech.pause = { sec: +pm[1], every: pm[2] ? +pm[2] : 1 };
       notes.push(inner.trim().replace(/(\d+)\s*["″]/g, '$1 secondi').replace(/\b(\d)a serie\b/g, '$1ª serie')); return ' ';
     });
     // topset + back-off
@@ -108,18 +112,18 @@
     if (m) {
       const n = +m[3];
       notes.unshift(`Serie 1 = topset pesante da ${m[1]}-${m[2]} ripetizioni; poi ${n} serie da ${m[4].replace(/\s/g, '')} ripetizioni${m[5] ? ` con il carico ridotto del ${m[5]}%` : ''}.`);
-      scheme = `${1 + n}x${m[1]}-${m[2]} rest 150s`;
+      scheme = `${1 + n}x${m[1]}-${m[2]} rest 150s`; tech.top = { n, backReps: m[4].replace(/\s/g, ''), pct: m[5] ? +m[5] : 15 };
     }
     // EMOM
     m = scheme.match(/emom\s*(\d+)\s*(?:['’′]|min\w*)?/i);
-    if (m) { notes.unshift(`EMOM ${m[1]} minuti: una serie ogni minuto con ripetizioni sub-massimali (lascia 1-2 ripetizioni di riserva) e riposa il tempo che resta nel minuto.`); scheme = scheme.replace(m[0], ' ') ; scheme = `${m[1]}xMAX ` + scheme.replace(/^\s*\d+\s*[x×]\s*\S+/, ' ') + ' rest 30s'; }
+    if (m) { tech.emom = +m[1]; notes.unshift(`EMOM ${m[1]} minuti: una serie ogni minuto con ripetizioni sub-massimali (lascia 1-2 ripetizioni di riserva) e riposa il tempo che resta nel minuto.`); scheme = scheme.replace(m[0], ' ') ; scheme = `${m[1]}xMAX ` + scheme.replace(/^\s*\d+\s*[x×]\s*\S+/, ' ') + ' rest 30s'; }
     // myo-reps
     m = scheme.match(/\+\s*(\d+)\s*[x×]\s*myo[\s-]?reps?/i);
     if (m) {
       const base = scheme.replace(m[0], ' ').match(/(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)/);
-      if (base) { notes.push('Ultima serie in myo-reps: una serie attivante vicino al cedimento, poi 3-4 mini-serie da 3-5 ripetizioni con 10-15 secondi di pausa.'); scheme = `${+base[1] + +m[1]}x${base[2].replace(/\s/g, '')}`; }
+      if (base) { notes.push('Ultima serie in myo-reps: una serie attivante vicino al cedimento, poi 3-4 mini-serie da 3-5 ripetizioni con 10-15 secondi di pausa.'); scheme = `${+base[1] + +m[1]}x${base[2].replace(/\s/g, '')}`; tech.myo = { sets: +m[1] }; }
     }
-    return { line: `${name} ${scheme.replace(/\s+/g, ' ').trim()}`, note: notes.join(' ') };
+    return { line: `${name} ${scheme.replace(/\s+/g, ' ').trim()}`, note: notes.join(' '), tech: Object.keys(tech).length ? tech : null };
   }
 
   F.parseScheda = function (text) {
@@ -153,9 +157,9 @@
       if (!mt) fl.push('Esercizio non riconosciuto: collegalo a uno della lista.');
       else if (mt.score < 0.75) fl.push(`Riconosciuto come "${mt.ex.name}" (non sicuro): controlla.`);
       if (L.pct && L.pct[0] > 100) fl.push(`Percentuale ${L.pct[0]}% strana: controllala.`);
-      cur.exercises.push({ name: L.name, sets: L.sets, repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
+      cur.exercises.push({ name: L.name, sets: L.sets + (pre.tech && pre.tech.drop ? 1 : 0), repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
         unit: timed ? 'sec' : (mt ? mt.ex.unit : 'reps'), rest: L.rest || defRest || (L.pct && L.pct[1] >= 80 ? 150 : 90), restRead: !!L.rest,
-        pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', pre.note].filter(Boolean).join(' '), flags: fl });
+        tech: pre.tech || null, exact: true, pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', pre.note].filter(Boolean).join(' '), flags: fl });
     }
     return { days, flags: globalFlags };
   };

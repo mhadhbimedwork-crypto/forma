@@ -86,6 +86,7 @@ svg.body{width:100%;height:auto;display:block}
 .sets{width:100%;border-collapse:collapse;margin-top:6px}
 .sets td,.sets th{padding:3px;text-align:center;font-size:.8rem;color:var(--mute);font-weight:500}
 .sets input{text-align:center;padding:6px 2px;min-height:40px;font:600 1rem var(--display)}
+.repcell{display:flex;gap:2px;align-items:center}.repcell input{min-width:34px;width:100%}.repcell button{min-height:36px;min-width:30px;padding:0 6px}
 .sets input[type=checkbox]{width:26px;height:26px;min-height:0;accent-color:var(--accent)}
 details summary{cursor:pointer;color:var(--accent);font-size:.88rem;padding:4px 0}
 .bodies{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:420px;margin:0 auto}

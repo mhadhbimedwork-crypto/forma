@@ -140,15 +140,17 @@
   function playEnd() { if (!soundOn()) return; [0, 0.16, 0.32].forEach(t => tone(880, t, 0.11, 0.3)); tone(1320, 0.5, 0.55, 0.35, 'sawtooth'); }
   function timerBar() {
     if (!ui.timer) return '';
-    return `<div class="timer" role="timer"><span>Recupero <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
+    return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
   }
-  function startTimer(sec) {
-    clearInterval(ui.tick); ui.timer = { left: sec }; audio();
+  const setCount = (d, i, x, early) => d.count && d.count[i] != null ? d.count[i] : Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
+  const repDefault = (x, si) => { const m = String(si.target).match(/(\d+)(?:\D+(\d+))?/); return si.max || !m ? '' : (m[2] || m[1]); };
+  function startTimer(sec, label, onEnd) {
+    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero' }; audio();
     ui.tick = setInterval(() => {
       ui.timer.left--;
       const el = $('#tleft'); if (el) el.textContent = ui.timer.left;
       if (ui.timer.left > 0 && ui.timer.left <= 3) playTick();
-      if (ui.timer.left <= 0) { clearInterval(ui.tick); ui.timer = null; playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } toast('Recupero finito: prossima serie'); const th = $('#timerHost'); if (th) th.innerHTML = ''; }
+      if (ui.timer.left <= 0) { clearInterval(ui.tick); ui.timer = null; playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
     }, 1000);
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
@@ -207,22 +209,46 @@
       <div class="row wrap" style="margin-top:10px"><button class="sm" data-act="askAI">Chiedi all'analista IA</button><span class="mute small">${done} sedute registrate</span></div><div id="aiOut"></div></div>`;
   }
 
+  /* --- tecniche della scheda: ruolo, recupero e carico suggerito per ogni serie --- */
+  const early0 = (p, plan) => F.isReturning(p) && plan.source !== 'importata' && (Date.now() - new Date(plan.createdAt)) / 864e5 < 28;
+  const r25 = v => Math.round(v / 2.5) * 2.5;
+  function setInfo(x, s, cur) {
+    const t = x.tech || {}, o = { role: '', target: F.targetFor(x, s), rest: x.rest || 90, kgHint: null, max: false };
+    const prevKg = (k) => { const v = parseFloat(((cur || [])[k] || {}).kg); return v > 0 ? v : null; };
+    if (t.top) {
+      if (s === 0) { o.role = 'TOPSET'; o.rest = x.restRead ? x.rest : 180; }
+      else if (!(t.drop && s === x.sets - 1)) { o.role = 'BACK-OFF −' + t.top.pct + '%'; o.target = t.top.backReps; o.rest = 120; const b = prevKg(0); if (b) o.kgHint = r25(b * (1 - t.top.pct / 100)); }
+    }
+    if (t.emom) { o.role = 'EMOM ' + (s + 1) + '/' + t.emom; o.rest = 0; }
+    if (t.myo && s === x.sets - 1) { o.role = 'MYO-REPS'; o.rest = 15; o.target = 'attivante + mini-serie'; }
+    if (t.drop) {
+      if (s === x.sets - 1) { o.role = 'DROPSET −' + t.drop.pct + '%'; o.target = 'MAX'; o.max = true; const b = prevKg(s - 1); if (b) o.kgHint = r25(b * (1 - t.drop.pct / 100)); o.rest = x.rest || 90; }
+      else if (s === t.drop.after) o.rest = t.drop.rest;
+    }
+    return o;
+  }
+  function emomStart(i) {
+    const p = P(), plan = planOf(p), x = plan.days[p.draft.dayIdx].exercises[i], n = x.tech.emom;
+    const step = k => { if (k > n) { toast('EMOM finito. Ottimo!'); return; } toast('Minuto ' + k + '/' + n + ': fai la serie ' + k); startTimer(60, 'EMOM ' + k + '/' + n, () => step(k + 1)); };
+    step(1);
+  }
+
   /* --- sessione di allenamento --- */
   function viewSession() {
     const p = P(), plan = planOf(p), d = p.draft;
     if (!plan || !d) { ui.sub = null; return viewHome(); }
-    const day = plan.days[d.dayIdx], early = F.isReturning(p) && (Date.now() - new Date(plan.createdAt)) / 864e5 < 28;
+    const day = plan.days[d.dayIdx], early = early0(p, plan);
     const lastBW = (p.weights || []).slice(-1)[0];
     const blocks = day.exercises.map((x, i) => {
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
-      const n = Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
+      const n = setCount(d, i, x, early);
       const pt = F.pctTarget(p, x), ptKg = pt && !pt.need ? pt.hi : null;
       const rows = []; for (let s = 0; s < n; s++) {
-        const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s];
+        const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s], si = setInfo(x, s, d.data[i]);
         const timed = x.unit === 'sec' || (e && e.unit === 'sec');
-        rows.push(`<tr><td>${s + 1}</td><td class="mute">${esc(F.targetFor(x, s))}</td>
-          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : ''))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
-          <td><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : 'rip'}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"></td>
+        rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}</td>
+          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : '')))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
+          <td class="repcell"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="-1" aria-label="Meno ripetizioni">−</button><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : (repDefault(x, si) || 'rip')}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="1" aria-label="Più ripetizioni">+</button></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>`);
       }
@@ -234,7 +260,7 @@
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
       </div></div>
       <table class="sets"><thead><tr><th>#</th><th>Obiettivo</th><th>${x.unit === 'sec' ? '' : 'Peso'}</th><th>${x.unit === 'sec' ? 'Sec' : 'Rip'}</th><th>RPE</th><th>Fatta</th></tr></thead><tbody>${rows.join('')}</tbody></table>
-      <div class="row" style="margin-top:6px"><button class="ghost sm" data-act="addSet" data-i="${i}">+ serie</button></div></div>`;
+      <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="addSet" data-i="${i}">+ serie</button><button class="ghost sm" data-act="delSet" data-i="${i}">− serie</button>${x.tech && x.tech.emom ? `<button class="primary sm" data-act="emomGo" data-i="${i}">▶ Avvia EMOM ${x.tech.emom}'</button>` : ''}${x.tech && x.tech.myo ? `<button class="sm" data-act="myoGo" data-i="${i}">Pausa myo 15 s</button>` : ''}${x.tech && x.tech.pause ? `<span class="chip">Fermo ${x.tech.pause.sec} s${x.tech.pause.every > 1 ? ' ogni ' + x.tech.pause.every + ' rip' : ' a ogni rip'}</span>` : ''}</div></div>`;
     }).join('');
     return `<div class="row"><button class="ghost" data-act="pauseSession">← Esci (salva bozza)</button></div>
       <h1>${esc(day.name)}</h1>
@@ -729,7 +755,11 @@
     sickClose() { ui.sick = false; render(); },
     sickLog() { const p = P(); p.symptoms = p.symptoms || []; p.symptoms.push({ date: F.todayISO(), at: new Date().toISOString() }); save(); ui.sick = false; render(); toast('Episodio registrato. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.'); },
     pauseSession() { save(); ui.sub = null; render(); },
-    addSet(t) { const d = P().draft, i = +t.dataset.i; d.data[i] = d.data[i] || []; const plan = planOf(P()), x = plan.days[d.dayIdx].exercises[i]; const n = Math.max(d.data[i].length, x.sets); while (d.data[i].length < n + 1) d.data[i].push({}); save(); render(); },
+    rep(t) { const p = P(), d = p.draft, i = +t.dataset.i, s = +t.dataset.s, plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; const base = c.reps != null ? c.reps : (+repDefault(x, si) || 0); c.reps = Math.max(0, base + (+t.dataset.d)); save(); render(); },
+    delSet(t) { const p = P(), d = p.draft, i = +t.dataset.i, plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], n = setCount(d, i, x, early0(p, plan)); if (n <= 1) return; d.count = d.count || {}; d.count[i] = n - 1; d.data[i] = (d.data[i] || []).slice(0, n - 1); save(); render(); },
+    emomGo(t) { emomStart(+t.dataset.i); },
+    myoGo() { startTimer(15, 'Myo-reps: pausa', () => toast('Via: mini-serie da 3-5 rip')); },
+    addSet(t) { const p = P(), d = p.draft, i = +t.dataset.i, plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], n = setCount(d, i, x, early0(p, plan)); d.data[i] = d.data[i] || []; d.count = d.count || {}; d.count[i] = n + 1; while (d.data[i].length < n + 1) d.data[i].push({}); save(); render(); },
     finishSession() {
       const p = P(), plan = planOf(p), d = p.draft, day = plan.days[d.dayIdx];
       const ex = day.exercises.map((x, i) => ({ exId: x.exId, name: x.name, sets: (d.data[i] || []).filter(s => s.done || s.reps != null).map(s => ({ kg: s.kg || 0, reps: s.reps || 0, rpe: s.rpe || null })) })).filter(e => e.sets.length);
@@ -832,7 +862,7 @@
     if (t.id === 'rc_name' || t.id === 'rc_note') { readRecipe(); return; }
     if (t.id === 'rc_por') { readRecipe(); render(); return; }
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
-    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); d.data[i][s].done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i]; startTimer(x.rest || 90); } save(); return; }
+    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
   });

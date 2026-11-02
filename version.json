@@ -1,9 +1,10 @@
 {
-  "version": "1.10.4",
-  "build": 18,
+  "version": "1.10.5",
+  "build": 19,
   "date": "2026-11-02",
   "notes": [
-    "Import scheda più intelligente: riconosce Topset + back-off, EMOM, myo-reps, dropset, pause e alternative, e le trasforma in serie con note.",
-    "Nuovi nomi esercizio riconosciuti (RDL, curl 45°, T-bar, curl con corda, push down)."
+    "Allenamento guidato: topset con back-off (carico suggerito -15%), EMOM con timer a minuti, myo-reps, dropset e fermi.",
+    "Recupero diverso per ogni serie. Ripetizioni sempre modificabili con − e +. Pulsanti + serie e − serie corretti.",
+    "Le schede importate dall'allenatore non riducono più le serie nella fase di rientro."
   ]
 }
