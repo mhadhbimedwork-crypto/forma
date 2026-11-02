@@ -1,8 +1,8 @@
 {
-  "version": "1.13.1",
-  "build": 29,
+  "version": "1.13.2",
+  "build": 30,
   "date": "2026-11-02",
   "notes": [
-    "Misure corporee: destra e sinistra sulla stessa riga (cosce, polpacci, bicipiti, avambracci); le altre misure in fondo."
+    "Misure corporee: peso e massa grassa nella prima riga."
   ]
 }
