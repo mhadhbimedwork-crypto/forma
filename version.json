@@ -1,8 +1,8 @@
 {
-  "version": "1.10.2",
-  "build": 16,
+  "version": "1.10.3",
+  "build": 17,
   "date": "2026-10-29",
   "notes": [
-    "Correzione: gli alimenti trovati online non vengono più segnati in ml per errore (es. pancarrè). Sui tuoi alimenti puoi cambiare l'unità tra grammi e millilitri."
+    "Nuova ricetta modificabile: Pancake fit proteici (albume, yogurt greco, avena, lievito)."
   ]
 }

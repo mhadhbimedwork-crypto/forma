@@ -144,6 +144,7 @@
   f('cacao', 'Cacao amaro', 230, 20, 10, 12, 'Dolci', { al: ['cacao', 'cacao amaro'], lim: { d: 20, t: 'Circa 10-20 g al giorno.' }, pr: 9 });
   f('whey', 'Proteine in polvere (whey)', 400, 80, 8, 6, 'Integratori', { units: [['1 misurino', 30]], al: ['whey', 'proteine in polvere', 'proteine', 'proteine whey', 'protein'], lim: { d: 60, t: 'Fino a 1-2 misurini (30-60 g) al giorno, solo se non arrivi con il cibo.' }, pr: 5 });
   f('creatina', 'Creatina monoidrato', 0, 0, 0, 0, 'Integratori', { units: [['1 dose', 5]], al: ['creatina', 'creatina monoidrato'], lim: { d: 5, t: '3-5 g al giorno, tutti i giorni.' }, pr: 99 });
+  f('lievito', 'Lievito per dolci', 53, 0, 13, 0, 'Altro', { units: [['1 cucchiaino', 5]], al: ['lievito', 'lievito per dolci', 'lievito istantaneo'], lim: { d: 10, t: 'Pochi grammi: 1 cucchiaino per ricetta.' }, pr: 99 });
   f('spezie', 'Spezie / aromi', 0, 0, 0, 0, 'Altro', { al: ['spezie', 'sale', 'pepe', 'curcuma', 'cannella', 'aromi', 'erbe'], pr: 99 });
   F.FOODS = L; F.FOODMAP = Object.fromEntries(L.map(x => [x.id, x]));
   F.FOOD_GROUPS = Array.from(new Set(L.map(x => x.grp)));
@@ -152,6 +153,7 @@
   F.RECIPE_SAMPLES = [
     { id: 'r_torta', name: 'Torta proteica ricotta e cioccolato', portions: 4, items: [['ricotta', 250], ['uovo', 150], ['albume', 100], ['avena', 60], ['miele', 30], ['fondente', 30]], note: 'Mescola, cuoci in forno a 170 °C per 30-35 minuti.' },
     { id: 'r_frullato', name: 'Frullato albume, banana e kefir', portions: 1, items: [['albume', 200], ['banana', 110], ['kefir', 200], ['miele', 10], ['burro_arachidi', 16]], note: 'Frulla tutto con ghiaccio. Usa albume pastorizzato.' },
+    { id: 'r_pancake', name: 'Pancake fit proteici', portions: 3, items: [['albume', 150], ['yogurt_greco', 100], ['avena', 40], ['lievito', 5]], note: 'Ingredienti per circa 6 pancake (1 porzione = 2 pancake). Frulla i fiocchi d\'avena fino a ottenere farina, mescola con albume, yogurt e lievito, aggiungi un aroma a piacere (vaniglia, limone, cannella) e cuoci in padella antiaderente a fuoco medio-basso. Nella ricetta originale i valori per 1 pancake (90 kcal, P 11, C 10, G 1,5) corrispondono in realtà a 2 pancake.' },
     { id: 'r_panino', name: 'Panino con affettato e provola', portions: 1, items: [['panino', 80], ['prosciutto_cotto', 40], ['scamorza', 30]], note: 'Cambia pane, affettato e formaggio con quello che mangia davvero: pesa il panino intero a casa una volta e usa quel peso.' }
   ];
   const r1 = v => Math.round(v * 10) / 10;
