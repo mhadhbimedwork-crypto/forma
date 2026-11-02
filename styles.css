@@ -109,6 +109,9 @@ svg.chart{width:100%;height:auto;display:block}
 .hero .mute{color:#fff;opacity:.85}
 .hero p{margin:.2em 0 .9em}
 .hero button.primary{background:#07090d;color:#fff;box-shadow:none;border:0}
+.hero button.ghost{color:#fff;background:#00000026;border:1px solid #ffffff73;font-weight:700}
+.hero button.sm.primary{border:2px solid #fff;padding:6px 12px;font-size:.88rem;clip-path:none}
+.hero .mute.small{color:#fff;opacity:.9}
 .grid3.k4{grid-template-columns:repeat(2,1fr)}
 @media (min-width:600px){.grid3.k4{grid-template-columns:repeat(4,1fr)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

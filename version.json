@@ -1,8 +1,8 @@
 {
-  "version": "1.11.0",
-  "build": 23,
+  "version": "1.11.1",
+  "build": 24,
   "date": "2026-11-02",
   "notes": [
-    "Preparata la versione per la palestra THE LIFTING ZONE (solo allenamento, dati separati). Questa app non cambia."
+    "Home: i pulsanti dei giorni (Giorno 1, 2, 3) ora sono sempre leggibili, in bianco. Quello scelto ha il bordo evidenziato."
   ]
 }
