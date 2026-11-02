@@ -1,9 +1,8 @@
 {
-  "version": "1.10.6",
-  "build": 20,
+  "version": "1.10.7",
+  "build": 21,
   "date": "2026-11-02",
   "notes": [
-    "Scegli tu il giorno di allenamento dalla home (Giorno 1, 2, 3...). La stella indica il prossimo in ordine.",
-    "Puoi scartare una seduta in corso per cambiare giorno."
+    "Timer di recupero: aggiunto il tasto -30 s accanto a +30 s."
   ]
 }

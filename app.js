@@ -140,7 +140,7 @@
   function playEnd() { if (!soundOn()) return; [0, 0.16, 0.32].forEach(t => tone(880, t, 0.11, 0.3)); tone(1320, 0.5, 0.55, 0.35, 'sawtooth'); }
   function timerBar() {
     if (!ui.timer) return '';
-    return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
+    return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerSub">−30 s</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
   }
   const setCount = (d, i, x, early) => d.count && d.count[i] != null ? d.count[i] : Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
   const repDefault = (x, si) => { const m = String(si.target).match(/(\d+)(?:\D+(\d+))?/); return si.max || !m ? '' : (m[2] || m[1]); };
@@ -773,6 +773,7 @@
       p.sessions.push({ id: 's' + uid(), date: F.todayISO(), planId: plan.id, dayName: day.name, ex }); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
     },
     timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
+    timerSub() { if (ui.timer) { ui.timer.left = Math.max(1, ui.timer.left - 30); const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
     timerAdd() { if (ui.timer) { ui.timer.left += 30; const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
     timerStop() { clearInterval(ui.tick); ui.timer = null; const th = $('#timerHost'); if (th) th.innerHTML = ''; },
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
