@@ -358,8 +358,6 @@
         ${pr.days.map(d => `<div class="card"><h2>${esc(d.name)}</h2>${d.exercises.map(x => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line)"><b>${esc(x.name)}</b> — ${x.sets}× ${esc(F.repsLabel(x))}${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rest ? ' · rec ' + x.rest + 's' : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''} ${x.exId ? `<span class="chip">${esc(F.EXMAP[x.exId].name)}</span>` : '<span class="chip warn">da collegare</span>'}${x.flags.map(f => `<div class="mute">⚠ ${esc(f)}</div>`).join('')}</div>`).join('')}</div>`).join('')}`;
     }
     return `<div class="row"><button class="ghost" data-act="cancelSub">← Annulla</button></div><h1>Importa scheda</h1>
-      <div class="card"><h2>Schede del vecchio personal trainer</h2><p class="mute small">Già trascritte dalle foto: caricale per analizzarle.</p>
-      <div class="row wrap">${F.SAMPLES.map(s => `<button data-act="loadSample" data-id="${s.id}">${esc(s.title)}</button>`).join('')}</div></div>
       <div class="card"><h2>Incolla il testo</h2><p class="mute small">Incolla la scheda come l'ha scritta l'allenatore, anche in inglese: <code>Bench press 4x6 @80% rest 2 min</code>, <code>Lat pulldown 3 x 8-10 RPE 8</code>, <code>Squat 5 serie da 5, 75%, recupero 2'</code>. Riconosco serie, ripetizioni, % del massimale, RPE/RIR, recuperi e tempo. Le righe come <code># Giorno 1</code> o <code>Push day:</code> sono i giorni.</p>
       <textarea id="imp_text" placeholder="# Day 1&#10;Bench press 4x6 @80% rest 2 min&#10;Lat pulldown 3x8-10 RPE 8&#10;Leg press 3x12 rec 90s" aria-label="Testo della scheda"></textarea>
       <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button></div>
@@ -836,7 +834,6 @@
     swap(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), e = F.EXMAP[t.dataset.ex], x = pl.days[+t.dataset.d].exercises[+t.dataset.x]; Object.assign(x, { exId: e.id, name: e.name, unit: e.unit, repsInfo: undefined, reps: x.repsInfo ? '8-12' : x.reps, flags: [], note: '' }); save(); render(); },
     rmEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); pl.days[+t.dataset.d].exercises.splice(+t.dataset.x, 1); save(); render(); },
     addEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), v = $('#add_' + t.dataset.d).value; if (!v) return; const e = F.EXMAP[v]; pl.days[+t.dataset.d].exercises.push({ exId: e.id, name: e.name, sets: 3, setsEarly: 2, reps: e.unit === 'sec' ? '20-40 s' : '8-12', unit: e.unit, rest: 90, note: '' }); save(); render(); },
-    loadSample(t) { const s = F.SAMPLES.find(x => x.id === t.dataset.id); ui.sub.state = { parsed: F.parseScheda(s.text), title: s.title }; render(); window.scrollTo(0, 0); },
     parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, title: 'Scheda importata ' + F.todayISO() }; render(); },
     async parsePhoto() {
       const f = $('#imp_photo').files[0]; if (!f) return toast('Scegli prima una foto');

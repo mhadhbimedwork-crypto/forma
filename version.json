@@ -1,11 +1,8 @@
 {
-  "version": "1.14.0",
-  "build": 32,
+  "version": "1.14.1",
+  "build": 33,
   "date": "2026-11-02",
   "notes": [
-    "Storico dolori: ogni zona ha data, livello, andamento (in aumento, in calo, stabile, azzerato), durata e grafico.",
-    "Excel e CSV: esporta e reimporta tutti i tuoi dati in file ordinati (sedute, progressi, volume per muscolo, dolori, peso, misure, schede).",
-    "Area allenatore: elenco clienti con aderenza, dolori in peggioramento, Excel/CSV di tutti.",
-    "Pronta per il server della palestra: accessi con nome, cognome e password, ruoli cliente, allenatore, titolare e sviluppatore."
+    "Importa scheda: tolte le schede di esempio del vecchio personal trainer. Resta solo l'importazione della tua scheda (testo, foto o file)."
   ]
 }
