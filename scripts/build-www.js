@@ -23,6 +23,19 @@ if (path.basename(out) === '_site') {
     fs.writeFileSync(path.join(g, f), t);
   }
   fs.cpSync('icons', path.join(g, 'icons'), { recursive: true }); fs.cpSync('img', path.join(g, 'img'), { recursive: true }); fs.cpSync('lib', path.join(g, 'lib'), { recursive: true }); fs.cpSync('fonts', path.join(g, 'fonts'), { recursive: true });
+
+  /* Console amministratore: stesso codice, indirizzo separato (/admin/), non collegata da nessuna parte nell'app dei clienti */
+  const ad = path.join(out, 'admin'); fs.mkdirSync(ad, { recursive: true });
+  const acfg = '<script>window.FORMA_GYM = ' + JSON.stringify({ name: 'TLZ CONSOLE', tag: 'AMMINISTRAZIONE', key: 'tlz.admin.v1', mode: 'admin', server }) + ';</script>\n';
+  for (const f of FILES) {
+    let t = fs.readFileSync(f, 'utf8');
+    if (f === 'index.html') t = t.replace('<script src="data.js">', acfg + '<script src="data.js">').replace(/<title>.*?<\/title>/, '<title>TLZ Console</title>').replace('<meta name="viewport"', '<meta name="robots" content="noindex,nofollow">\n<meta name="viewport"').replace('content="#05070c"', 'content="#0b0b0d"').replace('icons/icon.svg', 'icons/gym/icon.svg').replace('icons/apple-touch-icon.png', 'icons/gym/icon-192.png');
+    if (f === 'sw.js') t = t.replace("'forgia-", "'tlzadm-").replace("'icons/icon.svg'", "'icons/gym/icon.svg'").replace("'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png'", "'icons/gym/mark.png', 'icons/gym/icon-192.png', 'icons/gym/icon-512.png'");
+    if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'TLZ Console'; m.short_name = 'TLZ Console'; m.description = 'Amministrazione'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]; t = JSON.stringify(m, null, 1); }
+    fs.writeFileSync(path.join(ad, f), t);
+  }
+  fs.cpSync('icons', path.join(ad, 'icons'), { recursive: true }); fs.cpSync('img', path.join(ad, 'img'), { recursive: true }); fs.cpSync('fonts', path.join(ad, 'fonts'), { recursive: true }); fs.cpSync('lib', path.join(ad, 'lib'), { recursive: true });
+  console.log('Console amministratore in', ad);
   console.log('Versione palestra in', g);
 }
 console.log('Web app copiata in', out);

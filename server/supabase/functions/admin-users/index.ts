@@ -1,4 +1,6 @@
-// Edge Function "admin-users": crea e gestisce gli accessi (nome, cognome, password). Solo staff autorizzato.
+// Edge Function "admin-users": crea e gestisce palestre e accessi (nome, cognome, password). Nessuno può leggere le password: si reimpostano.
+// Gerarchia: admin (fornitore) → head (allenatore principale della palestra) → coach → client.
+// L'admin è in sola lettura sui dati dei clienti finché non toglie il blocco (admin_lock, solo lui, con 2FA); "restore_data" richiede il blocco tolto e un motivo, ed è sempre registrata.
 // Deploy: supabase functions deploy admin-users   (usa SUPABASE_SERVICE_ROLE_KEY, mai esposta all'app)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -6,7 +8,9 @@ const DOMAIN = Deno.env.get('LOGIN_DOMAIN') ?? 'login.tlz.app';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type, apikey', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-const RANK: Record<string, number> = { client: 0, coach: 1, owner: 2, dev: 3 };
+const RANK: Record<string, number> = { client: 0, coach: 1, head: 2, admin: 3 };
+const MAY: Record<string, string[]> = { coach: ['client'], head: ['coach', 'client'], admin: ['head', 'coach', 'client'] };
+const aalOf = (jwt: string) => { try { return JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).aal; } catch { return null; } };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -14,41 +18,85 @@ Deno.serve(async (req) => {
   const jwt = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
   const { data: u } = await admin.auth.getUser(jwt);
   if (!u?.user) return json({ error: 'non autenticato' }, 401);
-  const { data: me } = await admin.from('profiles').select('id, role, active').eq('id', u.user.id).single();
+  const { data: me } = await admin.from('profiles').select('id, role, active, gym_id').eq('id', u.user.id).single();
   if (!me?.active || RANK[me.role] < 1) return json({ error: 'non autorizzato' }, 403);
+  if (me.role === 'admin' && aalOf(jwt) !== 'aal2') return json({ error: 'serve la verifica a due passaggi' }, 403);
+  if (me.gym_id) { const { data: g } = await admin.from('gyms').select('active').eq('id', me.gym_id).single(); if (!g?.active) return json({ error: 'palestra disattivata' }, 403); }
   const b = await req.json().catch(() => ({}));
   const log = (action: string, target: string | null, detail: unknown = {}) => admin.from('audit_log').insert({ actor: me.id, action, target, detail });
+  const mayManage = (t: { id: string; role: string; gym_id: string | null; coach_id: string | null }) =>
+    t.id !== me.id && (me.role === 'admin' || (t.gym_id === me.gym_id && RANK[t.role] < RANK[me.role] && (me.role === 'head' || t.coach_id === me.id)));
 
-  if (b.action === 'create') {
-    const role = b.role ?? 'client';
-    const may: Record<string, string[]> = { coach: ['client'], owner: ['client', 'coach'], dev: ['client', 'coach', 'owner', 'dev'] };
-    if (!(may[me.role] ?? []).includes(role)) return json({ error: 'ruolo non consentito' }, 403);
-    const name = String(b.name ?? '').trim(), surname = String(b.surname ?? '').trim(), pass = String(b.password ?? '');
-    if (!name || !surname || pass.length < 8) return json({ error: 'servono nome, cognome e password di almeno 8 caratteri' }, 400);
+  async function makeUser(name: string, surname: string, pass: string, role: string, gym_id: string | null, extra: Record<string, unknown>) {
+    if (!name || !surname || pass.length < 8) return { error: 'servono nome, cognome e password di almeno 8 caratteri' };
     const base = `${slug(name)}.${slug(surname)}`; let username = base, n = 2;
     while ((await admin.from('profiles').select('id').eq('username', username).maybeSingle()).data) username = `${base}${n++}`;
     const { data: c, error } = await admin.auth.admin.createUser({ email: `${username}@${DOMAIN}`, password: pass, email_confirm: true });
-    if (error || !c.user) return json({ error: error?.message ?? 'creazione non riuscita' }, 400);
-    const row = { id: c.user.id, username, full_name: `${name} ${surname}`, role, birth: b.birth ?? null, coach_id: role === 'client' ? (b.coach_id ?? (me.role === 'coach' ? me.id : null)) : null, must_change_password: true, created_by: me.id };
+    if (error || !c.user) return { error: error?.message ?? 'creazione non riuscita' };
+    const row = { id: c.user.id, username, full_name: `${name.trim()} ${surname.trim()}`, role, gym_id, must_change_password: true, created_by: me.id, ...extra };
     const { error: e2 } = await admin.from('profiles').insert(row);
-    if (e2) { await admin.auth.admin.deleteUser(c.user.id); return json({ error: e2.message }, 400); }
-    if (b.consent) await admin.from('consents').insert((['privacy', 'dati_salute', 'termini'] as const).map((kind) => ({ user_id: c.user!.id, kind, version: String(b.consent.version ?? '1'), is_minor: !!b.consent.is_minor, guardian_name: b.consent.guardian_name ?? null, guardian_contact: b.consent.guardian_contact ?? null, recorded_by: me.id })));
-    await log('create_user', c.user.id, { role, username });
-    return json({ ok: true, id: c.user.id, username });
+    if (e2) { await admin.auth.admin.deleteUser(c.user.id); return { error: e2.message }; }
+    return { id: c.user.id, username };
+  }
+
+  if (b.action === 'create_gym') {
+    if (me.role !== 'admin') return json({ error: 'solo l\'amministratore crea palestre' }, 403);
+    const gname = String(b.gym_name ?? '').trim(); if (!gname) return json({ error: 'manca il nome della palestra' }, 400);
+    const { data: g, error: eg } = await admin.from('gyms').insert({ name: gname }).select('id').single(); if (eg) return json({ error: eg.message }, 400);
+    const r = await makeUser(String(b.name ?? ''), String(b.surname ?? ''), String(b.password ?? ''), 'head', g.id, { birth: b.birth ?? null });
+    if ('error' in r) { await admin.from('gyms').delete().eq('id', g.id); return json({ error: r.error }, 400); }
+    await log('create_gym', r.id, { gym: gname, gym_id: g.id }); return json({ ok: true, gym_id: g.id, ...r });
+  }
+  if (b.action === 'set_gym_active') {
+    if (me.role !== 'admin') return json({ error: 'non autorizzato' }, 403);
+    await admin.from('gyms').update({ active: !!b.active }).eq('id', b.gym_id); await log('set_gym_active', null, { gym_id: b.gym_id, active: !!b.active }); return json({ ok: true });
+  }
+  if (b.action === 'create') {
+    const role = String(b.role ?? 'client'); if (!(MAY[me.role] ?? []).includes(role)) return json({ error: 'ruolo non consentito' }, 403);
+    const gym_id = me.role === 'admin' ? (b.gym_id ?? null) : me.gym_id; if (!gym_id) return json({ error: 'manca la palestra' }, 400);
+    const coach_id = role === 'client' ? (me.role === 'coach' ? me.id : (b.coach_id ?? (me.role === 'head' ? me.id : null))) : null;
+    const r = await makeUser(String(b.name ?? ''), String(b.surname ?? ''), String(b.password ?? ''), role, gym_id, { birth: b.birth ?? null, coach_id, can_see_all: role === 'coach' ? !!b.can_see_all : false });
+    if ('error' in r) return json({ error: r.error }, 400);
+    if (b.consent) await admin.from('consents').insert((['privacy', 'dati_salute', 'termini'] as const).map((kind) => ({ user_id: r.id, kind, version: String(b.consent.version ?? '1'), is_minor: !!b.consent.is_minor, guardian_name: b.consent.guardian_name ?? null, guardian_contact: b.consent.guardian_contact ?? null, recorded_by: me.id })));
+    await log('create_user', r.id, { role, username: r.username }); return json({ ok: true, ...r });
   }
   const target = String(b.user_id ?? '');
-  const { data: t } = await admin.from('profiles').select('id, role, coach_id').eq('id', target).single();
+  const { data: t } = await admin.from('profiles').select('id, role, gym_id, coach_id').eq('id', target).single();
   if (!t) return json({ error: 'utente non trovato' }, 404);
-  if ((RANK[t.role] >= RANK[me.role] && me.role !== 'dev') || me.role === 'coach' && t.coach_id && t.coach_id !== me.id) return json({ error: 'non autorizzato su questo utente' }, 403);
+  if (!mayManage(t)) return json({ error: 'non autorizzato su questo utente' }, 403);
   if (b.action === 'reset_password') {
     const pass = String(b.password ?? ''); if (pass.length < 8) return json({ error: 'password troppo corta' }, 400);
     const { error } = await admin.auth.admin.updateUserById(target, { password: pass }); if (error) return json({ error: error.message }, 400);
     await admin.from('profiles').update({ must_change_password: true }).eq('id', target); await log('reset_password', target); return json({ ok: true });
   }
-  if (b.action === 'set_active') { await admin.from('profiles').update({ active: !!b.active }).eq('id', target); await log('set_active', target, { active: !!b.active }); return json({ ok: true }); }
-  if (b.action === 'delete') { // diritto alla cancellazione: elimina account e tutti i dati collegati
-    if (RANK[me.role] < 2) return json({ error: 'solo titolare o sviluppatore' }, 403);
-    await log('delete_user', target); const { error } = await admin.auth.admin.deleteUser(target); return error ? json({ error: error.message }, 400) : json({ ok: true });
+  if (b.action === 'set_active') {
+    await admin.from('profiles').update({ active: !!b.active }).eq('id', target);
+    if (!b.active && t.role === 'coach') { // i clienti dell'allenatore passano all'allenatore principale: nulla va perso
+      const { data: h } = await admin.from('profiles').select('id').eq('gym_id', t.gym_id).eq('role', 'head').eq('active', true).limit(1).maybeSingle();
+      if (h) await admin.from('profiles').update({ coach_id: h.id }).eq('coach_id', target);
+    }
+    await log('set_active', target, { active: !!b.active }); return json({ ok: true });
+  }
+  if (b.action === 'set_perms') {
+    if (t.role !== 'coach' || me.role === 'coach') return json({ error: 'non consentito' }, 403);
+    await admin.from('profiles').update({ can_see_all: !!b.can_see_all }).eq('id', target); await log('set_perms', target, { can_see_all: !!b.can_see_all }); return json({ ok: true });
+  }
+  if (b.action === 'assign_coach') { // sposta un cliente a un altro allenatore della stessa palestra
+    if (t.role !== 'client' || me.role === 'coach') return json({ error: 'non consentito' }, 403);
+    const { data: c } = await admin.from('profiles').select('id, gym_id, role').eq('id', b.coach_id).single();
+    if (!c || c.gym_id !== t.gym_id || !['coach', 'head'].includes(c.role)) return json({ error: 'allenatore non valido' }, 400);
+    await admin.from('profiles').update({ coach_id: c.id }).eq('id', target); await log('assign_coach', target, { coach_id: c.id }); return json({ ok: true });
+  }
+  if (b.action === 'restore_data') { // unica scrittura dell'admin sui dati: su richiesta della palestra, con motivo, sempre registrata
+    if (me.role !== 'admin') return json({ error: 'solo l\'amministratore' }, 403);
+    const { data: lk } = await admin.from('admin_lock').select('open').eq('id', true).single();
+    if (!lk?.open) return json({ error: 'blocco in scrittura attivo: sbloccalo dalla console' }, 403);
+    if (!String(b.reason ?? '').trim() || typeof b.data !== 'object') return json({ error: 'servono motivo e dati da ripristinare' }, 400);
+    await admin.from('client_data').upsert({ user_id: target, data: b.data, device: 'ripristino' }); await log('restore_data', target, { reason: String(b.reason).slice(0, 300) }); return json({ ok: true });
+  }
+  if (b.action === 'delete') { // diritto alla cancellazione: account e tutti i dati collegati
+    if (RANK[me.role] < 2) return json({ error: 'solo allenatore principale o amministratore' }, 403);
+    await log('delete_user', target, { role: t.role }); const { error } = await admin.auth.admin.deleteUser(target); return error ? json({ error: error.message }, 400) : json({ ok: true });
   }
   return json({ error: 'azione sconosciuta' }, 400);
 });

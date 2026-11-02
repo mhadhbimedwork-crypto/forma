@@ -1,8 +1,10 @@
 {
-  "version": "1.15.1",
-  "build": 35,
+  "version": "1.16.0",
+  "build": 36,
   "date": "2026-11-02",
   "notes": [
-    "Misure: sinistra a sinistra e destra a destra (cosce, polpacci, bicipiti, avambracci)."
+    "Palestre e ruoli: amministratore, allenatore principale, allenatore e cliente, ognuno con i suoi poteri.",
+    "Console amministratore separata con verifica a due passaggi, creazione palestre, reimpostazione password e attivazione/disattivazione.",
+    "Blocco in scrittura dell'amministratore: lo gestisce solo lui."
   ]
 }

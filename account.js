@@ -3,14 +3,16 @@
 (function (F) {
   'use strict';
   const cfg = (window.FORMA_GYM && window.FORMA_GYM.server) || null;
-  const KEY = 'tlz.acct', ROLES = { client: 'Cliente', coach: 'Allenatore', owner: 'Titolare', dev: 'Sviluppatore' };
+  const KEY = 'tlz.acct', ROLES = { client: 'Cliente', coach: 'Allenatore', head: 'Allenatore principale', admin: 'Amministratore' };
   F.ROLE_LABEL = ROLES;
   const A = F.Account = { enabled: !!(cfg && cfg.url && cfg.anonKey), roles: ROLES, me: null };
   const slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const domain = () => (cfg && cfg.loginDomain) || 'login.tlz.app';
   A.emailOf = (name, surname) => `${slug(name)}.${slug(surname)}@${domain()}`;
-  A.staff = () => !!(A.me && ['coach', 'owner', 'dev'].includes(A.me.role));
-  A.isDev = () => !!(A.me && A.me.role === 'dev');
+  A.staff = () => !!(A.me && ['coach', 'head', 'admin'].includes(A.me.role));
+  A.isAdmin = () => !!(A.me && A.me.role === 'admin');
+  A.isDev = A.isAdmin; A.isHead = () => !!(A.me && A.me.role === 'head');
+  A.mode = (window.FORMA_GYM && window.FORMA_GYM.mode) || 'app';   // 'admin' = console amministratore (indirizzo separato)
 
   let tok = null; try { tok = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { }
   const store = () => { try { tok ? localStorage.setItem(KEY, JSON.stringify(tok)) : localStorage.removeItem(KEY); } catch (e) { } };
@@ -32,15 +34,29 @@
   A._rest = rest;
 
   async function loadMe() {
-    const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password');
+    const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all');
     if (!rows.length || !rows[0].active) { tok = null; store(); throw new Error('account non attivo'); }
-    return (A.me = rows[0]);
+    if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
+    if (A.mode !== 'admin' && rows[0].role === 'admin') { tok = null; store(); throw new Error('Usa l\'indirizzo della console amministratore'); }
+    A.me = rows[0]; A.gym = null;
+    if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
+    A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2';
+    return A.me;
   }
   /** Ripristina una sessione già aperta (all'avvio). */
   A.restore = async function () { if (!A.enabled || !tok) return null; try { return await loadMe(); } catch (e) { if (e.status === 401 || /scaduta|attivo/.test(e.message)) { tok = null; store(); } return null; } };
   A.signIn = async function (name, surname, password) {
     const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) }).catch(e => { throw new Error(e.status === 400 ? 'Nome, cognome o password non corretti' : e.message); });
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }; store(); return loadMe();
+  };
+  /* ---- verifica a due passaggi (TOTP) per l'amministratore ---- */
+  A.aal = () => { try { return JSON.parse(atob(tok.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).aal || 'aal1'; } catch (e) { return 'aal1'; } };
+  A.mfaFactor = async () => { const u = await api('/auth/v1/user'); return (u.factors || []).find(f => f.factor_type === 'totp' && f.status === 'verified') || null; };
+  A.mfaEnroll = () => api('/auth/v1/factors', { method: 'POST', body: JSON.stringify({ factor_type: 'totp', friendly_name: 'Console ' + Date.now().toString(36) }) });
+  A.mfaVerify = async function (factorId, code) {
+    const ch = await api('/auth/v1/factors/' + factorId + '/challenge', { method: 'POST', body: '{}' });
+    const b = await api('/auth/v1/factors/' + factorId + '/verify', { method: 'POST', body: JSON.stringify({ challenge_id: ch.id, code: String(code).replace(/\s/g, '') }) }).catch(e => { throw new Error('Codice non valido'); });
+    tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user || tok.user, at: Date.now() }; store(); A.needMfa = false; return true;
   };
   A.signOut = function () { tok = null; A.me = null; store(); };
   A.changePassword = async function (pw) {
@@ -68,10 +84,18 @@
 
   /* ---- area staff ---- */
   A.listClients = async function () {
-    const rows = await rest('client_data?select=user_id,updated_at,version,data,profile:profiles!client_data_user_id_fkey(id,username,full_name,role,birth,active,coach_id,must_change_password)');
+    const rows = await rest('client_data?select=user_id,updated_at,version,data,profile:profiles!client_data_user_id_fkey(id,username,full_name,role,birth,active,coach_id,gym_id,must_change_password)');
     return rows.filter(r => r.profile && r.profile.role === 'client').map(r => Object.assign({}, r.data, { _uid: r.user_id, _updated: r.updated_at, _acct: r.profile }));
   };
-  A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,must_change_password,created_at&order=created_at.desc');
+  A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,gym_id,can_see_all,must_change_password,created_at&order=created_at.desc');
+  A.listGyms = () => rest('gyms?select=id,name,active,created_at&order=name');
+  A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
+  A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
+  A.setPerms = (uid, can_see_all) => admin({ action: 'set_perms', user_id: uid, can_see_all });
+  A.assignCoach = (uid, coach_id) => admin({ action: 'assign_coach', user_id: uid, coach_id });
+  A.lockState = async () => { const r = await rest('admin_lock?select=open'); return { open: !!(r[0] && r[0].open) }; };
+  A.setLock = unlock => rest('rpc/set_admin_lock', { method: 'POST', body: JSON.stringify({ unlock: !!unlock }) });
+  A.restoreData = (uid, data, reason) => admin({ action: 'restore_data', user_id: uid, data, reason });
   A.logAccess = (uid, act) => rest('rpc/log_access', { method: 'POST', body: JSON.stringify({ target: uid, act }) }).catch(() => { });
   const admin = body => api('/functions/v1/admin-users', { method: 'POST', body: JSON.stringify(body) });
   A.createUser = o => admin(Object.assign({ action: 'create' }, o));

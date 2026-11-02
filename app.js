@@ -124,12 +124,13 @@
         ${AC.enabled ? '' : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X && X.showClients() ? [['clients', 'Clienti', ICON.user]] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me'].includes(x[0]));
+    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   function gate() {
     if (!AC.enabled) return null;
     if (!AC.me) return X.views.login();
+    if (AC.needMfa) return X.views.mfa();
     if (AC.me.must_change_password) return X.views.newPassword();
     if (ui.consent === false) return X.views.consent();
     return null;
@@ -138,11 +139,11 @@
     const p = P(), g = gate(), staff = !!(X && X.showClients());
     let body;
     if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span></div></header><main>${g}</main>`; return; }
-    if (!p && staff && !ui.sub && !['clients', 'me'].includes(ui.tab)) ui.tab = 'clients';
+    if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team'].includes(ui.tab)) ui.tab = X.homeTab();
     const XV = X ? Object.assign({}, X.views) : {};
-    if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev'].includes(ui.sub.type)) && !(staff && ['clients', 'me'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev }[ui.sub.type] || (() => ''))();
-    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients }[ui.tab])();
+    if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
+    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
     $('#app').innerHTML = header() + `<main>${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
@@ -974,7 +975,7 @@
     const t = e.target.closest('[data-act]'); if (t && act[t.dataset.act]) act[t.dataset.act](t, e);
   });
   document.addEventListener('submit', e => {
-    if (e.target.id !== 'pform') { if (X && ['loginForm', 'pwForm', 'newClientForm', 'assignForm'].includes(e.target.id)) { e.preventDefault(); X.onSubmit(e.target); } return; } e.preventDefault();
+    if (e.target.id !== 'pform') { if (X && X.forms.includes(e.target.id)) { e.preventDefault(); X.onSubmit(e.target); } return; } e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target).entries());
     const base = { name: fd.name.trim(), birth: fd.birth, sex: fd.sex, height: +fd.height, weight: +fd.weight, goal: fd.goal, waist: +fd.waist || 0, bf: +fd.bf || 0, style: fd.style, days: +fd.days, level: +fd.level, stopMonths: +fd.stopMonths || 0 };
     if (new Date(base.birth) > new Date()) return toast('Data di nascita non valida');
@@ -1018,7 +1019,7 @@
 
   /* ---------- area allenatore, sviluppatore, account ---------- */
   async function onSignIn() {
-    ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? 'clients' : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
+    ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
     if (AC.me.must_change_password) return render();
     ui.consent = true;
     if (!AC.staff()) { try { ui.consent = (await AC._rest('consents?user_id=eq.' + AC.me.id + '&kind=eq.privacy&select=id&limit=1')).length > 0; } catch (e) { ui.consent = true; } }

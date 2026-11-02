@@ -10,8 +10,15 @@
     const tr = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '';
     const arrow = st => ({ up: '▲', down: '▼', clear: '✓', new: '●', flat: '■' }[st] || '');
     const staffMode = () => A.enabled ? A.staff() : !!S().settings.staffMode;
-    const devMode = () => A.enabled ? A.isDev() : !!S().settings.devMode;
+    const devMode = () => A.enabled ? A.isAdmin() : !!S().settings.devMode;
     X.showClients = staffMode; X.showDev = devMode;
+    X.forms = ['loginForm', 'pwForm', 'newClientForm', 'assignForm', 'mfaForm', 'newGymForm'];
+    X.tabs = I => {
+      if (!staffMode()) return [];
+      if (!A.enabled) return [['clients', 'Clienti', I.user]];
+      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head') t.push(['team', 'Team', I.plan]); return t;
+    };
+    X.homeTab = () => (A.enabled && A.me && A.me.role === 'admin' ? 'gyms' : 'clients');
 
     /* ---------- storico dolori ---------- */
     function spark(days, today) {
@@ -74,7 +81,7 @@
 
     /* ---------- accesso (versione con server) ---------- */
     views.login = function () {
-      return `<div class="card hero"><h1>Accedi</h1><p>Usa nome, cognome e password ricevuti dalla palestra.</p></div>
+      return `<div class="card hero"><h1>${A.mode === 'admin' ? 'Console amministratore' : 'Accedi'}</h1><p>${A.mode === 'admin' ? 'Accesso riservato. Serve la verifica a due passaggi.' : 'Usa nome, cognome e password ricevuti dalla palestra.'}</p></div>
         <form class="card" id="loginForm" autocomplete="on"><label for="lg_n">Nome</label><input id="lg_n" name="name" autocomplete="given-name" required value="${esc(ui.lgN || '')}">
         <label for="lg_s">Cognome</label><input id="lg_s" name="surname" autocomplete="family-name" required value="${esc(ui.lgS || '')}">
         <label for="lg_p">Password</label><input id="lg_p" name="password" type="password" autocomplete="current-password" required>
@@ -112,12 +119,20 @@
         if (fd.pw1 !== fd.pw2) { ui.authErr = 'Le due password non coincidono'; c.render(); return true; }
         try { await A.changePassword(fd.pw1); toast('Password aggiornata'); await c.onSignIn(); } catch (e) { ui.authErr = e.message; c.render(); } return true;
       }
+      if (form.id === 'mfaForm') {
+        const fd = Object.fromEntries(new FormData(form).entries());
+        try { await A.mfaVerify(ui.mfa.id, fd.code); ui.mfa = null; await c.onSignIn(); } catch (e) { ui.mfa.err = e.message; c.render(); } return true;
+      }
+      if (form.id === 'newGymForm') {
+        const fd = Object.fromEntries(new FormData(form).entries());
+        try { const r = await A.createGym({ gym_name: fd.gym, name: fd.name, surname: fd.surname, password: fd.password, birth: fd.birth || null }); ui.sub = null; ui.tab = 'gyms'; ui.admLoaded = false; toast('Palestra creata. Accesso: ' + r.username); c.render(); } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
+      }
       if (form.id === 'newClientForm') {
-        const fd = Object.fromEntries(new FormData(form).entries()), minor = fd.birth && F.ageOf(fd.birth) < 18;
+        const fd = Object.fromEntries(new FormData(form).entries()), minor = fd.role === 'client' && fd.birth && F.ageOf(fd.birth) < 18, back = ui.sub && ui.sub.back || 'clients';
         if (minor && (!fd.guardian || !fd.guardianOk)) { toast('Per un minorenne servono nome del genitore e conferma del consenso'); return true; }
         try {
-          const r = await A.createUser({ name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', consent: fd.consentOk || minor ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
-          ui.sub = null; toast('Account creato: ' + r.username); await loadClients(); c.render();
+          const r = await A.createUser({ name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', can_see_all: !!fd.canSeeAll, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
+          ui.sub = null; ui.tab = back; ui.admLoaded = false; toast('Account creato: ' + r.username); await loadClients(); c.render();
         } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
       }
       if (form.id === 'assignForm') {
@@ -176,27 +191,27 @@
         <div class="card"><h2>Ultime sedute</h2>${sessionsDetail(p)}</div>
         ${ex.length ? `<div class="card"><h2>Progressi per esercizio</h2><table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Esercizio</th><th>Sedute</th><th>Miglior 1RM</th><th>Var.</th></tr></thead><tbody>${ex.map(o => `<tr><td style="text-align:left">${esc(o.name)}</td><td>${o.sessions}</td><td>${o.bestE1 || '–'}</td><td>${o.change == null ? '–' : (o.change > 0 ? '+' : '') + o.change + '%'}</td></tr>`).join('')}</tbody></table></div>` : ''}
         ${ws.length > 1 ? `<div class="card"><h2>Peso</h2>${c.lineChart(ws, 'kg')}</div>` : ''}
-        ${can ? `<div class="card"><h2>Invia una scheda</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" placeholder="Es. Scheda forza novembre">
+        ${can && role !== 'admin' ? `<div class="card"><h2>Invia una scheda</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" placeholder="Es. Scheda forza novembre">
           <label for="as_b">Testo della scheda (come dal personal trainer)</label><textarea id="as_b" name="body" style="min-height:120px;font-family:inherit" placeholder="Giorno 1&#10;Panca piana 4x6-8 rec 120s&#10;…"></textarea>
-          <button class="primary" style="margin-top:8px">Invia al cliente</button></form><p class="mute small">Il cliente la trova nella schermata iniziale e la importa con un tocco.</p></div>
-        <div class="card"><h2>Account</h2><div class="row wrap"><button class="sm" data-act="clientReset" data-id="${esc(uidOf(p))}">Reimposta password</button><button class="sm" data-act="clientActive" data-id="${esc(uidOf(p))}">${acct.active ? 'Disattiva accesso' : 'Riattiva accesso'}</button>${role === 'owner' || role === 'dev' ? `<button class="sm danger" data-act="clientDelete" data-id="${esc(uidOf(p))}">Elimina account e dati</button>` : ''}</div></div>` : ''}`;
+          <button class="primary" style="margin-top:8px">Invia al cliente</button></form><p class="mute small">Il cliente la trova nella schermata iniziale e la importa con un tocco.</p></div>` : ''}
+        ${can ? `<div class="card"><h2>Account</h2>${acctExtra(p)}<div class="row wrap"><button class="sm" data-act="clientReset" data-id="${esc(uidOf(p))}">Reimposta password</button><button class="sm" data-act="clientActive" data-id="${esc(uidOf(p))}">${acct.active ? 'Disattiva accesso' : 'Riattiva accesso'}</button>${role === 'head' || role === 'admin' ? `<button class="sm danger" data-act="clientDelete" data-id="${esc(uidOf(p))}">Elimina account e dati</button>` : ''}</div></div>` : ''}`;
     };
     views.newClient = function () {
-      const owner = A.me && (A.me.role === 'owner' || A.me.role === 'dev');
-      return `<div class="row"><button class="ghost" data-act="clientBack">← Clienti</button></div><h1>Nuovo account</h1>
-        <form class="card" id="newClientForm" autocomplete="off"><label for="nc_n">Nome</label><input id="nc_n" name="name" required><label for="nc_s">Cognome</label><input id="nc_s" name="surname" required>
-        <label for="nc_b">Data di nascita</label><input id="nc_b" name="birth" type="date" required max="${F.todayISO()}">
-        <label for="nc_p">Password iniziale (min. 8 caratteri)</label><input id="nc_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso la persona sceglierà la propria password. Tu potrai sempre vedere i suoi dati e reimpostarla.</p>
-        ${owner ? `<label for="nc_r">Ruolo</label><select id="nc_r" name="role"><option value="client">Cliente</option><option value="coach">Allenatore</option>${A.me.role === 'dev' ? '<option value="owner">Titolare</option>' : ''}</select>` : ''}
-        <h3>Consenso</h3><label class="row" style="gap:8px"><input type="checkbox" name="consentOk" style="width:auto"> <span class="small">Ho raccolto il consenso firmato al trattamento dei dati (anche di salute).</span></label>
+      const role = (ui.sub && ui.sub.role) || 'client', isC = role === 'client', back = (ui.sub && ui.sub.back) || 'clients';
+      return `<div class="row"><button class="ghost" data-act="clientBack">← Indietro</button></div><h1>${isC ? 'Nuovo cliente' : 'Nuovo allenatore'}</h1>
+        <form class="card" id="newClientForm" autocomplete="off"><input type="hidden" name="role" value="${role}"><label for="nc_n">Nome</label><input id="nc_n" name="name" required><label for="nc_s">Cognome</label><input id="nc_s" name="surname" required>
+        ${isC ? `<label for="nc_b">Data di nascita</label><input id="nc_b" name="birth" type="date" required max="${F.todayISO()}">` : ''}
+        <label for="nc_p">Password iniziale (min. 8 caratteri)</label><input id="nc_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso la persona sceglierà la propria password, che nessuno può leggere. Potrai reimpostarla se la dimentica.</p>
+        ${isC ? `<h3>Consenso</h3><label class="row" style="gap:8px"><input type="checkbox" name="consentOk" style="width:auto"> <span class="small">Ho raccolto il consenso firmato al trattamento dei dati (anche di salute).</span></label>
         <div class="mute small" style="margin-top:6px">Se la persona è minorenne compila anche i dati del genitore o tutore:</div>
         <input name="guardian" placeholder="Nome e cognome del genitore/tutore"><input name="guardianContact" placeholder="Telefono o email del genitore/tutore">
-        <label class="row" style="gap:8px"><input type="checkbox" name="guardianOk" style="width:auto"> <span class="small">Il genitore/tutore ha firmato il consenso.</span></label>
+        <label class="row" style="gap:8px"><input type="checkbox" name="guardianOk" style="width:auto"> <span class="small">Il genitore/tutore ha firmato il consenso.</span></label>`
+        : `<label class="row" style="gap:8px;margin-top:8px"><input type="checkbox" name="canSeeAll" style="width:auto"> <span class="small">Può vedere i clienti di tutta la palestra (altrimenti solo i suoi)</span></label>`}
         <button class="primary" style="margin-top:12px;width:100%">Crea account</button></form>`;
     };
     acts.clientOpen = t => { ui.sub = { type: 'client', uid: t.dataset.id }; const p = find(t.dataset.id); if (A.enabled && p && p._acct) A.logAccess(p._uid, 'view_client'); c.render(); window.scrollTo(0, 0); };
-    acts.clientBack = () => { ui.sub = null; ui.tab = 'clients'; c.render(); };
-    acts.clientNew = () => { ui.sub = { type: 'newClient' }; c.render(); window.scrollTo(0, 0); };
+    acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
+    acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: 'clients' }; c.render(); window.scrollTo(0, 0); };
     acts.clientsReload = async () => { ui.clLoaded = false; ui.clBusy = false; await loadClients(); c.render(); toast('Elenco aggiornato'); };
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
@@ -209,6 +224,89 @@
       if (!document.getElementById('cs_ok').checked) return toast('Spunta la casella per continuare');
       try { for (const kind of ['privacy', 'dati_salute', 'termini']) await F.Account._rest('consents', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: A.me.id, kind, version: F.CONSENT_VERSION, is_minor: false }) }); await c.onSignIn(); } catch (e) { toast('Non riuscito: ' + e.message); }
     };
+
+    /* ---------- palestre, team, account (amministratore e allenatore principale) ---------- */
+    async function loadAdmin() { try { ui.gyms = await A.listGyms(); ui.accts = await A.listAccounts(); ui.admErr = null; } catch (e) { ui.admErr = e.message; } ui.admLoaded = true; }
+    X.ensureAdmin = function () { if (A.enabled && !ui.admLoaded && !ui.admBusy) { ui.admBusy = true; loadAdmin().then(() => { ui.admBusy = false; c.render(); }); } };
+    const rl = r => esc(A.roles[r] || r);
+    const reload = async () => { ui.admLoaded = false; ui.admBusy = false; await loadAdmin(); c.render(); };
+    function acctRow(a) {
+      const me = A.me && A.me.id === a.id, mgr = !me && (A.me.role === 'admin' || (A.me.role === 'head' && a.role !== 'head') || (A.me.role === 'coach' && a.role === 'client' && a.coach_id === A.me.id));
+      return `<div style="border-top:1px solid var(--line);padding:8px 0"><div><b>${esc(a.full_name)}</b> <span class="mute small">${esc(a.username)}</span></div><div style="margin-top:4px"><span class="chip">${rl(a.role)}</span> ${a.active ? '' : '<span class="chip warn">disattivato</span> '}${a.must_change_password ? '<span class="chip">password da scegliere</span>' : ''}</div>
+        ${mgr ? `<div class="row wrap" style="margin-top:6px"><button class="sm" data-act="acctReset" data-id="${a.id}">Reimposta password</button><button class="sm" data-act="acctActive" data-id="${a.id}" data-on="${a.active ? 0 : 1}">${a.active ? 'Disattiva' : 'Riattiva'}</button>${a.role === 'coach' && A.me.role !== 'coach' ? `<label class="small row" style="gap:4px;margin:0"><input type="checkbox" style="width:auto" data-perm="${a.id}" ${a.can_see_all ? 'checked' : ''}> vede tutti i clienti</label>` : ''}${A.me.role !== 'coach' && a.role !== 'client' ? `<button class="sm danger" data-act="acctDelete" data-id="${a.id}">Elimina</button>` : ''}</div>` : ''}</div>`;
+    }
+    const gymStats = g => { const l = (ui.accts || []).filter(a => a.gym_id === g.id); return { heads: l.filter(a => a.role === 'head'), coaches: l.filter(a => a.role === 'coach').length, clients: l.filter(a => a.role === 'client').length, list: l }; };
+    views.gyms = function () {
+      X.ensureAdmin(); X.ensureClients();
+      return `<h1>Palestre</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}
+        <div class="card"><div class="row wrap"><button class="sm primary" data-act="gymNew">+ Nuova palestra</button><button class="sm" data-act="gymReload">Aggiorna</button><button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button></div>
+        <p class="mute small" style="margin-bottom:0">Crei la palestra insieme al suo allenatore principale. Poi è lui a creare allenatori e clienti.</p></div>
+        ${!ui.admLoaded ? '<p class="mute">Caricamento…</p>' : ''}
+        ${(ui.gyms || []).map(g => { const k = gymStats(g); return `<div class="card"><div class="row" style="gap:8px"><div class="grow"><b>${esc(g.name)}</b>${g.active ? '' : ' <span class="chip warn">disattivata</span>'}<div class="mute small">Principale: ${k.heads.map(h => esc(h.full_name)).join(', ') || '–'} · ${k.coaches} allenator${k.coaches === 1 ? 'e' : 'i'} · ${k.clients} client${k.clients === 1 ? 'e' : 'i'}</div></div><button class="sm primary" data-act="gymOpen" data-id="${g.id}">Apri</button></div></div>`; }).join('') || (ui.admLoaded ? '<p class="mute">Nessuna palestra.</p>' : '')}`;
+    };
+    views.gym = function () {
+      X.ensureAdmin(); X.ensureClients(); const g = (ui.gyms || []).find(x => x.id === ui.sub.id); if (!g) return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><p class="mute">Caricamento…</p>`;
+      const k = gymStats(g), ord = { head: 0, coach: 1, client: 2 };
+      return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><h1>${esc(g.name)}</h1>
+        <div class="card"><div class="row wrap"><button class="sm" data-act="gymActive" data-id="${g.id}" data-on="${g.active ? 0 : 1}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="xlsxGym" data-id="${g.id}">Excel della palestra</button><button class="sm" data-act="csvGym" data-id="${g.id}">CSV</button></div>
+        <p class="mute small" style="margin-bottom:0">Disattivando la palestra nessuno dei suoi account può più entrare. I dati restano e li riattivi quando vuoi.</p></div>
+        <div class="card"><h2>Account (${k.list.length})</h2>${k.list.slice().sort((a, b) => ord[a.role] - ord[b.role] || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account.</p>'}</div>`;
+    };
+    views.newGym = function () {
+      return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><h1>Nuova palestra</h1>
+        <form class="card" id="newGymForm" autocomplete="off"><label for="ng_g">Nome della palestra</label><input id="ng_g" name="gym" required>
+        <h3>Allenatore principale</h3><label for="ng_n">Nome</label><input id="ng_n" name="name" required><label for="ng_s">Cognome</label><input id="ng_s" name="surname" required>
+        <label for="ng_p">Password iniziale (min. 8 caratteri)</label><input id="ng_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso sceglierà la sua password.</p>
+        <button class="primary" style="margin-top:12px;width:100%">Crea palestra e accesso</button></form>`;
+    };
+    views.team = function () {
+      X.ensureAdmin(); const coaches = (ui.accts || []).filter(a => a.role === 'coach');
+      return `<h1>Team${A.gym ? ' · ' + esc(A.gym.name) : ''}</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}
+        <div class="card"><button class="sm primary" data-act="coachNew">+ Nuovo allenatore</button><p class="mute small" style="margin-bottom:0">Gli allenatori possono creare clienti e gestire i loro dati. Con "vede tutti i clienti" vedono quelli di tutta la palestra.</p></div>
+        <div class="card"><h2>Allenatori (${coaches.length})</h2>${!ui.admLoaded ? '<p class="mute small">Caricamento…</p>' : ''}${coaches.map(acctRow).join('') || (ui.admLoaded ? '<p class="mute small">Ancora nessun allenatore oltre a te.</p>' : '')}</div>`;
+    };
+    function acctExtra(p) {
+      const a = p._acct; if (!a) return '';
+      X.ensureAdmin(); const r = A.me.role; let h = '';
+      if (r !== 'coach') { const cs = (ui.accts || []).filter(x => x.gym_id === a.gym_id && (x.role === 'coach' || x.role === 'head') && x.active); if (cs.length) h += `<label for="asg">Allenatore assegnato</label><select id="asg" data-asg="${esc(p._uid)}">${cs.map(x => `<option value="${x.id}" ${x.id === a.coach_id ? 'selected' : ''}>${esc(x.full_name)}</option>`).join('')}</select>`; }
+      if (r === 'admin') h += `<div class="msg small" style="margin:8px 0">Ripristino dati su richiesta della palestra: serve il blocco di sicurezza sbloccato (Profilo → Console).</div><label class="btn sm" style="margin:0 0 8px;display:inline-flex">Ripristina da file .json<input type="file" id="rstFile" data-id="${esc(p._uid)}" accept=".json" hidden></label>`;
+      return h;
+    }
+    acts.gymNew = () => { ui.sub = { type: 'newGym' }; c.render(); window.scrollTo(0, 0); };
+    acts.gymBack = () => { ui.sub = null; ui.tab = 'gyms'; c.render(); };
+    acts.gymOpen = t => { ui.sub = { type: 'gym', id: t.dataset.id }; c.render(); window.scrollTo(0, 0); };
+    acts.gymReload = reload;
+    acts.gymActive = async t => { const on = t.dataset.on === '1'; if (!on && !confirm('Disattivare la palestra? Nessuno dei suoi account potrà entrare finché non la riattivi.')) return; try { await A.setGymActive(t.dataset.id, on); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.coachNew = () => { ui.sub = { type: 'newClient', role: 'coach', back: 'team' }; c.render(); window.scrollTo(0, 0); };
+    acts.acctReset = async t => { const pw = prompt('Nuova password temporanea (almeno 8 caratteri). La persona ne sceglierà una sua al prossimo accesso:'); if (!pw) return; try { await A.resetPassword(t.dataset.id, pw); toast('Password reimpostata'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.acctActive = async t => { try { await A.setActive(t.dataset.id, t.dataset.on === '1'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.acctDelete = async t => { const a = (ui.accts || []).find(x => x.id === t.dataset.id); if (!confirm(`Eliminare l'account di ${a ? a.full_name : ''} e i dati collegati? Non si può annullare.`) || !confirm('Ultima conferma: eliminare davvero?')) return; try { await A.deleteUser(t.dataset.id); await reload(); toast('Account eliminato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    const gymProfiles = id => X.clients().filter(p => p._acct && p._acct.gym_id === id), gymName = id => ((ui.gyms || []).find(g => g.id === id) || {}).name || 'palestra';
+    acts.xlsxGym = t => exportXlsx(gymProfiles(t.dataset.id), 'TLZ_' + F.safeName(gymName(t.dataset.id)));
+    acts.csvGym = t => exportCsv(gymProfiles(t.dataset.id), 'TLZ_' + F.safeName(gymName(t.dataset.id)));
+
+    /* ---------- verifica a due passaggi dell'amministratore ---------- */
+    async function startMfa() { try { const f = await A.mfaFactor(); if (f) ui.mfa = { id: f.id }; else { const e = await A.mfaEnroll(); ui.mfa = { id: e.id, enroll: true, qr: e.totp.qr_code, secret: e.totp.secret }; } } catch (e) { ui.mfa = { err: e.message }; } c.render(); }
+    views.mfa = function () {
+      const m = ui.mfa; if (!m) { ui.mfa = { busy: true }; startMfa(); return '<p class="mute" style="padding:20px">Caricamento…</p>'; }
+      if (m.busy) return '<p class="mute" style="padding:20px">Caricamento…</p>';
+      if (m.err && !m.id) return `<div class="msg danger" style="margin:16px">${esc(m.err)}</div><button class="ghost" data-act="logout">Esci</button>`;
+      return `<div class="card hero"><h1>Verifica a due passaggi</h1><p>${m.enroll ? 'Prima volta: scansiona il codice con Google Authenticator, Microsoft Authenticator o simili, poi scrivi il codice a 6 cifre.' : "Scrivi il codice a 6 cifre dell'app di verifica."}</p></div>
+        <form class="card" id="mfaForm">${m.enroll ? `<img src="${esc(m.qr)}" alt="Codice QR" width="180" height="180" style="background:#fff;padding:8px;border-radius:8px"><p class="small mute">Se non riesci a scansionare, inserisci a mano: <code>${esc(m.secret)}</code></p>` : ''}
+        <label for="mf_c">Codice</label><input id="mf_c" name="code" inputmode="numeric" autocomplete="one-time-code" required>
+        ${m.err ? `<div class="msg danger small" style="margin-top:8px">${esc(m.err)}</div>` : ''}<button class="primary" style="margin-top:12px;width:100%">Conferma</button><button type="button" class="ghost" style="margin-top:8px" data-act="logout">Esci</button></form>`;
+    };
+
+    /* ---------- blocco di sicurezza in scrittura (solo amministratore) ---------- */
+    X.lockCard = function () {
+      if (!(A.enabled && A.isAdmin())) return '';
+      const l = ui.lock; if (!l && !ui.lockBusy) { ui.lockBusy = true; A.lockState().then(v => { ui.lock = v; ui.lockBusy = false; c.render(); }).catch(() => { ui.lock = { open: false }; ui.lockBusy = false; }); }
+      const open = !!(l && l.open);
+      return `<div class="card" style="${open ? 'border-color:var(--warn)' : ''}"><h2>Blocco in scrittura</h2><p class="small">${open ? '<span class="chip warn">sbloccato</span> puoi modificare i dati degli utenti.' : '<span class="chip ok">attivo</span> leggi tutto ma non puoi modificare i dati degli utenti.'}</p>
+        <button class="sm ${open ? 'primary' : ''}" data-act="lockToggle">${open ? 'Blocca' : 'Sblocca'}</button>
+        <p class="mute small" style="margin-bottom:0">Lo gestisci solo tu, con un click, quando vuoi. Ogni cambio è nel registro accessi.</p></div>`;
+    };
+    acts.lockToggle = async () => { const open = !(ui.lock && ui.lock.open); try { await A.setLock(open); ui.lock = await A.lockState(); c.render(); toast(open ? 'Sbloccato' : 'Bloccato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
 
     /* ---------- area sviluppatore ---------- */
     views.dev = function () {
@@ -226,6 +324,7 @@
           <tr><td style="text-align:left">Ultimo backup</td><td>${st.settings.backup && st.settings.backup.lastAt ? esc(st.settings.backup.lastAt.slice(0, 10)) : '–'}</td></tr></tbody></table>
           <div class="row wrap" style="margin-top:10px"><button class="sm" data-act="devDiag">Copia diagnostica</button><button class="sm" data-act="devExportAll">Esporta tutto (Excel)</button><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${A.enabled ? '<button class="sm" data-act="devReload">Ricarica dal server</button>' : ''}</div>
           <p class="mute small">La diagnostica non contiene dati personali: solo versione, contatori e browser.</p></div>
+        ${X.lockCard()}
         ${A.enabled ? `<div class="card"><h2>Account (${rows.length})</h2>${dev.busy ? '<p class="mute small">Caricamento…</p>' : ''}${rows.map(a => `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow"><b>${esc(a.full_name)}</b> <span class="mute">${esc(a.username)}</span></span><span class="chip">${esc(A.roles[a.role] || a.role)}</span>${a.active ? '' : ' <span class="chip warn">off</span>'}</div>`).join('')}</div>
         <div class="card"><h2>Registro accessi</h2>${(dev.log || []).map(l => `<div class="small" style="border-top:1px solid var(--line);padding:4px 0"><span class="mute">${esc(String(l.at).slice(0, 16).replace('T', ' '))}</span> ${esc(l.action)}${l.detail && l.detail.username ? ' · ' + esc(l.detail.username) : ''}</div>`).join('') || '<p class="mute small">Vuoto.</p>'}</div>
         <div class="card"><h2>Impostazioni remote</h2><p class="mute small" style="margin-top:0">Valori letti da tutti gli utenti (es. messaggio di manutenzione) senza pubblicare una nuova versione.</p>
@@ -252,6 +351,9 @@
     acts.devOpen = () => { ui.sub = { type: 'dev' }; c.render(); window.scrollTo(0, 0); };
     acts.pwChange = async () => { const a = prompt('Nuova password (almeno 8 caratteri):'); if (!a) return; try { await A.changePassword(a); toast('Password aggiornata'); } catch (e) { toast(e.message); } };
     X.onChange = function (t) {
+      if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
+      if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
+      if (t.id === 'rstFile' && t.files[0]) { const f = t.files[0], id = t.dataset.id; t.value = ''; f.text().then(async tx => { let d; try { d = JSON.parse(tx.replace(/^\ufeff/, '')); d = d.profile || d; } catch (e) { return toast('File non valido'); } const why = prompt('Motivo del ripristino (resta nel registro accessi):'); if (!why) return; try { await A.restoreData(id, d, why); toast('Dati ripristinati'); await loadClients(); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); } }); return true; }
       if (t.id === 'imp_file' && t.files[0]) { const f = t.files[0]; t.value = ''; toast('Leggo il file…'); F.fileToPlanText(f).then(tx => { const r = F.parseScheda(tx); r.days = r.days.filter(d => d.exercises.length); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non trovo esercizi nel file: controlla che ci siano colonne esercizio, serie e ripetizioni'); ui.sub.state = { parsed: r, title: f.name.replace(/\.[^.]+$/, '') }; c.render(); window.scrollTo(0, 0); }).catch(e => toast('Lettura non riuscita: ' + e.message)); return true; }
       if (t.dataset.adv) { ui.advOpen = true; S().settings[t.dataset.adv] = t.checked; c.save(); c.render(); return true; }
       if (t.id === 'impTab' && t.files[0]) { importFile(t.files[0], [P()], P().name); t.value = ''; return true; }
