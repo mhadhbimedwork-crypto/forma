@@ -1,8 +1,9 @@
 {
-  "version": "1.10.3",
-  "build": 17,
-  "date": "2026-10-29",
+  "version": "1.10.4",
+  "build": 18,
+  "date": "2026-11-02",
   "notes": [
-    "Nuova ricetta modificabile: Pancake fit proteici (albume, yogurt greco, avena, lievito)."
+    "Import scheda più intelligente: riconosce Topset + back-off, EMOM, myo-reps, dropset, pause e alternative, e le trasforma in serie con note.",
+    "Nuovi nomi esercizio riconosciuti (RDL, curl 45°, T-bar, curl con corda, push down)."
   ]
 }

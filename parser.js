@@ -88,6 +88,40 @@
     return Object.assign(out, { name, sets: sr.sets, reps: (sr.reps + ' ' + tail).replace(/\s+/g, ' ').trim(), flags });
   };
 
+  /* Tecniche avanzate: topset + back-off, EMOM, myo-reps, dropset, pause, alternative. Le trasforma in serie normali + una nota. */
+  function advanced(line) {
+    const notes = [];
+    let s = line.trim(); const sp = s.split(/\s+[-–—]\s+/);
+    if (sp.length < 2) return { line, note: '' };
+    let name = sp[0].trim(), scheme = sp.slice(1).join(' - ').trim();
+    // alternativa "A / B - 3x8-10 / EMOM 6'"
+    let m = scheme.match(/^(.*?)\s*\/\s*(EMOM\s*\d+.*)$/i);
+    if (m && /\s\/\s/.test(name)) { const parts = name.split(/\s*\/\s*/); notes.push(`In alternativa: ${parts.slice(1).join(' / ')} in ${m[2].trim()}`); name = parts[0]; scheme = m[1]; }
+    // parentesi descrittive -> nota (restano le parentesi RIR/RPE)
+    scheme = scheme.replace(/\(([^)]*)\)/g, (all, inner) => {
+      if (/^\s*(rir|rpe|@)/i.test(inner) || /^[\s\d\-–.,%]*$/.test(inner) && !/-\s*\d+\s*%/.test(inner)) return all;
+      if (/^\s*-\s*\d+\s*%\s*$/.test(inner)) return all;
+      notes.push(inner.trim().replace(/(\d+)\s*["″]/g, '$1 secondi').replace(/\b(\d)a serie\b/g, '$1ª serie')); return ' ';
+    });
+    // topset + back-off
+    m = scheme.match(/topset\s*(\d+)\s*[-–]\s*(\d+)\s*(?:reps?|rip\w*)?\s*\+\s*(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)\s*(?:\(\s*-\s*(\d+)\s*%\s*\))?/i);
+    if (m) {
+      const n = +m[3];
+      notes.unshift(`Serie 1 = topset pesante da ${m[1]}-${m[2]} ripetizioni; poi ${n} serie da ${m[4].replace(/\s/g, '')} ripetizioni${m[5] ? ` con il carico ridotto del ${m[5]}%` : ''}.`);
+      scheme = `${1 + n}x${m[1]}-${m[2]} rest 150s`;
+    }
+    // EMOM
+    m = scheme.match(/emom\s*(\d+)\s*(?:['’′]|min\w*)?/i);
+    if (m) { notes.unshift(`EMOM ${m[1]} minuti: una serie ogni minuto con ripetizioni sub-massimali (lascia 1-2 ripetizioni di riserva) e riposa il tempo che resta nel minuto.`); scheme = scheme.replace(m[0], ' ') ; scheme = `${m[1]}xMAX ` + scheme.replace(/^\s*\d+\s*[x×]\s*\S+/, ' ') + ' rest 30s'; }
+    // myo-reps
+    m = scheme.match(/\+\s*(\d+)\s*[x×]\s*myo[\s-]?reps?/i);
+    if (m) {
+      const base = scheme.replace(m[0], ' ').match(/(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)/);
+      if (base) { notes.push('Ultima serie in myo-reps: una serie attivante vicino al cedimento, poi 3-4 mini-serie da 3-5 ripetizioni con 10-15 secondi di pausa.'); scheme = `${+base[1] + +m[1]}x${base[2].replace(/\s/g, '')}`; }
+    }
+    return { line: `${name} ${scheme.replace(/\s+/g, ' ').trim()}`, note: notes.join(' ') };
+  }
+
   F.parseScheda = function (text) {
     const days = []; let cur = null, defRest = null; const globalFlags = [];
     const newDay = n => { cur = { name: n, exercises: [] }; days.push(cur); defRest = null; };
@@ -100,6 +134,7 @@
         if (parts[0] && sets > 0 && parts[2]) line = `${parts[0]} ${sets}x${parts.slice(2).join(' ')}`;
         else line = parts.join(' ');
       }
+      const pre = advanced(line); line = pre.line;
       const L = F.parseLine(line);
       if (L.none) {
         if (L.rest && !L.text.replace(/\d+/g, '').trim()) { defRest = L.rest; continue; } // "Rest 90s tra le serie" vale per le righe seguenti
@@ -120,7 +155,7 @@
       if (L.pct && L.pct[0] > 100) fl.push(`Percentuale ${L.pct[0]}% strana: controllala.`);
       cur.exercises.push({ name: L.name, sets: L.sets, repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
         unit: timed ? 'sec' : (mt ? mt.ex.unit : 'reps'), rest: L.rest || defRest || (L.pct && L.pct[1] >= 80 ? 150 : 90), restRead: !!L.rest,
-        pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: L.superset ? 'Superserie con l\'esercizio successivo' : '', flags: fl });
+        pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', pre.note].filter(Boolean).join(' '), flags: fl });
     }
     return { days, flags: globalFlags };
   };
