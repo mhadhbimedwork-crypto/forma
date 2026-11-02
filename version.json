@@ -1,9 +1,8 @@
 {
-  "version": "1.12.1",
-  "build": 26,
+  "version": "1.12.2",
+  "build": 27,
   "date": "2026-11-02",
   "notes": [
-    "Nuovo corpo anatomico disegnato da zero: muscoli separati (petto alto/basso, 3 capi delle spalle, bicipiti, tricipiti, addominali, dorsali, glutei, cosce, polpacci), con volume e fibre.",
-    "I muscoli si colorano per recupero, dolore e coinvolgimento negli esercizi."
+    "Nuovo corpo anatomico realistico (fronte e retro) con i gruppi muscolari separati: si colorano per recupero, dolore e coinvolgimento negli esercizi."
   ]
 }

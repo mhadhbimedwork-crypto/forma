@@ -6,6 +6,7 @@ fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive:
 for (const f of FILES) fs.copyFileSync(f, path.join(out, f));
 fs.cpSync('icons', path.join(out, 'icons'), { recursive: true });
 fs.cpSync('fonts', path.join(out, 'fonts'), { recursive: true });
+fs.cpSync('img', path.join(out, 'img'), { recursive: true });
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 
 /* Versione per la palestra (senza dieta): stessa app, altro nome, altri dati (chiave di archiviazione diversa) */
@@ -19,7 +20,7 @@ if (path.basename(out) === '_site') {
     if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'THE LIFTING ZONE'; m.short_name = 'LIFTING ZONE'; m.description = 'La tua scheda di allenamento'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }, { src: 'icons/gym/icon.svg', sizes: 'any', type: 'image/svg+xml' }]; t = JSON.stringify(m, null, 1); }
     fs.writeFileSync(path.join(g, f), t);
   }
-  fs.cpSync('icons', path.join(g, 'icons'), { recursive: true }); fs.cpSync('fonts', path.join(g, 'fonts'), { recursive: true });
+  fs.cpSync('icons', path.join(g, 'icons'), { recursive: true }); fs.cpSync('img', path.join(g, 'img'), { recursive: true }); fs.cpSync('fonts', path.join(g, 'fonts'), { recursive: true });
   console.log('Versione palestra in', g);
 }
 console.log('Web app copiata in', out);
