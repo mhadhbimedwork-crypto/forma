@@ -1,9 +1,9 @@
 {
-  "version": "1.12.0",
-  "build": 25,
+  "version": "1.12.1",
+  "build": 26,
   "date": "2026-11-02",
   "notes": [
-    "Nuova sezione Corpo > Recupero: mappa del corpo con la percentuale di recupero di ogni muscolo, calcolata da pesi sollevati, serie, sforzo, età e rientro.",
-    "Home: recupero dei muscoli della seduta di oggi. Il dolore resta nella scheda Dolore."
+    "Nuovo corpo anatomico disegnato da zero: muscoli separati (petto alto/basso, 3 capi delle spalle, bicipiti, tricipiti, addominali, dorsali, glutei, cosce, polpacci), con volume e fibre.",
+    "I muscoli si colorano per recupero, dolore e coinvolgimento negli esercizi."
   ]
 }
