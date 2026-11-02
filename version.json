@@ -1,8 +1,9 @@
 {
-  "version": "1.12.2",
-  "build": 27,
+  "version": "1.13.0",
+  "build": 28,
   "date": "2026-11-02",
   "notes": [
-    "Nuovo corpo anatomico realistico (fronte e retro) con i gruppi muscolari separati: si colorano per recupero, dolore e coinvolgimento negli esercizi."
+    "Progressi: nuova sezione Misure corporee con grafico per peso, massa grassa, petto, vita, anche, cosce, polpacci, bicipiti, avambracci (destra e sinistra), spalle, collo e polso.",
+    "Tabella con ultima misura, differenza dalla volta prima e dall'inizio, e avviso se destra e sinistra differiscono oltre il 3%."
   ]
 }

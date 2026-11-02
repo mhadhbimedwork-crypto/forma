@@ -70,6 +70,7 @@
     o.pain = (p.pain && typeof p.pain === 'object') ? p.pain : {}; Object.keys(o.pain).forEach(z => { o.pain[z] = Math.min(10, Math.max(0, +o.pain[z] || 0)); if (!o.pain[z] || !F.ZONES[z]) delete o.pain[z]; });
     ['painLog', 'weights', 'sessions', 'plans'].forEach(k => { o[k] = Array.isArray(p[k]) ? p[k] : []; });
     o.weights = o.weights.filter(w => w && w.date && +w.kg > 0).map(w => ({ date: String(w.date), kg: +w.kg }));
+    o.measures = (Array.isArray(p.measures) ? p.measures : []).filter(m => m && m.date && m.v && typeof m.v === 'object').map(m => { const v = {}; (F.MEASURES || []).forEach(([k]) => { if (+m.v[k] > 0) v[k] = +m.v[k]; }); return { date: String(m.date), v }; });
     o.plans = o.plans.filter(x => x && x.id && Array.isArray(x.days));
     o.sessions = o.sessions.filter(s => s && Array.isArray(s.ex));
     o.activePlan = o.plans.some(x => x.id === p.activePlan) ? p.activePlan : (o.plans.length ? o.plans[o.plans.length - 1].id : null);

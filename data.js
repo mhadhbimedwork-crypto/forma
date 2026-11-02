@@ -1,7 +1,7 @@
 /* FORGIA – dati: esercizi, zone del corpo, schede di esempio. Script classico (funziona anche da file://). */
 window.FORMA = window.FORMA || {};
 (function (F) {
-  F.VERSION = { version: '1.12.2', build: 27 };
+  F.VERSION = { version: '1.13.0', build: 28 };
   F.REPO = 'mhadhbimedwork-crypto/forma';
   // muscolo -> zona di dolore associata
   F.MUSCLE_ZONE = {
@@ -14,6 +14,12 @@ window.FORMA = window.FORMA || {};
     forearm: 'Avambracci', abs: 'Addominali', lowback: 'Lombari', glutes: 'Glutei', quads: 'Quadricipiti',
     hams: 'Femorali', calves: 'Polpacci', adductors: 'Adduttori'
   };
+  F.MEASURES = [
+    ['weight', 'Peso', 'kg'], ['bf', 'Massa grassa', '%'], ['chest', 'Petto', 'cm'], ['waist', 'Vita', 'cm'], ['hip', 'Anche', 'cm'],
+    ['thighR', 'Coscia destra', 'cm'], ['thighL', 'Coscia sinistra', 'cm'], ['calfR', 'Polpaccio destro', 'cm'], ['calfL', 'Polpaccio sinistro', 'cm'],
+    ['bicR', 'Bicipite destro', 'cm'], ['bicL', 'Bicipite sinistro', 'cm'], ['forR', 'Avambraccio destro', 'cm'], ['forL', 'Avambraccio sinistro', 'cm'],
+    ['shoulder', 'Spalle', 'cm'], ['neck', 'Collo', 'cm'], ['wrist', 'Polso', 'cm']
+  ];
   F.ZONES = {
     neck: 'Collo', shoulder: 'Spalla', chest: 'Petto/costole', upper_back: 'Alto dorso', lower_back: 'Zona lombare',
     abdomen: 'Addome', elbow: 'Gomito', wrist: 'Polso/mano', hip: 'Anca/gluteo', quad: 'Coscia (davanti)',

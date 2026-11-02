@@ -581,6 +581,32 @@
   }
 
   /* --- progressi --- */
+  /* --- misure corporee --- */
+  function measSeries(p, k) {
+    if (k === 'weight') return (p.weights || []).slice().sort((a, b) => a.date.localeCompare(b.date)).map(w => ({ x: w.date, y: w.kg }));
+    return (p.measures || []).filter(m => m.v && m.v[k] > 0).sort((a, b) => a.date.localeCompare(b.date)).map(m => ({ x: m.date, y: m.v[k] }));
+  }
+  function measuresCard(p) {
+    const sel = ui.measSel && F.MEASURES.some(m => m[0] === ui.measSel) ? ui.measSel : 'weight', def = F.MEASURES.find(m => m[0] === sel);
+    const ser = measSeries(p, sel), last = ser[ser.length - 1], first = ser[0], prev = ser[ser.length - 2];
+    const d = (a, b) => { const v = Math.round((a - b) * 10) / 10; return (v > 0 ? '+' : '') + v; };
+    const lastOf = k => { const s = measSeries(p, k); return s.length ? s[s.length - 1].y : null; };
+    const inputs = F.MEASURES.map(([k, n, u]) => `<div><label for="ms_${k}" style="margin:0">${esc(n)} (${u})</label><input id="ms_${k}" data-ms="${k}" inputmode="decimal" placeholder="${lastOf(k) != null ? lastOf(k) : '—'}" aria-label="${esc(n)}"></div>`).join('');
+    const rows = F.MEASURES.map(([k, n, u]) => { const s = measSeries(p, k); if (!s.length) return ''; const l = s[s.length - 1], pv = s[s.length - 2], f = s[0]; return `<tr><td>${esc(n)}</td><td><b>${fmt(l.y, 1)}</b> ${u}</td><td>${pv ? d(l.y, pv.y) : '—'}</td><td>${s.length > 1 ? d(l.y, f.y) : '—'}</td></tr>`; }).join('');
+    const asym = [['thighR', 'thighL', 'Cosce'], ['calfR', 'calfL', 'Polpacci'], ['bicR', 'bicL', 'Bicipiti'], ['forR', 'forL', 'Avambracci']].map(([a, b, n]) => { const x = lastOf(a), y = lastOf(b); return x && y && Math.abs(x - y) / Math.max(x, y) > 0.03 ? `${n}: differenza di ${fmt(Math.abs(x - y), 1)} cm (${x > y ? 'destra' : 'sinistra'} più grande)` : null; }).filter(Boolean);
+    return `<div class="card"><h2>Misure corporee</h2>
+      <p class="mute small" style="margin:0 0 8px">Misura sempre allo stesso modo, la mattina a digiuno. Compila solo quello che hai misurato.</p>
+      <label for="msDate">Data</label><input id="msDate" type="date" value="${F.todayISO()}" max="${F.todayISO()}">
+      <div class="grid2" style="margin-top:8px">${inputs}</div>
+      <div class="row wrap" style="margin-top:10px"><button class="primary sm" data-act="saveMeas">Salva misure</button></div>
+      <h3 style="margin-top:14px">Andamento</h3>
+      <select id="measSel" aria-label="Misura da mostrare">${F.MEASURES.map(([k, n]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+      ${lineChart(ser.map(s => ({ x: s.x, y: s.y })), def[2])}
+      ${last ? `<p class="small" style="margin:6px 0 0">Ultimo valore: <b>${fmt(last.y, 1)} ${def[2]}</b>${prev ? ` · rispetto alla volta prima ${d(last.y, prev.y)}` : ''}${first && first !== last ? ` · dall'inizio ${d(last.y, first.y)}` : ''}</p>` : '<p class="mute small">Nessun dato per questa misura.</p>'}
+      ${rows ? `<h3 style="margin-top:14px">Tutte le misure</h3><table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Misura</th><th>Ultima</th><th>Prima</th><th>Inizio</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
+      ${asym.length ? `<div class="msg tip" style="margin-top:8px">${asym.map(esc).join('<br>')}. Sotto il 3% è normale. Sopra, aggiungi esercizi a un braccio o a una gamba per volta, partendo dal lato più debole.</div>` : ''}
+      ${(p.measures || []).length ? '<div class="row" style="margin-top:8px"><button class="ghost sm danger" data-act="delMeas">Elimina l\'ultima registrazione</button></div>' : ''}</div>`;
+  }
   function viewProg() {
     const p = P(), ws = (p.weights || []).slice().sort((a, b) => a.date.localeCompare(b.date));
     const exs = {}; (p.sessions || []).forEach(s => s.ex.forEach(e => { if (e.exId) exs[e.exId] = e.name; }));
@@ -597,6 +623,7 @@
       <div class="card"><h2>Peso corporeo</h2>${lineChart(ws.map(w => ({ x: w.date, y: w.kg })), 'kg')}
       <div class="row" style="margin-top:8px"><input id="wIn" inputmode="decimal" placeholder="kg" style="max-width:110px" aria-label="Nuovo peso"><button class="sm primary" data-act="addWeight">Registra peso</button></div>
       <div class="msg ${F.weightAdvice(p).kind}" style="margin-top:8px">${esc(F.weightAdvice(p).text)}</div></div>
+      ${measuresCard(p)}
       <div class="card"><h2>Forza per esercizio</h2>${exChart}</div>
       <div class="card"><h2>Ultime sedute</h2>${sess.length ? sess.map(s => `<div class="row small" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow"><b>${esc(s.dayName)}</b> · ${s.date}<br><span class="mute">${s.ex.length} esercizi, ${s.ex.reduce((a, e) => a + e.sets.length, 0)} serie</span></span><button class="ghost sm danger" data-act="delSession" data-id="${s.id}" aria-label="Elimina seduta">Elimina</button></div>`).join('') : '<p class="mute small">Ancora nessuna seduta.</p>'}</div>`;
   }
@@ -808,6 +835,16 @@
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
     zoneClose() { ui.zone = null; ui.msgs = []; render(); },
     zoneClear(t) { setPain(t.dataset.zone, 0); },
+    saveMeas() {
+      const p = P(), date = ($('#msDate') || {}).value || F.todayISO(), v = {}; let n = 0;
+      document.querySelectorAll('[data-ms]').forEach(i => { const x = parseFloat(String(i.value).replace(',', '.')); if (x > 0 && x < (i.dataset.ms === 'bf' ? 70 : 300)) { v[i.dataset.ms] = x; n++; } });
+      if (!n) return toast('Inserisci almeno una misura');
+      if (v.weight) { p.weights = (p.weights || []).filter(w => w.date !== date); p.weights.push({ date, kg: v.weight }); p.weight = v.weight; delete v.weight; }
+      p.measures = p.measures || []; let e = p.measures.find(m => m.date === date); if (!e) { e = { date, v: {} }; p.measures.push(e); } Object.assign(e.v, v);
+      if (v.waist) p.waist = v.waist; if (v.bf) p.bf = v.bf;
+      save(); render(); toast('Misure salvate');
+    },
+    delMeas() { const p = P(), l = (p.measures || []).slice().sort((a, b) => a.date.localeCompare(b.date)).pop(); if (!l) return; if (!confirm('Eliminare le misure del ' + l.date + '?')) return; p.measures = p.measures.filter(m => m !== l); save(); render(); toast('Registrazione eliminata'); },
     addWeight() { const v = parseFloat($('#wIn').value); if (!(v > 20 && v < 300)) return toast('Inserisci un peso valido'); const p = P(); p.weights.push({ date: F.todayISO(), kg: v }); p.weight = v; save(); render(); toast('Peso registrato'); },
     delSession(t) { if (!confirm('Eliminare questa seduta?')) return; const p = P(); p.sessions = p.sessions.filter(s => s.id !== t.dataset.id); save(); render(); },
     async checkUpdate() { toast('Controllo in corso…'); const r = await checkVersion(true); if (r === 'new') toast('Aggiornamento disponibile'); else if (r === 'same') toast('Sei già alla versione più recente'); else toast('Impossibile controllare: sei offline?'); render(); },
@@ -888,6 +925,7 @@
   document.addEventListener('change', e => {
     const t = e.target, p = P();
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
+    if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
     if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
     if (t.id === 'intolOther') { const p = P(); p.intol = p.intol || {}; p.intol.other = t.value.trim(); save(); toast('Salvato'); return; }
