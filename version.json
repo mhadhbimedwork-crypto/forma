@@ -1,8 +1,8 @@
 {
-  "version": "1.10.7",
-  "build": 21,
+  "version": "1.10.8",
+  "build": 22,
   "date": "2026-11-02",
   "notes": [
-    "Timer di recupero: aggiunto il tasto -30 s accanto a +30 s."
+    "Import scheda: riconosce MAV + back-off, dropset sull'ultima serie, AMRAP e stacco rumeno."
   ]
 }

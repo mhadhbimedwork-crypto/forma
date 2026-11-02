@@ -102,17 +102,17 @@
       if (/^\s*(rir|rpe|@)/i.test(inner) || /^[\s\d\-–.,%]*$/.test(inner) && !/-\s*\d+\s*%/.test(inner)) return all;
       if (/^\s*-\s*\d+\s*%\s*$/.test(inner)) return all;
       let dm = inner.match(/drop\s*-?set\s*[-–]?\s*(\d+)\s*%/i);
-      if (dm) { const sm = inner.match(/(\d)\s*[ªa°]?\s*serie/i), rm = inner.match(/(\d+)\s*["″”]\s*(?:di\s*)?rest/i) || inner.match(/rest\s*(\d+)/i); tech.drop = { after: sm ? +sm[1] - 1 : 0, pct: +dm[1], rest: rm ? +rm[1] : 30 }; }
+      if (dm) { const sm = inner.match(/(\d)\s*[ªa°]?\s*serie/i), rm = inner.match(/(\d+)\s*["″”]\s*(?:di\s*)?rest/i) || inner.match(/rest\s*(\d+)/i); tech.drop = { after: sm ? +sm[1] - 1 : (/ultim/i.test(inner) ? -1 : 0), pct: +dm[1], rest: rm ? +rm[1] : 30 }; }
       let pm = inner.match(/(\d+)\s*["″”]\s*fermo(?:\s*ogni\s*(\d+)\s*rep)?/i);
       if (pm) tech.pause = { sec: +pm[1], every: pm[2] ? +pm[2] : 1 };
       notes.push(inner.trim().replace(/(\d+)\s*["″]/g, '$1 secondi').replace(/\b(\d)a serie\b/g, '$1ª serie')); return ' ';
     });
     // topset + back-off
-    m = scheme.match(/topset\s*(\d+)\s*[-–]\s*(\d+)\s*(?:reps?|rip\w*)?\s*\+\s*(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)\s*(?:\(\s*-\s*(\d+)\s*%\s*\))?/i);
+    m = scheme.match(/(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)\s*(?:\(\s*-\s*(\d+)\s*%\s*\))?/i);
     if (m) {
-      const n = +m[3];
-      notes.unshift(`Serie 1 = topset pesante da ${m[1]}-${m[2]} ripetizioni; poi ${n} serie da ${m[4].replace(/\s/g, '')} ripetizioni${m[5] ? ` con il carico ridotto del ${m[5]}%` : ''}.`);
-      scheme = `${1 + n}x${m[1]}-${m[2]} rest 150s`; tech.top = { n, backReps: m[4].replace(/\s/g, ''), pct: m[5] ? +m[5] : 15 };
+      const n = +m[3]; if (!m[2]) m[2] = m[1]; const topLbl = m[1] === m[2] ? m[1] : m[1] + '-' + m[2];
+      notes.unshift(`Serie 1 = topset pesante da ${topLbl} ripetizioni; poi ${n} serie da ${m[4].replace(/\s/g, '')} ripetizioni${m[5] ? ` con il carico ridotto del ${m[5]}%` : ''}.`);
+      scheme = `${1 + n}x${topLbl} rest 150s`; tech.top = { n, backReps: m[4].replace(/\s/g, ''), pct: m[5] ? +m[5] : 15 };
     }
     // EMOM
     m = scheme.match(/emom\s*(\d+)\s*(?:['’′]|min\w*)?/i);
@@ -157,6 +157,7 @@
       if (!mt) fl.push('Esercizio non riconosciuto: collegalo a uno della lista.');
       else if (mt.score < 0.75) fl.push(`Riconosciuto come "${mt.ex.name}" (non sicuro): controlla.`);
       if (L.pct && L.pct[0] > 100) fl.push(`Percentuale ${L.pct[0]}% strana: controllala.`);
+      if (pre.tech && pre.tech.drop && pre.tech.drop.after < 0) pre.tech.drop.after = L.sets - 1;
       cur.exercises.push({ name: L.name, sets: L.sets + (pre.tech && pre.tech.drop ? 1 : 0), repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
         unit: timed ? 'sec' : (mt ? mt.ex.unit : 'reps'), rest: L.rest || defRest || (L.pct && L.pct[1] >= 80 ? 150 : 90), restRead: !!L.rest,
         tech: pre.tech || null, exact: true, pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', pre.note].filter(Boolean).join(' '), flags: fl });
