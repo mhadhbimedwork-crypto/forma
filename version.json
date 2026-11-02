@@ -1,8 +1,9 @@
 {
-  "version": "1.13.2",
-  "build": 30,
+  "version": "1.13.3",
+  "build": 31,
   "date": "2026-11-02",
   "notes": [
-    "Misure corporee: peso e massa grassa nella prima riga."
+    "Ultime sedute: ora si possono modificare (data, kg, ripetizioni, RPE, serie) e l'eliminazione chiede una doppia conferma.",
+    "Nella scheda del giorno, accanto a ogni serie, vedi in sola lettura i dati della volta scorsa dello stesso giorno."
   ]
 }

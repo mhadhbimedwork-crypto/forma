@@ -123,7 +123,7 @@
     const p = P();
     let body;
     if (!p && !(ui.sub && ui.sub.type === 'profile')) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, import: viewImport, recipe: viewRecipe }[ui.sub.type] || (() => ''))();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe }[ui.tab])();
     $('#app').innerHTML = header() + `<main>${body}</main>` + (p ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
@@ -243,14 +243,17 @@
     if (!plan || !d) { ui.sub = null; return viewHome(); }
     const day = plan.days[d.dayIdx], early = early0(p, plan);
     const lastBW = (p.weights || []).slice(-1)[0];
+    const prevS = (p.sessions || []).filter(q => q.planId === plan.id && q.dayName === day.name).slice(-1)[0];
     const blocks = day.exercises.map((x, i) => {
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = setCount(d, i, x, early);
+      const pe0 = prevS && prevS.ex.find(q => q.exId === x.exId);
       const pt = F.pctTarget(p, x), ptKg = pt && !pt.need ? pt.hi : null;
       const rows = []; for (let s = 0; s < n; s++) {
         const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s], si = setInfo(x, s, d.data[i]);
+        const ps = pe0 && pe0.sets[s];
         const timed = x.unit === 'sec' || (e && e.unit === 'sec');
-        rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}</td>
+        rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}${ps ? `<br><span class="small prevline" title="Dati della volta scorsa (solo lettura)">Scorsa: ${ps.kg ? fmt(ps.kg, 1) + ' kg × ' : ''}${ps.reps}${ps.rpe ? ' · RPE ' + ps.rpe : ''}</span>` : ''}</td>
           <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : '')))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
           <td class="repcell"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="-1" aria-label="Meno ripetizioni">−</button><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : (repDefault(x, si) || 'rip')}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="1" aria-label="Più ripetizioni">+</button></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
@@ -259,6 +262,7 @@
       return `<div class="card"><div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
+        ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Dati della volta scorsa (${prevS.date}) in ogni serie · solo lettura</div>` : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}
         <div class="msg ${sug.kind === 'up' ? 'ok' : sug.kind === 'warn' ? 'warn' : ''} small">${esc(sug.text)}</div>
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
@@ -581,6 +585,21 @@
   }
 
   /* --- progressi --- */
+  /* --- modifica di una seduta già salvata --- */
+  function viewEditSession() {
+    const d = ui.sub.draft;
+    return `<div class="row"><button class="ghost" data-act="esCancel">← Annulla</button></div><h1>Modifica seduta</h1>
+      <div class="card"><b>${esc(d.dayName)}</b><label for="esDate" style="margin-top:6px">Data</label><input id="esDate" type="date" value="${esc(d.date)}" max="${F.todayISO()}" data-es="date"></div>
+      ${d.ex.map((e, i) => `<div class="card"><b>${esc(e.name)}</b>
+        <table class="sets"><thead><tr><th>#</th><th>Peso (kg)</th><th>Rip</th><th>RPE</th><th></th></tr></thead><tbody>${e.sets.map((x, k) => `<tr><td>${k + 1}</td>
+          <td><input inputmode="decimal" data-es="${i}:${k}:kg" value="${x.kg || ''}" placeholder="kg" aria-label="Peso serie ${k + 1}"></td>
+          <td><input inputmode="numeric" data-es="${i}:${k}:reps" value="${x.reps != null ? x.reps : ''}" placeholder="rip" aria-label="Ripetizioni serie ${k + 1}"></td>
+          <td><input inputmode="decimal" data-es="${i}:${k}:rpe" value="${x.rpe || ''}" placeholder="1-10" aria-label="Sforzo serie ${k + 1}"></td>
+          <td><button class="ghost sm danger" data-act="esDelSet" data-i="${i}" data-s="${k}" aria-label="Togli serie ${k + 1}">✕</button></td></tr>`).join('')}</tbody></table>
+        <div class="row" style="margin-top:6px"><button class="ghost sm" data-act="esAddSet" data-i="${i}">+ serie</button></div></div>`).join('')}
+      <div class="row"><button class="primary grow" data-act="esSave">Salva modifiche</button></div>`;
+  }
+
   /* --- misure corporee --- */
   function measSeries(p, k) {
     if (k === 'weight') return (p.weights || []).slice().sort((a, b) => a.date.localeCompare(b.date)).map(w => ({ x: w.date, y: w.kg }));
@@ -626,7 +645,9 @@
       <div class="msg ${F.weightAdvice(p).kind}" style="margin-top:8px">${esc(F.weightAdvice(p).text)}</div></div>
       ${measuresCard(p)}
       <div class="card"><h2>Forza per esercizio</h2>${exChart}</div>
-      <div class="card"><h2>Ultime sedute</h2>${sess.length ? sess.map(s => `<div class="row small" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow"><b>${esc(s.dayName)}</b> · ${s.date}<br><span class="mute">${s.ex.length} esercizi, ${s.ex.reduce((a, e) => a + e.sets.length, 0)} serie</span></span><button class="ghost sm danger" data-act="delSession" data-id="${s.id}" aria-label="Elimina seduta">Elimina</button></div>`).join('') : '<p class="mute small">Ancora nessuna seduta.</p>'}</div>`;
+      <div class="card"><h2>Ultime sedute</h2>${sess.length ? sess.map(s => `<details style="padding:4px 0;border-top:1px solid var(--line)"><summary class="small"><b>${esc(s.dayName)}</b> · ${s.date} <span class="mute">· ${s.ex.length} esercizi, ${s.ex.reduce((a, e) => a + e.sets.length, 0)} serie</span></summary>
+        ${s.ex.map(e => `<div class="small" style="margin:6px 0"><b>${esc(e.name)}</b><br><span class="mute">${e.sets.map((x, k) => `${k + 1}) ${x.kg ? fmt(x.kg, 1) + ' kg × ' : ''}${x.reps}${x.rpe ? ' (RPE ' + x.rpe + ')' : ''}`).join(' · ')}</span></div>`).join('')}
+        <div class="row wrap" style="margin-top:6px"><button class="sm" data-act="editSession" data-id="${s.id}">Modifica</button><button class="ghost sm danger" data-act="delSession" data-id="${s.id}" aria-label="Elimina seduta">Elimina</button></div></details>`).join('') : '<p class="mute small">Ancora nessuna seduta.</p>'}</div>`;
   }
 
   /* --- profilo / impostazioni --- */
@@ -847,7 +868,23 @@
     },
     delMeas() { const p = P(), l = (p.measures || []).slice().sort((a, b) => a.date.localeCompare(b.date)).pop(); if (!l) return; if (!confirm('Eliminare le misure del ' + l.date + '?')) return; p.measures = p.measures.filter(m => m !== l); save(); render(); toast('Registrazione eliminata'); },
     addWeight() { const v = parseFloat($('#wIn').value); if (!(v > 20 && v < 300)) return toast('Inserisci un peso valido'); const p = P(); p.weights.push({ date: F.todayISO(), kg: v }); p.weight = v; save(); render(); toast('Peso registrato'); },
-    delSession(t) { if (!confirm('Eliminare questa seduta?')) return; const p = P(); p.sessions = p.sessions.filter(s => s.id !== t.dataset.id); save(); render(); },
+    editSession(t) { const s = (P().sessions || []).find(x => x.id === t.dataset.id); if (!s) return; ui.sub = { type: 'editSession', id: s.id, draft: JSON.parse(JSON.stringify(s)) }; render(); window.scrollTo(0, 0); },
+    esCancel() { ui.sub = null; render(); },
+    esAddSet(t) { const e = ui.sub.draft.ex[+t.dataset.i], l = e.sets[e.sets.length - 1] || {}; e.sets.push({ kg: l.kg || 0, reps: l.reps || 0, rpe: l.rpe || null }); render(); },
+    esDelSet(t) { const e = ui.sub.draft.ex[+t.dataset.i]; e.sets.splice(+t.dataset.s, 1); render(); },
+    esSave() {
+      const p = P(), d = ui.sub.draft; d.ex = d.ex.filter(e => e.sets.length);
+      if (!d.ex.length) return toast('La seduta non può restare senza serie: per toglierla usa Elimina');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || d.date > F.todayISO()) return toast('Data non valida');
+      const i = p.sessions.findIndex(x => x.id === ui.sub.id); if (i < 0) { ui.sub = null; return render(); }
+      p.sessions[i] = Object.assign({}, p.sessions[i], d); save(); ui.sub = null; render(); toast('Seduta modificata');
+    },
+    delSession(t) {
+      const p = P(), s = (p.sessions || []).find(x => x.id === t.dataset.id); if (!s) return;
+      if (!confirm('Eliminare la seduta ' + s.dayName + ' del ' + s.date + '?')) return;
+      if (!confirm('Ultima conferma: l\'eliminazione è definitiva e non si può annullare. Eliminare davvero questa seduta?')) return;
+      p.sessions = p.sessions.filter(x => x.id !== s.id); save(); render(); toast('Seduta eliminata');
+    },
     async checkUpdate() { toast('Controllo in corso…'); const r = await checkVersion(true); if (r === 'new') toast('Aggiornamento disponibile'); else if (r === 'same') toast('Sei già alla versione più recente'); else toast('Impossibile controllare: sei offline?'); render(); },
     async applyUpdate() { toast('Aggiorno…'); try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(x => x.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) { } location.reload(); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
@@ -923,9 +960,16 @@
     const pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id;
     S.profiles.push(p); S.active = p.id; save(); ui.sub = null; ui.tab = 'home'; render(); toast('Profilo e scheda creati');
   });
+  function esSet(t) {
+    const d = ui.sub && ui.sub.draft; if (!d) return;
+    if (t.dataset.es === 'date') { d.date = t.value; return; }
+    const [i, k, f] = t.dataset.es.split(':'), x = d.ex[+i].sets[+k], v = parseFloat(String(t.value).replace(',', '.'));
+    if (f === 'rpe') x.rpe = v > 0 && v <= 10 ? v : null; else x[f] = v >= 0 ? v : 0;
+  }
   document.addEventListener('change', e => {
     const t = e.target, p = P();
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
+    if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }
     if (t.id === 'progSel') { ui.progEx = t.value; render(); return; }
     if (t.id === 'impBk' && t.files[0]) { const r = new FileReader(); r.onload = () => importText(r.result); r.readAsText(t.files[0]); t.value = ''; return; }
@@ -942,6 +986,7 @@
   });
   document.addEventListener('input', e => {
     const t = e.target, p = P();
+    if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { liveSearch(t.value); return; }
     if (t.id === 'painR') { const v = +t.value; $('#painV').textContent = v; clearTimeout(t._d); t._d = setTimeout(() => setPain(t.dataset.zone, v), 350); return; }

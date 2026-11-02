@@ -115,3 +115,4 @@ svg.chart{width:100%;height:auto;display:block}
 .grid3.k4{grid-template-columns:repeat(2,1fr)}
 @media (min-width:600px){.grid3.k4{grid-template-columns:repeat(4,1fr)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.prevline{color:var(--ion);font-weight:600}
