@@ -1,7 +1,7 @@
 // Copia i file web dell'app in una cartella di output (default: www). Usato da Pages e da Capacitor.
 const fs = require('fs'), path = require('path');
 const out = path.resolve(process.argv[2] || 'www');
-const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'engine.js', 'exercises2.js', 'recovery.js', 'parser.js', 'nutrition.js', 'guide.js', 'planner.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
+const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'exportdata.js', 'account.js', 'staff.js', 'parser.js', 'nutrition.js', 'guide.js', 'planner.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 for (const f of FILES) fs.copyFileSync(f, path.join(out, f));
 fs.cpSync('icons', path.join(out, 'icons'), { recursive: true });
@@ -12,7 +12,8 @@ fs.writeFileSync(path.join(out, '.nojekyll'), '');
 /* Versione per la palestra (senza dieta): stessa app, altro nome, altri dati (chiave di archiviazione diversa) */
 if (path.basename(out) === '_site') {
   const g = path.join(out, 'gym'); fs.mkdirSync(g, { recursive: true });
-  const cfg = '<script>window.FORMA_GYM = { name: "THE LIFTING ZONE", tag: "TRAIN · LIFT · REPEAT", key: "tlz.v1" };</script>\n';
+  let server = null; try { server = JSON.parse(fs.readFileSync('gym-config.json', 'utf8')).server || null; } catch (e) { }
+  const cfg = '<script>window.FORMA_GYM = ' + JSON.stringify({ name: 'THE LIFTING ZONE', tag: 'TRAIN · LIFT · REPEAT', key: 'tlz.v1', server }) + ';</script>\n';
   for (const f of FILES) {
     let t = fs.readFileSync(f, 'utf8');
     if (f === 'index.html') t = t.replace('<script src="data.js">', cfg + '<script src="data.js">').replace(/<title>.*?<\/title>/, '<title>THE LIFTING ZONE</title>').replace('content="#05070c"', 'content="#0b0b0d"').replace('icons/icon.svg', 'icons/gym/icon.svg').replace('icons/apple-touch-icon.png', 'icons/gym/icon-192.png');

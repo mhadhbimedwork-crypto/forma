@@ -1,9 +1,11 @@
 {
-  "version": "1.13.3",
-  "build": 31,
+  "version": "1.14.0",
+  "build": 32,
   "date": "2026-11-02",
   "notes": [
-    "Ultime sedute: ora si possono modificare (data, kg, ripetizioni, RPE, serie) e l'eliminazione chiede una doppia conferma.",
-    "Nella scheda del giorno, accanto a ogni serie, vedi in sola lettura i dati della volta scorsa dello stesso giorno."
+    "Storico dolori: ogni zona ha data, livello, andamento (in aumento, in calo, stabile, azzerato), durata e grafico.",
+    "Excel e CSV: esporta e reimporta tutti i tuoi dati in file ordinati (sedute, progressi, volume per muscolo, dolori, peso, misure, schede).",
+    "Area allenatore: elenco clienti con aderenza, dolori in peggioramento, Excel/CSV di tutti.",
+    "Pronta per il server della palestra: accessi con nome, cognome e password, ruoli cliente, allenatore, titolare e sviluppatore."
   ]
 }

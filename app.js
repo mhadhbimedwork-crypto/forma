@@ -6,12 +6,20 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = s => document.querySelector(s);
   let mem = null;
+  const AC = F.Account, keyNow = () => KEY + (AC.enabled && AC.me ? '.' + AC.me.id : '');
+  const emptyState = () => ({ profiles: [], active: null, settings: { aiUrl: '' } });
   function load() {
-    try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r); } catch (e) { if (mem) return mem; }
-    return { profiles: [], active: null, settings: { aiUrl: '' } };
+    if (AC.enabled && !AC.me) return emptyState();
+    try { const r = localStorage.getItem(keyNow()); if (r) return JSON.parse(r); } catch (e) { if (mem) return mem; }
+    return emptyState();
   }
-  let S = load();
-  function save() { mem = S; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* senza storage resta in memoria */ } }
+  let S = load(), syncT = null;
+  function save() {
+    if (AC.enabled && !AC.me) return;
+    mem = S; try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { /* senza storage resta in memoria */ }
+    if (AC.enabled && AC.me) { clearTimeout(syncT); syncT = setTimeout(syncUp, 4000); }
+  }
+  async function syncUp() { const p = P(); if (!p || !navigator.onLine) return; try { await AC.pushMine(p); ui.syncAt = Date.now(); } catch (e) { ui.syncErr = e.message; } }
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const planOf = p => p && p.plans.find(x => x.id === p.activePlan) || null;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -113,19 +121,29 @@
     return `<header class="top">${brand}
       <div class="who"><div class="avatar" aria-hidden="true">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
         <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni${GYM ? '' : ' · ' + esc(goalLabel(p))}</div></div>
-        <select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button></div></header>`;
+        ${AC.enabled ? '' : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ['me', 'Profilo', ICON.user]];
+    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X && X.showClients() ? [['clients', 'Clienti', ICON.user]] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
+  function gate() {
+    if (!AC.enabled) return null;
+    if (!AC.me) return X.views.login();
+    if (AC.me.must_change_password) return X.views.newPassword();
+    if (ui.consent === false) return X.views.consent();
+    return null;
+  }
   function render() {
-    const p = P();
+    const p = P(), g = gate(), staff = !!(X && X.showClients());
     let body;
-    if (!p && !(ui.sub && ui.sub.type === 'profile')) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe }[ui.sub.type] || (() => ''))();
-    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe }[ui.tab])();
-    $('#app').innerHTML = header() + `<main>${body}</main>` + (p ? nav() : '');
+    if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span></div></header><main>${g}</main>`; return; }
+    if (!p && staff && !ui.sub && !['clients', 'me'].includes(ui.tab)) ui.tab = 'clients';
+    const XV = X ? Object.assign({}, X.views) : {};
+    if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev'].includes(ui.sub.type)) && !(staff && ['clients', 'me'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev }[ui.sub.type] || (() => ''))();
+    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients }[ui.tab])();
+    $('#app').innerHTML = header() + `<main>${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
   /* suoni del timer (generati con Web Audio: nessun file) */
@@ -166,10 +184,10 @@
   /* --- profilo (form) --- */
   function viewProfileForm() {
     const old = ui.sub.id ? S.profiles.find(p => p.id === ui.sub.id) : null;
-    const v = old || { name: '', birth: '', sex: 'M', height: '', weight: '', goal: 'auto', style: 'mix', days: 3, level: 2, stopMonths: 0 };
+    const v = old || { name: AC.enabled && AC.me ? AC.me.full_name : '', birth: AC.enabled && AC.me && AC.me.birth ? AC.me.birth : '', sex: 'M', height: '', weight: '', goal: 'auto', style: 'mix', days: 3, level: 2, stopMonths: 0 };
     const sel = (name, map, cur) => `<select name="${name}">${Object.entries(map).map(([k, l]) => `<option value="${k}" ${String(cur) === String(k) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
     return `<h1>${old ? 'Modifica profilo' : 'Nuovo profilo'}</h1><form class="card" id="pform" autocomplete="off">
-      <label for="f_name">Nome</label><input id="f_name" name="name" required value="${esc(v.name)}">
+      <label for="f_name">Nome</label><input id="f_name" name="name" required value="${esc(v.name)}" ${AC.enabled ? 'readonly' : ''}>
       <div class="grid2"><div><label for="f_birth">Data di nascita</label><input id="f_birth" type="date" name="birth" required value="${esc(v.birth)}"></div>
       <div><label>Sesso</label>${sel('sex', { M: 'Uomo', F: 'Donna' }, v.sex)}</div></div>
       <div class="grid2"><div><label for="f_h">Altezza (cm)</label><input id="f_h" type="number" name="height" min="100" max="230" required value="${esc(v.height)}"></div>
@@ -189,6 +207,7 @@
   function viewHome() {
     const p = P(), c = F.calc(p), plan = planOf(p), adv = F.weightAdvice(p);
     const done = (p.sessions || []).length;
+    const inbox = (ui.inbox || []).map(m => `<div class="card" style="border-color:var(--accent)"><b>Nuova scheda dal tuo allenatore</b><div class="small">${esc(m.title)}</div><button class="sm primary" style="margin-top:8px" data-act="inboxImport" data-id="${m.id}">Controlla e importa</button></div>`).join('');
     let next = '';
     if (plan && plan.days.length) {
       const cnt = (p.sessions || []).filter(s => s.planId === plan.id).length, ls = (p.sessions || []).filter(s => s.planId === plan.id).slice(-1)[0], li = ls ? plan.days.findIndex(x => x.name === ls.dayName) : -1, auto = li >= 0 ? (li + 1) % plan.days.length : cnt % plan.days.length;
@@ -205,7 +224,7 @@
     const news = ui.whatsNew ? `<div class="card" style="border-color:var(--accent)"><b>Novità · versione ${esc(ui.whatsNew.version)}</b>${(ui.whatsNew.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="sm" data-act="dismissNews">Ok, ho letto</button></div></div>` : '';
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
-    return `${upd}${news}${backupBanner()}${symCard}${next}
+    return `${upd}${news}${backupBanner()}${inbox}${symCard}${next}
       ${GYM ? '' : `      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>`}
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
@@ -581,7 +600,8 @@
         <button class="sm" data-act="zoneClear" data-zone="${z}">Nessun dolore qui</button> <button class="sm" data-act="zoneClose">Chiudi</button></div>` : ''}
       ${list.length ? `<div class="card"><h2>Zone segnalate</h2>${list.map(([k, v]) => `<div class="row" style="margin:4px 0"><span class="grow">${esc(F.ZONES[k])}</span><span class="chip ${v >= 7 ? 'danger' : v >= 4 ? 'warn' : ''}">${v}/10</span><button class="sm" data-act="zoneOpen" data-zone="${k}">Modifica</button></div>`).join('')}
         ${bad.length ? `<h3>La scheda attiva contiene esercizi sconsigliati</h3>${msgs(bad)}<button class="primary sm" data-act="adapt" data-id="${plan.id}">Crea versione adattata</button>` : plan ? '<div class="msg ok">La scheda attiva è compatibile con le zone segnalate.</div>' : ''}
-        ${list.some(([, v]) => v >= 7) ? '<div class="msg danger">Un dolore forte (7 o più), formicolio, gonfiore, dolore notturno o che dura da giorni va valutato da un medico o fisioterapista. L\'app non fa diagnosi.</div>' : ''}</div>` : '<div class="msg ok">Nessun dolore segnalato.</div>'}`;
+        ${list.some(([, v]) => v >= 7) ? '<div class="msg danger">Un dolore forte (7 o più), formicolio, gonfiore, dolore notturno o che dura da giorni va valutato da un medico o fisioterapista. L\'app non fa diagnosi.</div>' : ''}</div>` : '<div class="msg ok">Nessun dolore segnalato.</div>'}
+      ${X.painHistoryCard(p)}`;
   }
 
   /* --- progressi --- */
@@ -652,7 +672,8 @@
 
   /* --- profilo / impostazioni --- */
   function viewMe() {
-    const p = P(), c = F.calc(p), pm = Math.round(c.protein / 4);
+    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
+    const c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
         <button class="sm" data-act="editProfile">Modifica</button></div>${c.minor ? '<div class="msg tip">Profilo minorenne: regole di tutela attive. Programma da condividere con l\'allenatore.</div>' : ''}</div>
@@ -681,9 +702,11 @@
       <div class="card"><h2>Backup automatico ogni ${F.BACKUP_EVERY_DAYS} giorni</h2>${backupCard()}</div>
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
 </div>
-      <div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
+      ${X.dataCard(p)}
+      ${X.advancedCard()}
+      ${AC.enabled ? '' : `<div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
-        <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>
+        <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>`}
       <p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento${GYM ? '' : ' e alimentazione'}, non sostituisce medico, fisioterapista o allenatore.</p>`;
   }
 
@@ -805,6 +828,7 @@
     cancelSub() { ui.sub = null; render(); },
     genPlan() { const p = P(), pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda creata e attivata'); },
     importPlan() { ui.sub = { type: 'import', state: {} }; render(); },
+    inboxImport(t) { const m = (ui.inbox || []).find(x => String(x.id) === t.dataset.id); if (!m) return; const r = F.parseScheda(m.body); ui.sub = { type: 'import', state: { parsed: r, title: m.title, inboxId: m.id } }; render(); window.scrollTo(0, 0); },
     openPlan(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
     activate(t) { const p = P(); p.activePlan = t.dataset.id; p.draft = null; save(); render(); toast('Scheda attivata'); },
     delPlan(t) { const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!confirm(`Eliminare "${pl.title}"? Le sedute già registrate restano.`)) return; p.plans = p.plans.filter(x => x.id !== pl.id); if (p.activePlan === pl.id) { p.activePlan = p.plans.length ? p.plans[p.plans.length - 1].id : null; p.draft = null; } save(); render(); },
@@ -824,7 +848,7 @@
       const p = P(), st = ui.sub.state, title = ($('#imp_title').value || st.title).trim();
       const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length) };
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
-      p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
+      p.plans.push(pl); p.activePlan = pl.id; if (st.inboxId) { AC.markPlanImported(st.inboxId).catch(() => { }); ui.inbox = (ui.inbox || []).filter(x => x.id !== st.inboxId); } save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
     bodyMode(t) { ui.bodyMode = t.dataset.m; render(); window.scrollTo(0, 0); },
     pickDay(t) { ui.pickDay = +t.dataset.day; render(); },
@@ -940,7 +964,7 @@
   }
   function setPain(zone, v) {
     const p = P(), before = Object.assign({}, p.pain); p.pain = p.pain || {}; if (v > 0) p.pain[zone] = v; else delete p.pain[zone];
-    p.painLog = p.painLog || []; p.painLog.push({ date: F.todayISO(), zone, level: v });
+    p.painLog = p.painLog || []; if ((before[zone] || 0) !== v || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: F.todayISO(), zone, level: v });
     ui.msgs = F.painReaction(before, p.pain).filter(m => m.startsWith(F.ZONES[zone])); save(); render();
   }
 
@@ -951,12 +975,12 @@
     const t = e.target.closest('[data-act]'); if (t && act[t.dataset.act]) act[t.dataset.act](t, e);
   });
   document.addEventListener('submit', e => {
-    if (e.target.id !== 'pform') return; e.preventDefault();
+    if (e.target.id !== 'pform') { if (X && ['loginForm', 'pwForm', 'newClientForm', 'assignForm'].includes(e.target.id)) { e.preventDefault(); X.onSubmit(e.target); } return; } e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target).entries());
     const base = { name: fd.name.trim(), birth: fd.birth, sex: fd.sex, height: +fd.height, weight: +fd.weight, goal: fd.goal, waist: +fd.waist || 0, bf: +fd.bf || 0, style: fd.style, days: +fd.days, level: +fd.level, stopMonths: +fd.stopMonths || 0 };
     if (new Date(base.birth) > new Date()) return toast('Data di nascita non valida');
     if (ui.sub.id) { const p = S.profiles.find(x => x.id === ui.sub.id); Object.assign(p, base); if (!p.weights.length || p.weights[p.weights.length - 1].kg !== base.weight) p.weights.push({ date: F.todayISO(), kg: base.weight }); save(); ui.sub = null; render(); toast('Profilo aggiornato'); return; }
-    const p = Object.assign({ id: 'u' + uid(), pain: {}, painLog: [], weights: [{ date: F.todayISO(), kg: base.weight }], sessions: [], plans: [], activePlan: null, draft: null, createdAt: F.todayISO() }, base);
+    const p = Object.assign({ id: AC.enabled && AC.me ? 'acct-' + AC.me.id : 'u' + uid(), pain: {}, painLog: [], weights: [{ date: F.todayISO(), kg: base.weight }], sessions: [], plans: [], activePlan: null, draft: null, createdAt: F.todayISO() }, base);
     const pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id;
     S.profiles.push(p); S.active = p.id; save(); ui.sub = null; ui.tab = 'home'; render(); toast('Profilo e scheda creati');
   });
@@ -967,7 +991,7 @@
     if (f === 'rpe') x.rpe = v > 0 && v <= 10 ? v : null; else x[f] = v >= 0 ? v : 0;
   }
   document.addEventListener('change', e => {
-    const t = e.target, p = P();
+    const t = e.target, p = P(); if (X && X.onChange(t)) return;
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }
@@ -985,7 +1009,7 @@
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
   });
   document.addEventListener('input', e => {
-    const t = e.target, p = P();
+    const t = e.target, p = P(); if (X && X.onInput(t)) return;
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { liveSearch(t.value); return; }
@@ -993,9 +1017,32 @@
     if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); }
   });
 
+  /* ---------- area allenatore, sviluppatore, account ---------- */
+  async function onSignIn() {
+    ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? 'clients' : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
+    if (AC.me.must_change_password) return render();
+    ui.consent = true;
+    if (!AC.staff()) { try { ui.consent = (await AC._rest('consents?user_id=eq.' + AC.me.id + '&kind=eq.privacy&select=id&limit=1')).length > 0; } catch (e) { ui.consent = true; } }
+    render(); if (!ui.consent) return;
+    try {
+      const srv = await AC.pullMine(), loc = P();
+      if (srv && srv.data && srv.data.name) {
+        if (!loc) { const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = [pr]; S.active = pr.id; }
+        else Object.assign(loc, F.mergeProfiles(loc, F.normalizeProfile(Object.assign({}, srv.data, { id: loc.id }))));
+        save();
+      } else if (P()) syncUp();
+    } catch (e) { /* offline: si lavora in locale */ }
+    try { ui.inbox = await AC.myPlans(); } catch (e) { }
+    render();
+  }
+  function onSignOut() { S = emptyState(); mem = null; ui.sub = null; ui.tab = 'home'; ui.consent = undefined; ui.cl = null; ui.clLoaded = false; ui.inbox = []; render(); }
+  const X = F.mountExtras({ S: () => S, P, save, render, toast, esc, ui, fmt, lineChart, onSignIn, onSignOut });
+  Object.assign(act, X.acts);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();
-  autoBackup();
+  if (AC.enabled) AC.restore().then(me => me ? onSignIn() : render());
+  else autoBackup();
   checkVersion().then(r => { if (r === 'new' || ui.whatsNew) render(); });
 })(window.FORMA);
