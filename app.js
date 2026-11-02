@@ -197,7 +197,7 @@
       const early = early0(p, plan);
       const picker = hasDraft ? '' : `<div class="row wrap" style="margin:8px 0" role="group" aria-label="Scegli il giorno">${plan.days.map((x, k) => `<button class="sm ${k === idx ? 'primary' : 'ghost'}" data-act="pickDay" data-day="${k}">${esc(x.name.length > 14 ? x.name.slice(0, 14) + '…' : x.name)}${k === auto ? ' ★' : ''}</button>`).join('')}</div><div class="mute small">★ = prossimo giorno in ordine. Scegli tu quello che vuoi fare oggi.</div>`;
       next = `<div class="card hero"><div class="mute small">${hasDraft ? 'Seduta in corso' : 'Seduta di oggi'} · ${esc(plan.title)}</div><h1 style="margin:.1em 0">${esc(d.name)}</h1>
-        <p>${d.exercises.length} esercizi · ${d.exercises.reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${picker}
+        <p>${d.exercises.length} esercizi · ${d.exercises.reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${(p.sessions || []).length ? (() => { const r = F.dayReadiness(p, d); return `<p class="small" style="margin:.2em 0 .6em">Recupero dei muscoli di oggi: <b>${r.pct}%</b>${r.pct < 70 && r.worst ? ' · il più affaticato è ' + esc(F.MUSCLE_LABEL[r.worst]).toLowerCase() : ''}</p>`; })() : ''}${picker}
         <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -543,8 +543,29 @@
   }
 
   /* --- corpo --- */
+  function recoveryView(p) {
+    const rec = F.recovery(p), rows = Object.keys(F.MUSCLE_LABEL).map(m => [m, rec[m]]).sort((a, b) => a[1].pct - b[1].pct);
+    const done = (p.sessions || []).length, tired = rows.filter(([, o]) => o.pct < 70);
+    const plan = planOf(p);
+    let tip;
+    if (!done) tip = 'Registra la prima seduta e qui vedrai quanto ha recuperato ogni muscolo.';
+    else if (!tired.length) tip = 'Tutti i muscoli sono quasi pronti o pronti: puoi allenare qualsiasi gruppo.';
+    else tip = `Più affaticati: ${tired.slice(0, 3).map(([m, o]) => F.MUSCLE_LABEL[m] + ' ' + o.pct + '%').join(', ')}. Meglio allenare altri muscoli oggi, o ridurre le serie su questi.`;
+    const sub = plan ? plan.days.map((d, i) => { const r = F.dayReadiness(p, d, rec); return `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(d.name)}</span><span class="chip" style="border-color:${F.recColor(r.pct)};color:${F.recColor(r.pct)}">${r.pct}% pronto</span></div>`; }).join('') : '';
+    return `<h1>Recupero muscolare</h1><p class="mute small">Stima dalla tua cronologia: peso sollevato rispetto al tuo massimale, serie, sforzo (RPE), muscoli principali e secondari, età e rientro. Non è una misura medica.</p>
+      <div class="bodies"><figure>${F.bodySVG('f', { rec })}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', { rec })}<figcaption>Retro</figcaption></figure></div>
+      <div class="legend"><span><i style="background:#34d399"></i>90-100%</span><span><i style="background:#a3e635"></i>70-89</span><span><i style="background:#facc15"></i>50-69</span><span><i style="background:#f97316"></i>30-49</span><span><i style="background:#ef4444"></i>sotto 30</span></div>
+      <div class="msg tip" style="margin:10px 0">${esc(tip)}</div>
+      <div class="card"><h2>Muscolo per muscolo</h2>${rows.map(([m, o]) => `<div style="margin:7px 0"><div class="row small"><span class="grow">${esc(F.MUSCLE_LABEL[m])}</span><b style="color:${F.recColor(o.pct)}">${o.pct}%</b><span class="mute" style="min-width:104px;text-align:right;white-space:nowrap">${o.hours ? 'pronto tra ' + (o.hours >= 48 ? Math.round(o.hours / 24) + ' g' : o.hours + ' h') : (o.last ? 'pronto' : 'a riposo')}</span></div><div style="height:6px;background:var(--line);border-radius:3px"><div style="height:6px;width:${o.pct}%;background:${F.recColor(o.pct)};border-radius:3px"></div></div></div>`).join('')}</div>
+      ${sub ? `<div class="card"><h2>Quanto sei pronto per ogni giorno</h2>${sub}<p class="mute small" style="margin:6px 0 0">Sopra il 90% vai a tutta. Tra 70 e 90 allena normale. Sotto il 70 scegli un altro giorno o riduci le serie.</p></div>` : ''}`;
+  }
   function viewBody() {
-    const p = P(), pain = p.pain || {}, z = ui.zone;
+    const p = P(), pain = p.pain || {}, z = ui.zone, mode = ui.bodyMode || 'rec';
+    const seg = `<div class="row" style="margin-bottom:10px" role="group" aria-label="Sezione corpo"><button class="${mode === 'rec' ? 'primary' : ''} grow" data-act="bodyMode" data-m="rec">Recupero</button><button class="${mode === 'pain' ? 'primary' : ''} grow" data-act="bodyMode" data-m="pain">Dolore</button></div>`;
+    if (mode === 'rec') return seg + recoveryView(p);
+    return seg + bodyPain(p, pain, z);
+  }
+  function bodyPain(p, pain, z) {
     const list = Object.entries(pain).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const plan = planOf(p), a = plan ? F.analyzePlan(plan, p) : null, bad = a ? a.flags.filter(f => f.k === 'danger') : [];
     return `<h1>Dove senti dolore?</h1><p class="mute small">Tocca una zona del corpo e indica l'intensità da 1 a 10. L'app adatta schede e allenamenti: 1-3 resta attenzione, 4-6 riduce serie e toglie gli esercizi più stressanti, 7-10 esclude gli esercizi che la caricano.</p>
@@ -756,6 +777,7 @@
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
       p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
+    bodyMode(t) { ui.bodyMode = t.dataset.m; render(); window.scrollTo(0, 0); },
     pickDay(t) { ui.pickDay = +t.dataset.day; render(); },
     dropDraft() { if (!confirm('Scartare la seduta in corso? I dati inseriti non salvati andranno persi.')) return; P().draft = null; save(); render(); },
     startSession(t) {
@@ -777,7 +799,7 @@
       const ex = day.exercises.map((x, i) => ({ exId: x.exId, name: x.name, sets: (d.data[i] || []).filter(s => s.done || s.reps != null).map(s => ({ kg: s.kg || 0, reps: s.reps || 0, rpe: s.rpe || null })) })).filter(e => e.sets.length);
       if (!ex.length) return toast('Annota almeno una serie');
       const bw = parseFloat(($('#bw') || {}).value); if (bw > 20) { p.weights.push({ date: F.todayISO(), kg: bw }); p.weight = bw; }
-      p.sessions.push({ id: 's' + uid(), date: F.todayISO(), planId: plan.id, dayName: day.name, ex }); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
+      p.sessions.push({ id: 's' + uid(), date: F.todayISO(), at: Date.now(), planId: plan.id, dayName: day.name, ex }); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
     },
     timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
     timerSub() { if (ui.timer) { ui.timer.left = Math.max(1, ui.timer.left - 30); const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },

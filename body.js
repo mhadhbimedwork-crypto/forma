@@ -65,13 +65,17 @@
         const col = r.z ? painColor(opts.pain[r.z] || 0) : null;
         if (col) { fill = col; op = 0.95; }
       }
+      if (opts.rec) {
+        const ms = r.m.filter(m => opts.rec[m]);
+        if (ms.length) { const pc = Math.min.apply(null, ms.map(m => opts.rec[m].pct)); fill = F.recColor(pc); op = 0.95; }
+      }
       if (opts.prim || opts.sec) {
         if (r.m.some(m => (opts.prim || []).includes(m))) { fill = 'var(--accent)'; op = 1; }
         else if (r.m.some(m => (opts.sec || []).includes(m))) { fill = 'var(--accent)'; op = 0.4; }
       }
-      const attr = r.z ? ` data-zone="${r.z}"` : '';
+      const attr = opts.rec ? '' : (r.z ? ` data-zone="${r.z}"` : '');
       const sel = r.z && opts.sel === r.z ? ' sel' : '';
-      out += `<g class="reg${r.z && opts.pain ? ' hit' : ''}${sel}"${attr} fill="${fill}" fill-opacity="${op}" stroke="var(--body-line)" stroke-width="0.9" stroke-linejoin="round">${r.sh}</g>`;
+      out += `<g class="reg${r.z && opts.pain && !opts.rec ? ' hit' : ''}${sel}"${attr} fill="${fill}" fill-opacity="${op}" stroke="var(--body-line)" stroke-width="0.9" stroke-linejoin="round">${r.sh}</g>`;
     }
     return out + '</svg>';
   };

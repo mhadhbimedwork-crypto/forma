@@ -1,8 +1,9 @@
 {
-  "version": "1.11.1",
-  "build": 24,
+  "version": "1.12.0",
+  "build": 25,
   "date": "2026-11-02",
   "notes": [
-    "Home: i pulsanti dei giorni (Giorno 1, 2, 3) ora sono sempre leggibili, in bianco. Quello scelto ha il bordo evidenziato."
+    "Nuova sezione Corpo > Recupero: mappa del corpo con la percentuale di recupero di ogni muscolo, calcolata da pesi sollevati, serie, sforzo, età e rientro.",
+    "Home: recupero dei muscoli della seduta di oggi. Il dolore resta nella scheda Dolore."
   ]
 }
