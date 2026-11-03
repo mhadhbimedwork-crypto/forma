@@ -1,8 +1,8 @@
 {
-  "version": "1.16.11",
-  "build": 47,
+  "version": "1.16.12",
+  "build": 48,
   "date": "2026-11-03",
   "notes": [
-    "Prima configurazione dell'amministratore direttamente dall'app (codice monouso). Nessun dato personale online."
+    "Corretto il codice QR della verifica a due passaggi (ora si vede sempre, con chiave manuale di riserva)."
   ]
 }

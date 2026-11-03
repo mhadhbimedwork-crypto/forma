@@ -430,13 +430,13 @@
     acts.csvGym = t => exportCsv(gymProfiles(t.dataset.id), 'TLZ_' + F.safeName(gymName(t.dataset.id)));
 
     /* ---------- verifica a due passaggi dell'amministratore ---------- */
-    async function startMfa() { try { const f = await A.mfaFactor(); if (f) ui.mfa = { id: f.id }; else { const e = await A.mfaEnroll(); ui.mfa = { id: e.id, enroll: true, qr: e.totp.qr_code, secret: e.totp.secret }; } } catch (e) { ui.mfa = { err: e.message }; } c.render(); }
+    async function startMfa() { try { const f = await A.mfaFactor(); if (f) ui.mfa = { id: f.id }; else { const e = await A.mfaEnroll(); const q = String(e.totp.qr_code || ''), i = q.indexOf(','); ui.mfa = { id: e.id, enroll: true, qr: /^data:image\/svg/.test(q) && i > 0 ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(q.slice(i + 1)) : q, secret: e.totp.secret, uri: e.totp.uri || '' }; } } catch (e) { ui.mfa = { err: e.message }; } c.render(); }
     views.mfa = function () {
       const m = ui.mfa; if (!m) { ui.mfa = { busy: true }; startMfa(); return '<p class="mute" style="padding:20px">Caricamento…</p>'; }
       if (m.busy) return '<p class="mute" style="padding:20px">Caricamento…</p>';
       if (m.err && !m.id) return `<div class="msg danger" style="margin:16px">${esc(m.err)}</div><button class="ghost" data-act="logout">Esci</button>`;
       return `<div class="card hero"><h1>Verifica a due passaggi</h1><p>${m.enroll ? 'Prima volta: scansiona il codice con Google Authenticator, Microsoft Authenticator o simili, poi scrivi il codice a 6 cifre.' : "Scrivi il codice a 6 cifre dell'app di verifica."}</p></div>
-        <form class="card" id="mfaForm">${m.enroll ? `<img src="${esc(m.qr)}" alt="Codice QR" width="180" height="180" style="background:#fff;padding:8px;border-radius:8px"><p class="small mute">Se non riesci a scansionare, inserisci a mano: <code>${esc(m.secret)}</code></p>` : ''}
+        <form class="card" id="mfaForm">${m.enroll ? `<img src="${esc(m.qr)}" alt="Codice QR" width="180" height="180" style="background:#fff;padding:8px;border-radius:8px"><p class="small mute">Non riesci a scansionare? Nell'app di verifica scegli «Inserisci chiave» e scrivi questa chiave (tipo: basato sul tempo):</p><p><code style="font-size:1.05em;word-break:break-all;user-select:all">${esc(m.secret)}</code></p>${m.uri ? `<p class="small"><a href="${esc(m.uri)}">Se sei dal telefono, tocca qui per aprire l'app di verifica</a></p>` : ''}` : ''}
         <label for="mf_c">Codice</label><input id="mf_c" name="code" inputmode="numeric" autocomplete="one-time-code" required>
         ${m.err ? `<div class="msg danger small" style="margin-top:8px">${esc(m.err)}</div>` : ''}<button class="primary" style="margin-top:12px;width:100%">Conferma</button><button type="button" class="ghost" style="margin-top:8px" data-act="logout">Esci</button></form>`;
     };
