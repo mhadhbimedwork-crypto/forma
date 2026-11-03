@@ -1,11 +1,8 @@
 {
-  "version": "1.16.1",
-  "build": 37,
-  "date": "2026-11-02",
+  "version": "1.16.2",
+  "build": 38,
+  "date": "2026-11-03",
   "notes": [
-    "Palestre e ruoli: amministratore, allenatore principale, allenatore e cliente, ognuno con i suoi poteri.",
-    "Console amministratore separata con verifica a due passaggi, creazione palestre, reimpostazione password e attivazione/disattivazione.",
-    "Blocco in scrittura dell'amministratore: un solo pulsante, sblocca e blocca quando vuole, senza scadenze.",
-    "Sicurezza: protezione contro script esterni, accesso al server ristretto, disconnessione automatica della console dopo 15 minuti."
+    "EMOM indicato come alternativa (per esempio nelle trazioni): ora c'è il pulsante per avviare il timer, un minuto alla volta."
   ]
 }

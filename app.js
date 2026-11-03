@@ -251,8 +251,11 @@
     }
     return o;
   }
+  /* minuti di EMOM: principale (tech.emom) oppure indicato come alternativa nella nota ("... in EMOM 6'") */
+  function emomN(x) { if (x.tech && x.tech.emom) return x.tech.emom; const m = /EMOM\s*(\d+)/i.exec(x.note || ''); return m ? +m[1] : 0; }
   function emomStart(i) {
-    const p = P(), plan = planOf(p), x = plan.days[p.draft.dayIdx].exercises[i], n = x.tech.emom;
+    const p = P(), plan = planOf(p), x = plan.days[p.draft.dayIdx].exercises[i], n = emomN(x);
+    if (!n) return;
     const step = k => { if (k > n) { toast('EMOM finito. Ottimo!'); return; } toast('Minuto ' + k + '/' + n + ': fai la serie ' + k); startTimer(60, 'EMOM ' + k + '/' + n, () => step(k + 1)); };
     step(1);
   }
@@ -288,7 +291,7 @@
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
       </div></div>
       <table class="sets"><thead><tr><th>#</th><th>Obiettivo</th><th>${x.unit === 'sec' ? '' : 'Peso'}</th><th>${x.unit === 'sec' ? 'Sec' : 'Rip'}</th><th>RPE</th><th>Fatta</th></tr></thead><tbody>${rows.join('')}</tbody></table>
-      <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="addSet" data-i="${i}">+ serie</button><button class="ghost sm" data-act="delSet" data-i="${i}">− serie</button>${x.tech && x.tech.emom ? `<button class="primary sm" data-act="emomGo" data-i="${i}">▶ Avvia EMOM ${x.tech.emom}'</button>` : ''}${x.tech && x.tech.myo ? `<button class="sm" data-act="myoGo" data-i="${i}">Pausa myo 15 s</button>` : ''}${x.tech && x.tech.pause ? `<span class="chip">Fermo ${x.tech.pause.sec} s${x.tech.pause.every > 1 ? ' ogni ' + x.tech.pause.every + ' rip' : ' a ogni rip'}</span>` : ''}</div></div>`;
+      <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="addSet" data-i="${i}">+ serie</button><button class="ghost sm" data-act="delSet" data-i="${i}">− serie</button>${emomN(x) ? `<button class="${x.tech && x.tech.emom ? 'primary ' : ''}sm" data-act="emomGo" data-i="${i}">▶ Avvia EMOM ${emomN(x)}'${x.tech && x.tech.emom ? '' : ' (alternativa)'}</button>` : ''}${x.tech && x.tech.myo ? `<button class="sm" data-act="myoGo" data-i="${i}">Pausa myo 15 s</button>` : ''}${x.tech && x.tech.pause ? `<span class="chip">Fermo ${x.tech.pause.sec} s${x.tech.pause.every > 1 ? ' ogni ' + x.tech.pause.every + ' rip' : ' a ogni rip'}</span>` : ''}</div></div>`;
     }).join('');
     return `<div class="row"><button class="ghost" data-act="pauseSession">← Esci (salva bozza)</button></div>
       <h1>${esc(day.name)}</h1>
