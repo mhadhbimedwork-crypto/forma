@@ -1,8 +1,9 @@
 {
-  "version": "1.16.6",
-  "build": 42,
+  "version": "1.16.7",
+  "build": 43,
   "date": "2026-11-03",
   "notes": [
-    "Dashboard del cliente per l'allenatore: schede scorrevoli di lato (Sintesi, Forza, Dolori, Peso e corpo, Muscoli, Scheda, Ultime sedute) nell'elenco clienti e nella pagina del cliente."
+    "Aggiornamento più semplice: si fa da solo all'apertura dell'app (mai durante una seduta) e prima copia i tuoi dati in un posto sicuro.",
+    "Corretto il caso in cui toccando Aggiorna restava la versione vecchia."
   ]
 }

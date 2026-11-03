@@ -39,3 +39,12 @@ if (path.basename(out) === '_site') {
   console.log('Versione palestra in', g);
 }
 console.log('Web app copiata in', out);
+
+/* indirizzi con numero di versione: dopo un aggiornamento il telefono non può riusare file vecchi in cache */
+{
+  const build = (fs.readFileSync('data.js', 'utf8').match(/build:\s*(\d+)/) || [])[1] || Date.now();
+  for (const d of [out, path.join(out, 'gym'), path.join(out, 'admin')]) {
+    const f = path.join(d, 'index.html'); if (!fs.existsSync(f)) continue;
+    fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/(src|href)="((?!https?:|data:|#)[^"?]+\.(?:js|css))"/g, '$1="$2?v=' + build + '"'));
+  }
+}

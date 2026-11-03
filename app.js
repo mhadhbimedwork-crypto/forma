@@ -11,6 +11,8 @@
   function load() {
     if (AC.enabled && !AC.me) return emptyState();
     try { const r = localStorage.getItem(keyNow()); if (r) return JSON.parse(r); } catch (e) { if (mem) return mem; }
+    /* rete di sicurezza: copia fatta prima dell'ultimo aggiornamento */
+    try { const r = localStorage.getItem(keyNow() + '.pre'); if (r) return JSON.parse(r); } catch (e) { }
     return emptyState();
   }
   let S = load(), syncT = null;
@@ -222,7 +224,7 @@
         <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
+    const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}${ui.updStuck ? '<div class="msg warn small">L\'aggiornamento non è ancora arrivato su questo telefono. Chiudi del tutto l\'app, riaprila e tocca di nuovo Aggiorna. I tuoi dati non si perdono.</div>' : ''}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
     const news = ui.whatsNew ? `<div class="card" style="border-color:var(--accent)"><b>Novità · versione ${esc(ui.whatsNew.version)}</b>${(ui.whatsNew.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="sm" data-act="dismissNews">Ok, ho letto</button></div></div>` : '';
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
@@ -920,7 +922,7 @@
       p.sessions = p.sessions.filter(x => x.id !== s.id); save(); render(); toast('Seduta eliminata');
     },
     async checkUpdate() { toast('Controllo in corso…'); const r = await checkVersion(true); if (r === 'new') toast('Aggiornamento disponibile'); else if (r === 'same') toast('Sei già alla versione più recente'); else toast('Impossibile controllare: sei offline?'); render(); },
-    async applyUpdate() { toast('Aggiorno…'); try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(x => x.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) { } location.reload(); },
+    async applyUpdate() { applyUpdateNow(false); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
     sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
     async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORGIA v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
@@ -962,6 +964,17 @@
   function readRecipe() { const R = ui.sub.draft; const n = $('#rc_name'), q = $('#rc_por'), no = $('#rc_note'); if (n) R.name = n.value; if (q) R.portions = Math.max(1, parseInt(q.value, 10) || 1); if (no) R.note = no.value; }
   function reqText() { const t = ($('#reqText').value || '').trim(); if (t.length < 5) { toast('Scrivi cosa vuoi cambiare'); return ''; } return t; }
   function logReq(text, how) { S.requests = S.requests || []; S.requests.push({ id: uid(), date: F.todayISO(), text, how }); save(); const el = $('#reqText'); if (el) el.value = ''; render(); }
+  /* Aggiornamento in app: salva e copia i dati, svuota la copia locale del programma (mai i dati), ricarica dall'indirizzo più recente. */
+  async function applyUpdateNow(auto) {
+    toast(auto ? 'Aggiornamento in corso… i tuoi dati restano salvati' : 'Aggiorno… i tuoi dati restano salvati');
+    try { save(); const raw = localStorage.getItem(keyNow()); if (raw && raw.length < 3e6) localStorage.setItem(keyNow() + '.pre', raw); } catch (e) { }
+    try { if (AC.enabled && AC.me) await Promise.race([syncUp(), new Promise(r => setTimeout(r, 3000))]); } catch (e) { }
+    try { localStorage.setItem('forma.updTry', JSON.stringify({ b: ui.update ? ui.update.build : 0, t: Date.now() })); } catch (e) { }
+    try { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(x => x.unregister())); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) { }
+    location.replace(location.pathname + '?u=' + Date.now());
+  }
+  /* dopo un tentativo: se la versione è ancora quella vecchia, lo diciamo con parole semplici */
+  function updTried() { try { const t = JSON.parse(localStorage.getItem('forma.updTry') || 'null'); return t && Date.now() - t.t < 120000 ? t : null; } catch (e) { return null; } }
   async function checkVersion(manual) {
     try {
       const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw 0; const v = await r.json();
@@ -1075,5 +1088,9 @@
   render();
   if (AC.enabled) AC.restore().then(me => me ? onSignIn() : render());
   else autoBackup();
-  checkVersion().then(r => { if (r === 'new' || ui.whatsNew) render(); });
+  checkVersion().then(r => {
+    if (r === 'new' && !updTried() && !(P() && P().draft) && !(ui.sub && ui.sub.type === 'session')) return applyUpdateNow(true);   // aggiornamento automatico all'apertura, mai durante una seduta
+    if (r === 'new' && updTried()) ui.updStuck = true;
+    if (r === 'new' || ui.whatsNew) render();
+  });
 })(window.FORMA);
