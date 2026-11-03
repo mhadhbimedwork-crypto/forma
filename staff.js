@@ -156,7 +156,8 @@
         const fd = Object.fromEntries(new FormData(form).entries()), minor = fd.role === 'client' && fd.birth && F.ageOf(fd.birth) < 18, back = ui.sub && ui.sub.back || 'clients';
         if (minor && (!fd.guardian || !fd.guardianOk)) { toast('Per un minorenne servono nome del genitore e conferma del consenso'); return true; }
         try {
-          const r = await A.createUser({ name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', can_see_all: !!fd.canSeeAll, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
+          let gym_id, coach_id; if (A.me.role === 'admin') { if (fd.role === 'client') { const co = (ui.accts || []).find(a => a.id === fd.coach); if (!co) { toast('Scegli un allenatore'); return true; } gym_id = co.gym_id; coach_id = co.id; } else gym_id = fd.gym; if (!gym_id) { toast('Scegli la palestra'); return true; } }
+          const r = await A.createUser({ gym_id, coach_id, name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', can_see_all: !!fd.canSeeAll, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
           ui.sub = null; ui.tab = back; ui.admLoaded = false; toast('Account creato: ' + r.username); await loadClients(); c.render();
         } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
       }
@@ -348,6 +349,7 @@
       const role = (ui.sub && ui.sub.role) || 'client', isC = role === 'client', back = (ui.sub && ui.sub.back) || 'clients';
       return `<div class="row"><button class="ghost" data-act="clientBack">← Indietro</button></div><h1>${isC ? 'Nuovo cliente' : 'Nuovo allenatore'}</h1>
         <form class="card" id="newClientForm" autocomplete="off"><input type="hidden" name="role" value="${role}"><label for="nc_n">Nome</label><input id="nc_n" name="name" required><label for="nc_s">Cognome</label><input id="nc_s" name="surname" required>
+        ${A.me && A.me.role === 'admin' ? (X.ensureAdmin(), isC ? `<label for="nc_c">Allenatore (la palestra è quella dell'allenatore)</label><select id="nc_c" name="coach" required>${(ui.accts || []).filter(a => (a.role === 'head' || a.role === 'coach') && a.active).map(a => `<option value="${esc(a.id)}">${esc(a.full_name)} · ${esc(((ui.gyms || []).find(g => g.id === a.gym_id) || {}).name || '')}</option>`).join('') || '<option value="">Carico…</option>'}</select>` : `<label for="nc_g">Palestra</label><select id="nc_g" name="gym" required>${(ui.gyms || []).filter(g => g.active).map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('') || '<option value="">Carico…</option>'}</select>`) : ''}
         ${isC ? `<label for="nc_b">Data di nascita</label><input id="nc_b" name="birth" type="date" required max="${F.todayISO()}">` : ''}
         <label for="nc_p">Password iniziale (min. 8 caratteri)</label><input id="nc_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso la persona sceglierà la propria password, che nessuno può leggere. Potrai reimpostarla se la dimentica.</p>
         ${isC ? `<h3>Consenso</h3><label class="row" style="gap:8px"><input type="checkbox" name="consentOk" style="width:auto"> <span class="small">Ho raccolto il consenso firmato al trattamento dei dati (anche di salute).</span></label>
@@ -359,7 +361,7 @@
     };
     acts.clientOpen = t => { ui.sub = { type: 'client', uid: t.dataset.id }; const p = find(t.dataset.id); if (A.enabled && p && p._acct) A.logAccess(p._uid, 'view_client'); c.render(); window.scrollTo(0, 0); };
     acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
-    acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: 'clients' }; c.render(); window.scrollTo(0, 0); };
+    acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: A.me && A.me.role === 'admin' ? 'gyms' : 'clients' }; c.render(); window.scrollTo(0, 0); };
     acts.clientsReload = async () => { ui.clLoaded = false; ui.clBusy = false; await loadClients(); c.render(); toast('Elenco aggiornato'); };
     acts.bkUpdate = async () => { const all = X.clients(); if (!all.length) return; try { await exportXlsx(all, 'BACKUP_TLZ_v' + F.VERSION.version + '_' + (A.enabled ? 'tutti' : 'profili')); localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); c.render(); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
@@ -426,7 +428,7 @@
     acts.gymOpen = t => { ui.sub = { type: 'gym', id: t.dataset.id }; c.render(); window.scrollTo(0, 0); };
     acts.gymReload = reload;
     acts.gymActive = async t => { const on = t.dataset.on === '1'; if (!on && !confirm('Disattivare la palestra? Nessuno dei suoi account potrà entrare finché non la riattivi.')) return; try { await A.setGymActive(t.dataset.id, on); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
-    acts.coachNew = () => { ui.sub = { type: 'newClient', role: 'coach', back: 'team' }; c.render(); window.scrollTo(0, 0); };
+    acts.coachNew = () => { ui.sub = { type: 'newClient', role: 'coach', back: A.me && A.me.role === 'admin' ? 'gyms' : 'team' }; c.render(); window.scrollTo(0, 0); };
     acts.acctReset = async t => { const pw = prompt('Nuova password temporanea (almeno 8 caratteri). La persona ne sceglierà una sua al prossimo accesso:'); if (!pw) return; try { await A.resetPassword(t.dataset.id, pw); toast('Password reimpostata'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
     acts.acctActive = async t => { try { await A.setActive(t.dataset.id, t.dataset.on === '1'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
     acts.acctDelete = async t => { const a = (ui.accts || []).find(x => x.id === t.dataset.id); if (!confirm(`Eliminare l'account di ${a ? a.full_name : ''} e i dati collegati? Non si può annullare.`) || !confirm('Ultima conferma: eliminare davvero?')) return; try { await A.deleteUser(t.dataset.id); await reload(); toast('Account eliminato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
@@ -497,7 +499,7 @@
     X.menu = function () {
       const me = A.me, r = me.role, links = A.links();
       const mk = [];
-      if (r === 'admin') mk.push(['gymNew', '+ Nuova palestra con allenatore principale']);
+      if (r === 'admin') { mk.push(['gymNew', '+ Nuova palestra con allenatore principale']); mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente / atleta']); }
       if (r === 'head') { mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente']); }
       if (r === 'coach') mk.push(['clientNew', '+ Nuovo cliente']);
       return `<section class="card acctmenu" aria-label="Profili">
