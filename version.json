@@ -1,8 +1,8 @@
 {
-  "version": "1.16.4",
-  "build": 40,
+  "version": "1.16.5",
+  "build": 41,
   "date": "2026-11-03",
   "notes": [
-    "Backup automatico ogni giorno (prima ogni 15 giorni): alla prima apertura dell'app di ogni nuovo giorno."
+    "Area allenatore senza server: nella pagina del cliente c'è 'Assegna una scheda', che la manda direttamente nel suo profilo con storico delle versioni."
   ]
 }

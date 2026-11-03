@@ -139,6 +139,15 @@
         const fd = Object.fromEntries(new FormData(form).entries());
         if (!fd.title.trim() || !fd.body.trim()) { toast('Scrivi titolo e testo della scheda'); return true; }
         const r = F.parseScheda(fd.body); if (!r.days.length || !r.days.some(d => d.exercises.length)) { toast('Non riesco a leggere esercizi in questo testo'); return true; }
+        if (!A.enabled) {
+          const cl = find(ui.sub.uid); if (!cl) return true;
+          const key = fd.title.trim().toLowerCase(), prevN = (cl.plans || []).filter(x => x.assignedLocal && (x.baseTitle || x.title).toLowerCase() === key).length;
+          const pl = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title: fd.title.trim() + (prevN ? ' (v' + (prevN + 1) + ')' : ''), baseTitle: fd.title.trim(), body: fd.body, assignedLocal: true, source: 'allenatore', createdAt: F.todayISO(), notes: ['Scheda assegnata dal tuo allenatore.'], days: r.days.filter(d => d.exercises.length) };
+          pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
+          const had = cl.plans.find(x => x.id === cl.activePlan); cl.plans.forEach(x => { if (x.offer) x.offer = false; });
+          if (had) pl.offer = true; cl.plans.push(pl); if (!had) cl.activePlan = pl.id;
+          c.save(); toast(prevN ? 'Scheda modificata e assegnata: versione ' + (prevN + 1) : 'Scheda assegnata a ' + cl.name); form.reset(); ui.asgDraft = null; c.render(); return true;
+        }
         try { const prevN = ((ui.ph || {})[ui.sub.uid] || []).filter(m => keyT(m.title) === keyT(fd.title)).length; await A.assignPlan(ui.sub.uid, fd.title.trim(), fd.body); toast(prevN ? 'Scheda modificata e inviata: versione ' + (prevN + 1) : 'Scheda inviata al cliente'); form.reset(); ui.asgDraft = null; if (ui.ph) delete ui.ph[ui.sub.uid]; c.render(); } catch (e) { toast('Invio non riuscito: ' + e.message); } return true;
       }
       return false;
@@ -193,7 +202,8 @@
     }
     X.planHistoryCard = function (p) {
       const uid = uidOf(p); ui.ph = ui.ph || {};
-      if (ui.ph[uid] === undefined && !ui.phBusy) { ui.phBusy = true; A.clientPlans(uid).then(r => { ui.ph[uid] = r; ui.phBusy = false; c.render(); }).catch(() => { ui.ph[uid] = []; ui.phBusy = false; }); }
+      if (!A.enabled) ui.ph[uid] = (p.plans || []).filter(x => x.assignedLocal).map(x => ({ id: x.id, title: x.baseTitle || x.title, body: x.body || '', created_at: x.createdAt, imported_at: x.offer === false ? x.createdAt : null, coach: { full_name: 'Allenatore' } }));
+      else if (ui.ph[uid] === undefined && !ui.phBusy) { ui.phBusy = true; A.clientPlans(uid).then(r => { ui.ph[uid] = r; ui.phBusy = false; c.render(); }).catch(() => { ui.ph[uid] = []; ui.phBusy = false; }); }
       const list = planVersions(ui.ph[uid] || []);
       if (!list.length) return `<div class="card"><h2>Schede inviate</h2><p class="mute small">${ui.ph[uid] === undefined ? 'Carico…' : 'Nessuna scheda inviata a questo cliente.'}</p></div>`;
       const last = {};
@@ -223,9 +233,9 @@
         ${ex.length ? `<div class="card"><h2>Progressi per esercizio</h2><table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Esercizio</th><th>Sedute</th><th>Miglior 1RM</th><th>Var.</th></tr></thead><tbody>${ex.map(o => `<tr><td style="text-align:left">${esc(o.name)}</td><td>${o.sessions}</td><td>${o.bestE1 || '–'}</td><td>${o.change == null ? '–' : (o.change > 0 ? '+' : '') + o.change + '%'}</td></tr>`).join('')}</tbody></table></div>` : ''}
         ${ws.length > 1 ? `<div class="card"><h2>Peso</h2>${c.lineChart(ws, 'kg')}</div>` : ''}
         ${X.planHistoryCard(p)}
-        ${can && role !== 'admin' ? `<div class="card"><h2>Invia una scheda</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" value="${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.title : '') || '')}" placeholder="Es. Scheda forza novembre">
+        ${(can && role !== 'admin') || !A.enabled ? `<div class="card"><h2>${A.enabled ? 'Invia una scheda' : 'Assegna una scheda a ' + esc(p.name)}</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" value="${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.title : '') || '')}" placeholder="Es. Scheda forza novembre">
           <label for="as_b">Testo della scheda (come dal personal trainer)</label><textarea id="as_b" name="body" style="min-height:120px;font-family:inherit" placeholder="Giorno 1&#10;Panca piana 4x6-8 rec 120s&#10;…">${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.body : '') || '')}</textarea>
-          <button class="primary" style="margin-top:8px">Invia al cliente</button></form><p class="mute small">L'app del cliente la legge da sola (serie, recuperi, timer, alternative) e lo avvisa: sceglie lui se attivarla subito o continuare con la scheda attuale. Ogni invio resta nello storico.</p></div>` : ''}
+          <button class="primary" style="margin-top:8px">${A.enabled ? 'Invia al cliente' : 'Assegna al cliente'}</button></form><p class="mute small">${A.enabled ? '' : 'Modalità locale: la scheda va direttamente nel profilo di questo cliente su questo dispositivo, con la data di oggi; il cliente decide se attivarla subito. '}L'app del cliente la legge da sola (serie, recuperi, timer, alternative) e lo avvisa: sceglie lui se attivarla subito o continuare con la scheda attuale. Ogni invio resta nello storico.</p></div>` : ''}
         ${can ? `<div class="card"><h2>Account</h2>${acctExtra(p)}<div class="row wrap"><button class="sm" data-act="clientReset" data-id="${esc(uidOf(p))}">Reimposta password</button><button class="sm" data-act="clientActive" data-id="${esc(uidOf(p))}">${acct.active ? 'Disattiva accesso' : 'Riattiva accesso'}</button>${role === 'head' || role === 'admin' ? `<button class="sm danger" data-act="clientDelete" data-id="${esc(uidOf(p))}">Elimina account e dati</button>` : ''}</div></div>` : ''}`;
     };
     views.newClient = function () {
