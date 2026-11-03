@@ -119,3 +119,10 @@ svg.chart{width:100%;height:auto;display:block}
 
 .chip.ok{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.4)}
 button.danger{border-color:var(--danger);color:var(--danger)}
+
+.dash-h{display:flex;gap:6px;justify-content:space-between;margin-top:4px;font-size:.72rem;overflow:hidden;white-space:nowrap}
+.dash-h span{color:var(--accent2);flex:none}
+.dash{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:6px 0 8px;margin:0 -4px}
+.dslide{flex:0 0 88%;scroll-snap-align:center;background:#0a0e14;border:1px solid var(--line);border-radius:4px;padding:10px 12px;min-width:0;box-sizing:border-box}
+.dslide h3{margin:0 0 6px;font:italic 700 1rem/1 var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--accent2)}
+.dslide .kpi{padding:8px 4px}.dslide .kpi b{font-size:1.25rem}

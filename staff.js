@@ -159,13 +159,56 @@
     const uidOf = p => p._uid || p.id;
     const find = id => X.clients().find(p => uidOf(p) === id);
     X.ensureClients = async function () { if (A.enabled && staffMode() && !ui.clLoaded && !ui.clBusy) { ui.clBusy = true; await loadClients(); ui.clBusy = false; c.render(); } };
+
+    /* ---------- dashboard del cliente: schede scorrevoli di lato ---------- */
+    const bar = (v, mx, col) => `<div style="height:6px;border-radius:3px;background:#0a0e14;margin-top:3px"><div style="height:6px;border-radius:3px;width:${mx ? Math.max(2, Math.round(v / mx * 100)) : 0}%;background:${col || 'var(--accent)'}"></div></div>`;
+    const kv = (v, l, col) => `<div class="kpi"><b ${col ? `style="color:${col}"` : ''}>${v}</b><span>${l}</span></div>`;
+    X.dashSlides = function (p) {
+      const today = F.todayISO(), st = F.clientStats(p, today), out = [];
+      const ss = (p.sessions || []).slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0));
+      /* 1 sintesi */
+      const from56 = F.isoAddDays(today, -56), wk = {}; ss.filter(s => s.date >= from56).forEach(s => { const k = F.mondayOf(s.date); wk[k] = (wk[k] || 0) + 1; });
+      const weeks = []; for (let i = 7; i >= 0; i--) weeks.push(F.mondayOf(F.isoAddDays(today, -7 * i))); const wmax = Math.max(1, ...weeks.map(k => wk[k] || 0));
+      out.push(['Sintesi', `<div class="grid3 k4">${kv(st.sessions7, 'sedute 7 giorni')}${kv(st.sessions28, 'sedute 4 sett.')}${kv(st.adherence + '%', 'aderenza', st.adherence < 50 && st.sessions ? 'var(--warn)' : '')}${kv(st.daysSince == null ? '–' : st.daysSince, 'giorni fermo', st.daysSince > 10 ? 'var(--warn)' : '')}</div>
+        <div class="grid3 k4" style="margin-top:8px">${kv(st.sessions, 'sedute totali')}${kv(fmt(st.totalSets), 'serie totali')}${kv(fmt(st.volume28), 'kg volume 4 sett.')}${kv(st.rpe28 == null ? '–' : st.rpe28, 'RPE medio')}</div>
+        <div class="small mute" style="margin:10px 0 2px">Sedute per settimana (ultime 8)</div><div style="display:flex;gap:4px;align-items:flex-end;height:48px">${weeks.map(k => `<div title="${tr(k)}: ${wk[k] || 0}" style="flex:1;background:var(--accent);height:${Math.max(3, Math.round((wk[k] || 0) / wmax * 48))}px;border-radius:2px;opacity:${wk[k] ? 1 : .25}"></div>`).join('')}</div>`]);
+      /* 2 forza */
+      const exs = F.exerciseStats(p).filter(o => o.bestE1).slice(0, 6), recent = F.exerciseStats(p).filter(o => o.prDate && o.prDate >= F.isoAddDays(today, -28));
+      out.push(['Forza', exs.length ? `<table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Esercizio</th><th>Miglior kg</th><th>1RM stim.</th><th>Var.</th></tr></thead><tbody>${exs.map(o => `<tr><td style="text-align:left">${esc(o.name)}<div class="mute small">${o.sessions} sedute</div></td><td>${o.bestKg ? fmt(o.bestKg, 1) : '–'}</td><td>${fmt(o.bestE1, 1)}</td><td style="color:${o.change > 0 ? 'var(--ok)' : o.change < 0 ? 'var(--danger)' : 'inherit'}">${o.change == null ? '–' : (o.change > 0 ? '+' : '') + o.change + '%'}</td></tr>`).join('')}</tbody></table>
+        <p class="small" style="margin:8px 0 0">${recent.length ? '<b>Record ultimi 28 giorni:</b> ' + recent.map(o => esc(o.name) + ' (' + tr(o.prDate) + ')').join(', ') : 'Nessun nuovo record negli ultimi 28 giorni.'}</p>` : '<p class="mute small">Servono sedute con peso e ripetizioni.</p>']);
+      /* 3 dolori */
+      const ph = st.painAll;
+      out.push(['Dolori', ph.length ? ph.map(h => `<div style="padding:6px 0;border-top:1px solid var(--line)"><div class="row" style="gap:8px"><b class="grow">${esc(h.label)}</b><span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.statusLabel)}</span> <b>${h.level}/10</b></div>
+        <div class="mute small">Picco ${h.peak}/10 · dal ${tr(h.first)}${h.level > 0 ? ` · ${h.daysActive} giorni attivo · ${h.delta7 > 0 ? '+' : ''}${h.delta7} negli ultimi 7 giorni` : h.clearedOn ? ` · azzerato il ${tr(h.clearedOn)}` : ''}</div>${bar(h.level, 10, h.level >= 7 ? 'var(--danger)' : h.level >= 4 ? 'var(--warn)' : 'var(--ok)')}</div>`).join('') : '<p class="mute small">Nessun dolore registrato.</p>']);
+      /* 4 peso e misure */
+      const ws = (p.weights || []).slice().sort((a, b) => a.date < b.date ? -1 : 1), ms = (p.measures || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+      const mrows = ms.length > 1 ? (F.MEASURES || []).map(m => { const a = ms[0].v[m[0]], b = ms[ms.length - 1].v[m[0]]; return a && b && a !== b ? [m[1] + ' ' + (m[2] || ''), b, Math.round((b - a) * 10) / 10] : null; }).filter(Boolean).slice(0, 6) : [];
+      out.push(['Peso e corpo', `<div class="grid3 k4">${kv(fmt(st.weight, 1) + ' kg', 'peso attuale')}${kv((st.weightDelta > 0 ? '+' : '') + st.weightDelta, 'kg dall\'inizio')}${kv(ws.length, 'pesate')}${kv(ms.length, 'misure prese')}</div>${ws.length > 1 ? c.lineChart(ws.map(w => ({ x: w.date, y: w.kg })), 'kg') : ''}
+        ${mrows.length ? `<table class="sets" style="text-align:left;margin-top:6px"><thead><tr><th style="text-align:left">Misura</th><th>Ora</th><th>Variazione</th></tr></thead><tbody>${mrows.map(r => `<tr><td style="text-align:left">${esc(r[0])}</td><td>${r[1]}</td><td>${r[2] > 0 ? '+' : ''}${r[2]}</td></tr>`).join('')}</tbody></table>` : ''}`]);
+      /* 5 muscoli */
+      const w0 = F.mondayOf(today), w1 = F.mondayOf(F.isoAddDays(today, -7)), wm = F.weeklyMuscleSets(p), cur = wm.filter(x => x.week === w0), prv = wm.filter(x => x.week === w1);
+      const labs = [...new Set(cur.concat(prv).map(x => x.label))], get = (arr, l) => (arr.find(x => x.label === l) || {}).sets || 0, mx = Math.max(1, ...labs.map(l => Math.max(get(cur, l), get(prv, l))));
+      out.push(['Muscoli', labs.length ? `<div class="small mute">Serie ponderate: questa settimana · scorsa</div>${labs.sort((a, b) => get(cur, b) - get(cur, a)).map(l => `<div style="margin-top:6px"><div class="row small"><span class="grow">${esc(l)}</span><b>${get(cur, l)}</b><span class="mute">&nbsp;· ${get(prv, l)}</span></div>${bar(get(cur, l), mx)}</div>`).join('')}` : '<p class="mute small">Nessuna seduta nelle ultime due settimane.</p>']);
+      /* 6 scheda */
+      const pl = (p.plans || []).find(x => x.id === p.activePlan), given = (p.plans || []).filter(x => x.assignedLocal || x.assignedId);
+      out.push(['Scheda', pl ? `<b>${esc(pl.title)}</b><div class="mute small">${pl.days.length} giorni · ${pl.days.reduce((a, d) => a + d.exercises.filter(x => !x.alt).length, 0)} esercizi · dal ${tr(pl.createdAt)}</div>
+        ${pl.days.map(d => { const n = ss.filter(s => s.planId === pl.id && s.dayName === d.name).length; return `<div class="row small" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow">${esc(d.name)}</span><span class="mute">${n} sedute</span></div>`; }).join('')}
+        <p class="small" style="margin:8px 0 0">${given.length ? 'Schede dell\'allenatore: <b>' + given.length + '</b> · ultima ' + tr(given[given.length - 1].createdAt) + (given.some(x => x.offer) ? ' (il cliente non l\'ha ancora attivata)' : '') : 'Nessuna scheda inviata dall\'allenatore.'}</p>` : '<p class="mute small">Nessuna scheda attiva.</p>']);
+      /* 7 ultime sedute */
+      out.push(['Ultime sedute', ss.length ? ss.slice(-4).reverse().map(s => { const x = F.sessionStats(s); return `<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${tr(s.date)}</b> · ${esc(s.dayName)}<div class="mute small">${x.exercises} esercizi · ${x.sets} serie · ${fmt(x.volume)} kg${x.rpe ? ' · RPE ' + x.rpe : ''}</div><div class="small">${s.ex.slice(0, 4).map(e => esc(e.name)).join(', ')}${s.ex.length > 4 ? '…' : ''}</div></div>`; }).join('') : '<p class="mute small">Nessuna seduta.</p>']);
+      return out;
+    };
+    X.dashStrip = function (p, id) {
+      const sl = X.dashSlides(p);
+      return `<div class="dash-h small mute">${sl.map(x => x[0]).join(' · ')} <span>← scorri →</span></div><div class="dash" tabindex="0" aria-label="Dashboard del cliente">${sl.map(x => `<section class="dslide"><h3>${esc(x[0])}</h3>${x[1]}</section>`).join('')}</div>`;
+    };
     function clientCard(p) {
       const st = F.clientStats(p), alert = st.alerts.length, late = st.daysSince != null && st.daysSince > 10;
       return `<div class="card" style="${alert ? 'border-color:var(--danger)' : ''}"><div class="row" style="gap:8px"><div class="grow"><b>${esc(p.name)}</b>${F.isMinor(p) ? ' <span class="chip warn">minorenne</span>' : ''}${p._acct && !p._acct.active ? ' <span class="chip">disattivato</span>' : ''}
         <div class="mute small">${F.ageOf(p.birth)} anni · ${fmt(st.weight, 1)} kg · ${st.sessions} sedute${st.last ? ` · ultima ${tr(st.last)} (${st.daysSince === 0 ? 'oggi' : st.daysSince + ' g fa'})` : ' · nessuna seduta'}</div></div>
         <button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(p))}">Apri</button></div>
-        <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions28}</b><span>sedute 4 sett.</span></div><div class="kpi"><b ${st.adherence < 50 && st.sessions ? 'style="color:var(--warn)"' : ''}>${st.adherence}%</b><span>aderenza</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div><div class="kpi"><b ${late ? 'style="color:var(--warn)"' : ''}>${st.daysSince == null ? '–' : st.daysSince}</b><span>giorni fermo</span></div></div>
-        ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : '<div class="mute small" style="margin-top:6px">Nessun dolore attivo</div>'}</div>`;
+        ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : ''}
+        <div style="margin-top:8px">${X.dashStrip(p)}</div>`;
     }
     views.clients = function () {
       X.ensureClients();
@@ -227,6 +270,7 @@
         <div class="card"><div class="mute small">${F.ageOf(p.birth)} anni · ${p.height} cm · ${fmt(st.weight, 1)} kg${st.weightDelta ? ` (${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} dall'inizio)` : ''}${F.isMinor(p) ? ' · minorenne' : ''}${acct ? ` · accesso: ${esc(acct.username)}` : ''}${p._updated ? ` · sincronizzato ${tr(String(p._updated).slice(0, 10))}` : ''}</div>
           <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions}</b><span>sedute</span></div><div class="kpi"><b>${st.adherence}%</b><span>aderenza 4 sett.</span></div><div class="kpi"><b>${fmt(st.volume28)}</b><span>kg volume 4 sett.</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div></div>
           <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button></div></div>
+        <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
         ${st.alerts.length ? `<div class="msg danger small"><b>Attenzione:</b> ${st.alerts.map(h => `${esc(h.label)} ${h.level}/10 (${esc(h.statusLabel.toLowerCase())})`).join(', ')}.</div>` : ''}
         ${X.painHistoryCard(p)}
         <div class="card"><h2>Ultime sedute</h2>${sessionsDetail(p)}</div>
