@@ -198,11 +198,30 @@
       out.push(['Ultime sedute', ss.length ? ss.slice(-4).reverse().map(s => { const x = F.sessionStats(s); return `<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${tr(s.date)}</b> · ${esc(s.dayName)}<div class="mute small">${x.exercises} esercizi · ${x.sets} serie · ${fmt(x.volume)} kg${x.rpe ? ' · RPE ' + x.rpe : ''}</div><div class="small">${s.ex.slice(0, 4).map(e => esc(e.name)).join(', ')}${s.ex.length > 4 ? '…' : ''}</div></div>`; }).join('') : '<p class="mute small">Nessuna seduta.</p>']);
       return out;
     };
-    X.dashStrip = function (p, id) {
+    X.dashStrip = function (p) {
       const sl = X.dashSlides(p);
-      return `<div class="dash-h small mute">${sl.map(x => x[0]).join(' · ')} <span>← scorri →</span></div><div class="dash" tabindex="0" aria-label="Dashboard del cliente">${sl.map(x => `<section class="dslide"><h3>${esc(x[0])}</h3>${x[1]}</section>`).join('')}</div>`;
+      return `<div class="dashw"><div class="dtabs" role="tablist">${sl.map((x, i) => `<button class="dtab${i === 0 ? ' on' : ''}" role="tab" data-act="dashTo" data-i="${i}">${esc(x[0])}</button>`).join('')}</div>
+        <div class="dashbox"><button class="dnav l" data-act="dashGo" data-d="-1" aria-label="Pagina precedente" hidden>‹</button><button class="dnav r" data-act="dashGo" data-d="1" aria-label="Pagina successiva">›</button>
+        <div class="dash" tabindex="0" aria-label="Dashboard del cliente (frecce sinistra e destra per scorrere)">${sl.map(x => `<section class="dslide"><h3>${esc(x[0])}</h3>${x[1]}</section>`).join('')}</div></div></div>`;
     };
-
+    /* navigazione con mouse, frecce e tastiera */
+    const dashOf = el => el.closest('.dashw');
+    const dashStep = d => { const s = d.querySelector('.dslide'); return s ? s.getBoundingClientRect().width + 10 : 300; };
+    const dashSync = d => {
+      const w = dashOf(d); if (!w) return; const n = d.children.length, i = Math.min(n - 1, Math.max(0, Math.round(d.scrollLeft / dashStep(d))));
+      w.querySelectorAll('.dtab').forEach((b, k) => b.classList.toggle('on', k === i));
+      const l = w.querySelector('.dnav.l'), r = w.querySelector('.dnav.r'); if (l) l.hidden = d.scrollLeft < 4; if (r) r.hidden = d.scrollLeft + d.clientWidth >= d.scrollWidth - 4;
+      const act = w.querySelector('.dtab.on'); if (act && act.scrollIntoView) { const tb = w.querySelector('.dtabs'); tb.scrollTo({ left: act.offsetLeft - 20, behavior: 'smooth' }); }
+    };
+    acts.dashGo = t => { const d = dashOf(t).querySelector('.dash'); d.scrollBy({ left: +t.dataset.d * dashStep(d), behavior: 'smooth' }); };
+    acts.dashTo = t => { const d = dashOf(t).querySelector('.dash'); d.scrollTo({ left: +t.dataset.i * dashStep(d), behavior: 'smooth' }); };
+    document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('dash')) dashSync(e.target); }, true);
+    document.addEventListener('keydown', e => { const d = e.target.closest && e.target.closest('.dash'); if (!d || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return; e.preventDefault(); d.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * dashStep(d), behavior: 'smooth' }); });
+    let drag = null;
+    document.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || e.button !== 0) return; const d = e.target.closest && e.target.closest('.dash'); if (!d || e.target.closest('button,a,input,select,textarea,summary')) return; drag = { d, x: e.clientX, l: d.scrollLeft, moved: false }; });
+    document.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x; if (Math.abs(dx) > 4) { drag.moved = true; drag.d.classList.add('drag'); } if (drag.moved) drag.d.scrollLeft = drag.l - dx; });
+    const dragEnd = () => { if (!drag) return; const d = drag.d, moved = drag.moved; drag = null; if (moved) { d.classList.remove('drag'); d.scrollTo({ left: Math.round(d.scrollLeft / dashStep(d)) * dashStep(d), behavior: 'smooth' }); } };
+    document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
     /* ---------- corpo del cliente: recupero muscolare e dolori, con i tempi ---------- */
     X.bodyCard = function (p) {
       const rec = F.recovery(p), rows = Object.keys(F.MUSCLE_LABEL).map(m => [m, rec[m]]).sort((a, b) => a[1].pct - b[1].pct);

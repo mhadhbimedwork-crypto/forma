@@ -1,8 +1,8 @@
 {
-  "version": "1.16.8",
-  "build": 44,
+  "version": "1.16.9",
+  "build": 45,
   "date": "2026-11-03",
   "notes": [
-    "Pagina del cliente per l'allenatore: corpo umano con recupero muscolare (con i tempi) e dolori segnalati, fronte e retro."
+    "Dashboard del cliente: da PC si scorre con le frecce laterali semitrasparenti, con le linguette in alto, con le frecce della tastiera o trascinando col mouse."
   ]
 }
