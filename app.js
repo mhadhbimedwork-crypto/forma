@@ -1058,6 +1058,11 @@
       const srv = await AC.pullMine(), loc = P();
       if (srv && srv.data && srv.data.name) {
         if (!loc) { const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = [pr]; S.active = pr.id; }
+        else if (srv.data.name && loc.name && srv.data.birth && loc.birth && String(srv.data.name).trim().toLowerCase() !== String(loc.name).trim().toLowerCase() && srv.data.birth !== loc.birth) {
+          /* sul dispositivo c'è il profilo di un'altra persona: non si mescola. Copia di sicurezza e si usa quello dell'account. */
+          try { localStorage.setItem(KEY + '.altro.' + Date.now(), JSON.stringify(loc)); } catch (e) { }
+          const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = [pr]; S.active = pr.id;
+        }
         else Object.assign(loc, F.mergeProfiles(loc, F.normalizeProfile(Object.assign({}, srv.data, { id: loc.id }))));
         save();
       } else if (P()) syncUp();

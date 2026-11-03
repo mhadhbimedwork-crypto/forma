@@ -1,8 +1,8 @@
 {
-  "version": "1.19.1",
-  "build": 54,
+  "version": "1.19.2",
+  "build": 55,
   "date": "2026-11-03",
   "notes": [
-    "Da amministratore vedi ciò che vede ogni palestra: nuova «Vista palestra» in Clienti e Team (una palestra o tutte), e il pulsante «Vedi come l'allenatore» nella scheda della palestra."
+    "Protezione: se sul dispositivo c'è il profilo di un'altra persona, l'app non lo mescola con quello dell'account (ne fa una copia di sicurezza e usa i dati dell'account)."
   ]
 }
