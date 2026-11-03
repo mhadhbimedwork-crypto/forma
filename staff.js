@@ -202,6 +202,23 @@
       const sl = X.dashSlides(p);
       return `<div class="dash-h small mute">${sl.map(x => x[0]).join(' · ')} <span>← scorri →</span></div><div class="dash" tabindex="0" aria-label="Dashboard del cliente">${sl.map(x => `<section class="dslide"><h3>${esc(x[0])}</h3>${x[1]}</section>`).join('')}</div>`;
     };
+
+    /* ---------- corpo del cliente: recupero muscolare e dolori, con i tempi ---------- */
+    X.bodyCard = function (p) {
+      const rec = F.recovery(p), rows = Object.keys(F.MUSCLE_LABEL).map(m => [m, rec[m]]).sort((a, b) => a[1].pct - b[1].pct);
+      const ph = F.painHistory(p).filter(h => h.level > 0), pain = {}; ph.forEach(h => { pain[h.zone] = h.level; });
+      const tired = rows.filter(([, o]) => o.pct < 90 && o.last), mode = ui.cBody || 'rec';
+      const fig = opts => `<div class="bodies"><figure>${F.bodySVG('f', opts)}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', opts)}<figcaption>Retro</figcaption></figure></div>`;
+      const wait = o => o.hours ? 'pronto tra ' + (o.hours >= 48 ? Math.round(o.hours / 24) + ' g' : o.hours + ' h') : (o.last ? 'pronto' : 'a riposo');
+      const seg = `<div class="row" style="margin-bottom:8px"><button class="sm grow ${mode === 'rec' ? 'primary' : ''}" data-act="cBody" data-m="rec">Recupero</button><button class="sm grow ${mode === 'pain' ? 'primary' : ''}" data-act="cBody" data-m="pain">Dolore</button></div>`;
+      const body = mode === 'rec'
+        ? `${fig({ rec })}<div class="legend"><span><i style="background:#34d399"></i>90-100%</span><span><i style="background:#a3e635"></i>70-89</span><span><i style="background:#facc15"></i>50-69</span><span><i style="background:#f97316"></i>30-49</span><span><i style="background:#ef4444"></i>&lt;30</span></div>
+          ${tired.length ? tired.map(([m, o]) => `<div style="margin:6px 0"><div class="row small"><span class="grow">${esc(F.MUSCLE_LABEL[m])}</span><b style="color:${F.recColor(o.pct)}">${o.pct}%</b><span class="mute" style="min-width:96px;text-align:right">${wait(o)}</span></div>${bar(o.pct, 100, F.recColor(o.pct))}</div>`).join('') : `<p class="small mute">${(p.sessions || []).length ? 'Tutti i muscoli sono recuperati.' : 'Nessuna seduta: niente da recuperare.'}</p>`}`
+        : `${fig({ pain })}<div class="legend"><span><i style="background:#facc15"></i>1-3</span><span><i style="background:#f97316"></i>4-6</span><span><i style="background:#ef4444"></i>7-10</span></div>
+          ${ph.length ? ph.map(h => `<div style="margin:6px 0"><div class="row small"><span class="grow">${esc(h.label)}</span><span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.statusLabel)}</span> <b>${h.level}/10</b></div><div class="mute small">attivo da ${h.daysActive} giorni · picco ${h.peak}/10 · ${h.delta7 > 0 ? '+' : ''}${h.delta7} in 7 giorni</div></div>`).join('') : '<p class="small mute">Nessun dolore attivo.</p>'}`;
+      return `<div class="card"><h2>Corpo: recupero e dolore</h2>${seg}${body}</div>`;
+    };
+    acts.cBody = t => { ui.cBody = t.dataset.m; c.render(); };
     function clientCard(p) {
       const st = F.clientStats(p), alert = st.alerts.length, late = st.daysSince != null && st.daysSince > 10;
       return `<div class="card" style="${alert ? 'border-color:var(--danger)' : ''}"><div class="row" style="gap:8px"><div class="grow"><b>${esc(p.name)}</b>${F.isMinor(p) ? ' <span class="chip warn">minorenne</span>' : ''}${p._acct && !p._acct.active ? ' <span class="chip">disattivato</span>' : ''}
@@ -271,6 +288,7 @@
           <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions}</b><span>sedute</span></div><div class="kpi"><b>${st.adherence}%</b><span>aderenza 4 sett.</span></div><div class="kpi"><b>${fmt(st.volume28)}</b><span>kg volume 4 sett.</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div></div>
           <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button></div></div>
         <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
+        ${X.bodyCard(p)}
         ${st.alerts.length ? `<div class="msg danger small"><b>Attenzione:</b> ${st.alerts.map(h => `${esc(h.label)} ${h.level}/10 (${esc(h.statusLabel.toLowerCase())})`).join(', ')}.</div>` : ''}
         ${X.painHistoryCard(p)}
         <div class="card"><h2>Ultime sedute</h2>${sessionsDetail(p)}</div>

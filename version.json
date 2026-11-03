@@ -1,9 +1,8 @@
 {
-  "version": "1.16.7",
-  "build": 43,
+  "version": "1.16.8",
+  "build": 44,
   "date": "2026-11-03",
   "notes": [
-    "Aggiornamento più semplice: si fa da solo all'apertura dell'app (mai durante una seduta) e prima copia i tuoi dati in un posto sicuro.",
-    "Corretto il caso in cui toccando Aggiorna restava la versione vecchia."
+    "Pagina del cliente per l'allenatore: corpo umano con recupero muscolare (con i tempi) e dolori segnalati, fronte e retro."
   ]
 }
