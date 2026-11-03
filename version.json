@@ -1,8 +1,8 @@
 {
-  "version": "1.19.0",
-  "build": 53,
+  "version": "1.19.1",
+  "build": 54,
   "date": "2026-11-03",
   "notes": [
-    "Accessi rapidi per l'amministratore: dalla dashboard entri con un tocco nel profilo di un utente o di un allenatore, senza password e senza uscire. Con ★ segni i profili tuoi (ci scrivi); negli altri sei in sola visione finché non togli il lucchetto."
+    "Da amministratore vedi ciò che vede ogni palestra: nuova «Vista palestra» in Clienti e Team (una palestra o tutte), e il pulsante «Vedi come l'allenatore» nella scheda della palestra."
   ]
 }

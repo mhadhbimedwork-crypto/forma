@@ -16,7 +16,7 @@
     X.tabs = I => {
       if (!staffMode()) return [];
       if (!A.enabled) return [['clients', 'Clienti', I.user]];
-      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head') t.push(['team', 'Team', I.plan]); return t;
+      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head' || r === 'admin') t.push(['team', 'Team', I.plan]); return t;
     };
     X.homeTab = () => (A.enabled && A.me && A.me.role === 'admin' ? 'gyms' : 'clients');
 
@@ -272,15 +272,21 @@
         ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : ''}
         <div style="margin-top:8px">${X.dashStrip(p)}</div>`;
     }
+    /* Vista palestra (solo amministratore): vedi ciò che vede l'allenatore di una palestra, o tutte insieme */
+    const lensBar = () => { if (!(A.enabled && A.me && A.me.role === 'admin')) return ''; X.ensureAdmin(); const g = ui.gyms || [];
+      return `<div class="card"><div class="mute small" style="margin-bottom:6px">Vista palestra</div><div class="row wrap" style="gap:6px"><button class="sm ${!ui.lens ? 'primary' : ''}" data-act="lensSet" data-id="">Tutte (${g.length})</button>${g.map(x => `<button class="sm ${ui.lens === x.id ? 'primary' : ''}" data-act="lensSet" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`; };
+    acts.lensSet = t => { ui.lens = t.dataset.id || null; c.render(); };
+    acts.lensOpen = t => { ui.lens = t.dataset.id; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
+    const inLens = a => !ui.lens || a.gym_id === ui.lens;
     views.clients = function () {
       X.ensureClients();
-      const q = (ui.clQ || '').toLowerCase(), list = X.clients().filter(p => !q || p.name.toLowerCase().includes(q))
+      const q = (ui.clQ || '').toLowerCase(), list = X.clients().filter(p => inLens(p._acct || {}) && (!q || p.name.toLowerCase().includes(q)))
         .sort((a, b) => (F.clientStats(b).alerts.length - F.clientStats(a).alerts.length) || a.name.localeCompare(b.name));
-      const all = X.clients();
+      const all = X.clients().filter(p => inLens(p._acct || {}));
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
       if (needBk && A.isAdmin() && !ui.bkAuto) { ui.bkAuto = true; setTimeout(() => acts.bkUpdate(), 400); }
-      return `<h1>Clienti</h1>
+      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}
         ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Scarica subito il file Excel con i dati di tutti, da tenere sul PC. Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup completo adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
@@ -427,7 +433,7 @@
       X.ensureAdmin(); X.ensureClients(); const g = (ui.gyms || []).find(x => x.id === ui.sub.id); if (!g) return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><p class="mute">Caricamento…</p>`;
       const k = gymStats(g), ord = { head: 0, coach: 1, client: 2 };
       return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><h1>${esc(g.name)}</h1>
-        <div class="card"><div class="row wrap"><button class="sm" data-act="gymActive" data-id="${g.id}" data-on="${g.active ? 0 : 1}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="xlsxGym" data-id="${g.id}">Excel della palestra</button><button class="sm" data-act="csvGym" data-id="${g.id}">CSV</button></div>
+        <div class="card"><div class="row wrap"><button class="sm" data-act="gymActive" data-id="${g.id}" data-on="${g.active ? 0 : 1}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="lensOpen" data-id="${g.id}">Vedi come l'allenatore</button><button class="sm primary" data-act="xlsxGym" data-id="${g.id}">Excel della palestra</button><button class="sm" data-act="csvGym" data-id="${g.id}">CSV</button></div>
         <p class="mute small" style="margin-bottom:0">Disattivando la palestra nessuno dei suoi account può più entrare. I dati restano e li riattivi quando vuoi.</p></div>
         <div class="card"><h2>Account (${k.list.length})</h2>${k.list.slice().sort((a, b) => ord[a.role] - ord[b.role] || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account.</p>'}</div>`;
     };
@@ -439,8 +445,8 @@
         <button class="primary" style="margin-top:12px;width:100%">Crea palestra e accesso</button></form>`;
     };
     views.team = function () {
-      X.ensureAdmin(); const coaches = (ui.accts || []).filter(a => a.role === 'coach');
-      return `<h1>Team${A.gym ? ' · ' + esc(A.gym.name) : ''}</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}
+      X.ensureAdmin(); const adm = A.me.role === 'admin', coaches = (ui.accts || []).filter(a => (adm ? (a.role === 'coach' || a.role === 'head') && inLens(a) : a.role === 'coach'));
+      return `<h1>Team${A.gym ? ' · ' + esc(A.gym.name) : ''}</h1>${lensBar()}${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}
         <div class="card"><button class="sm primary" data-act="coachNew">+ Nuovo allenatore</button><p class="mute small" style="margin-bottom:0">Gli allenatori possono creare clienti e gestire i loro dati. Con "vede tutti i clienti" vedono quelli di tutta la palestra.</p></div>
         <div class="card"><h2>Allenatori (${coaches.length})</h2>${!ui.admLoaded ? '<p class="mute small">Caricamento…</p>' : ''}${coaches.map(acctRow).join('') || (ui.admLoaded ? '<p class="mute small">Ancora nessun allenatore oltre a te.</p>' : '')}</div>`;
     };
