@@ -2,7 +2,7 @@
    Canali: cartella del PC (File System Access, Chrome/Edge) · cartella del telefono (app Android) · download manuale. */
 (function (F) {
   'use strict';
-  const DAY = 864e5, EVERY_DAYS = 15;
+  const DAY = 864e5, EVERY_DAYS = 1;
   F.BACKUP_EVERY_DAYS = EVERY_DAYS;
   const safe = s => (String(s).replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '')) || 'profilo';
   const pad = n => String(n).padStart(2, '0');
@@ -145,7 +145,9 @@
   F.backupInfo = function (S) {
     const b = S.settings.backup || {}, last = b.lastAt ? new Date(b.lastAt) : null, ref = last || new Date(b.since || Date.now());
     const next = new Date(ref.getTime() + EVERY_DAYS * DAY);
-    return { last, next, due: Date.now() >= next.getTime(), channel: b.channel || null, where: b.where || null };
+    const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    /* una volta al giorno: scatta alla prima apertura di ogni nuovo giorno */
+    return { last, next, due: last ? ymd(last) !== ymd(new Date()) : Date.now() >= next.getTime(), channel: b.channel || null, where: b.where || null };
   };
   /**
    * Esegue il backup di tutti i profili.

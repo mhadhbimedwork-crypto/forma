@@ -89,16 +89,16 @@
     const dir = ui.bkDir ? `Cartella del PC collegata: <b>${esc(ui.bkDir)}</b>` : '';
     return `<p class="small">${state}${next}</p>
       <p class="small mute">Per ogni profilo viene creata una cartella col suo nome con 4 file: <b>.json</b> (completo, modificabile, reimportabile), <b>.md</b> (riepilogo leggibile), <b>.csv</b> sedute e peso (Excel).</p>
-      ${fs ? `<p class="small">${dir || `Collega una cartella del PC (es. Desktop/Allenamento/Backup): da lì in poi il backup si scrive da solo ogni ${F.BACKUP_EVERY_DAYS} giorni appena apri l'app.`}</p>
+      ${fs ? `<p class="small">${dir || `Collega una cartella del PC (es. Desktop/Allenamento/Backup): da lì in poi il backup si scrive da solo ogni giorno, alla prima apertura dell'app.`}</p>
       <div class="row wrap"><button class="sm primary" data-act="bkPick">${ui.bkDir ? 'Cambia cartella' : 'Scegli cartella del PC'}</button>${ui.bkDir ? '<button class="sm" data-act="bkForget">Scollega</button>' : ''}</div>` : ''}
-      ${nat ? `<p class="small">Sul telefono il backup viene salvato in <b>Documenti/FORGIA-Backup</b> ogni ${F.BACKUP_EVERY_DAYS} giorni all'apertura dell'app.</p>` : ''}
+      ${nat ? `<p class="small">Sul telefono il backup viene salvato in <b>Documenti/FORGIA-Backup</b> ogni giorno, alla prima apertura dell'app.</p>` : ''}
       <div class="row wrap" style="margin-top:8px"><button class="sm ${fs ? '' : 'primary'}" data-act="bkNow">Fai il backup adesso</button>${nat ? '<button class="sm" data-act="bkShare">Condividi / invia ai file</button>' : ''}</div>
       ${!fs && !nat ? '<p class="mute small">Questo browser non può scrivere nelle cartelle del PC: usa Chrome o Edge sul computer, oppure i file vengono scaricati in Download.</p>' : ''}
       <p class="mute small">I dati del telefono e quelli del PC sono separati: per spostare un profilo da un dispositivo all\'altro importa il suo file .json.</p>`;
   }
   function backupBanner() {
     const b = F.backupInfo(S); if (!b.due || ui.bkHide) return '';
-    return `<div class="card" style="border-color:var(--warn)"><b>Backup da fare</b><div class="small">${b.last ? 'Sono passati più di ' + F.BACKUP_EVERY_DAYS + ' giorni dall\'ultimo backup.' : 'Non hai ancora fatto nessun backup dei tuoi dati.'}</div>
+    return `<div class="card" style="border-color:var(--warn)"><b>Backup da fare</b><div class="small">${b.last ? 'Oggi il backup non è ancora stato fatto.' : 'Non hai ancora fatto nessun backup dei tuoi dati.'}</div>
       <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button>${F.isNative() ? '<button class="sm" data-act="bkShare">Invia su Drive / WhatsApp</button>' : ''}<button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
   }
   async function refreshDir() { if (!F.fsSupported()) return; const h = await F.getDir(); ui.bkDir = h ? h.name : null; }
@@ -708,7 +708,7 @@
       <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORGIA (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
       <input id="aiUrl" placeholder="https://il-tuo-server" value="${esc(S.settings.aiUrl || '')}" aria-label="Indirizzo server IA"><button class="sm" style="margin-top:8px" data-act="saveAI">Salva</button></div>
 `}
-      <div class="card"><h2>Backup automatico ogni ${F.BACKUP_EVERY_DAYS} giorni</h2>${backupCard()}</div>
+      <div class="card"><h2>Backup automatico ogni giorno</h2>${backupCard()}</div>
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
 </div>
       ${X.dataCard(p)}

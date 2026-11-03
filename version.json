@@ -1,11 +1,8 @@
 {
-  "version": "1.16.3",
-  "build": 39,
+  "version": "1.16.4",
+  "build": 40,
   "date": "2026-11-03",
   "notes": [
-    "La scheda inviata dall'allenatore viene letta e resa eseguibile in automatico: serie, recuperi, timer EMOM e alternative.",
-    "Alternative (es. 'A / B - 3x8 / EMOM 6'): nella seduta spunti quale fai, o entrambe.",
-    "Il cliente viene avvisato della nuova scheda e decide se attivarla subito; la scheda resta salvata con la data.",
-    "Per l'allenatore: storico di tutte le schede inviate a ogni cliente, con versioni e differenze, e 'Modifica e rinvia'."
+    "Backup automatico ogni giorno (prima ogni 15 giorni): alla prima apertura dell'app di ogni nuovo giorno."
   ]
 }
