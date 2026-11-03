@@ -12,7 +12,7 @@
     const staffMode = () => A.enabled ? A.staff() : !!S().settings.staffMode;
     const devMode = () => A.enabled ? A.isAdmin() : !!S().settings.devMode;
     X.showClients = staffMode; X.showDev = devMode;
-    X.forms = ['loginForm', 'pwForm', 'newClientForm', 'assignForm', 'mfaForm', 'newGymForm'];
+    X.forms = ['loginForm', 'pwForm', 'newClientForm', 'assignForm', 'mfaForm', 'newGymForm', 'setupForm'];
     X.tabs = I => {
       if (!staffMode()) return [];
       if (!A.enabled) return [['clients', 'Clienti', I.user]];
@@ -81,13 +81,23 @@
 
     /* ---------- accesso (versione con server) ---------- */
     views.login = function () {
+      if (A.mode === 'admin' && ui.setupAvail === undefined) { ui.setupAvail = false; A.bootstrapStatus().then(v => { ui.setupAvail = v; if (v) c.render(); }).catch(() => { }); }
+      if (ui.setupOpen) return `<div class="card hero"><h1>Prima configurazione</h1><p>Crea l'amministratore. Scegli tu nome, cognome e password. Il codice di installazione ti è stato dato da chi ha installato il server e vale una sola volta.</p></div>
+        <form class="card" id="setupForm" autocomplete="off"><label for="su_n">Nome</label><input id="su_n" name="name" autocomplete="given-name" required value="${esc(ui.lgN || '')}">
+        <label for="su_s">Cognome</label><input id="su_s" name="surname" autocomplete="family-name" required value="${esc(ui.lgS || '')}">
+        <label for="su_p">Password (almeno 10 caratteri)</label><input id="su_p" name="password" type="password" autocomplete="new-password" minlength="10" required>
+        <label for="su_p2">Ripeti la password</label><input id="su_p2" name="password2" type="password" autocomplete="new-password" minlength="10" required>
+        <label for="su_c">Codice di installazione</label><input id="su_c" name="code" autocomplete="off" autocapitalize="characters" required placeholder="XXXX-XXXX-XXXX">
+        ${ui.authErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.authErr)}</div>` : ''}
+        <button class="primary" style="margin-top:12px;width:100%" ${ui.busy ? 'disabled' : ''}>${ui.busy ? 'Creazione…' : 'Crea amministratore'}</button>
+        <button type="button" class="ghost" style="margin-top:8px;width:100%" data-act="setupClose">Indietro</button></form>`;
       return `<div class="card hero"><h1>${A.mode === 'admin' ? 'Console amministratore' : 'Accedi'}</h1><p>${A.mode === 'admin' ? 'Accesso riservato. Serve la verifica a due passaggi.' : 'Usa nome, cognome e password ricevuti dalla palestra.'}</p></div>
         <form class="card" id="loginForm" autocomplete="on"><label for="lg_n">Nome</label><input id="lg_n" name="name" autocomplete="given-name" required value="${esc(ui.lgN || '')}">
         <label for="lg_s">Cognome</label><input id="lg_s" name="surname" autocomplete="family-name" required value="${esc(ui.lgS || '')}">
         <label for="lg_p">Password</label><input id="lg_p" name="password" type="password" autocomplete="current-password" required>
         ${ui.authErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.authErr)}</div>` : ''}
         <button class="primary" style="margin-top:12px;width:100%" ${ui.busy ? 'disabled' : ''}>${ui.busy ? 'Accesso…' : 'Accedi'}</button>
-        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p></form>`;
+        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p></form>${A.mode === 'admin' && ui.setupAvail ? '<div class="card"><b>Prima volta?</b><p class="mute small">Nessun amministratore esiste ancora.</p><button class="primary" style="width:100%" data-act="setupOpen">Prima configurazione</button></div>' : ''}`;
     };
     views.newPassword = function () {
       return `<div class="card hero"><h1>Scegli la tua password</h1><p>È la prima volta che entri: imposta una password personale (almeno 8 caratteri).</p></div>
@@ -106,9 +116,19 @@
         <button class="primary" style="margin-top:10px" data-act="consentOk">Acconsento e continuo</button>`}
         <button class="ghost" style="margin-top:8px" data-act="logout">Esci</button></div>`;
     };
+    acts.setupOpen = () => { ui.setupOpen = true; ui.authErr = ''; c.render(); };
+    acts.setupClose = () => { ui.setupOpen = false; ui.authErr = ''; c.render(); };
     acts.logout = () => { A.signOut(); c.onSignOut(); };
 
     X.onSubmit = async function (form) {
+      if (form.id === 'setupForm') {
+        const fd = Object.fromEntries(new FormData(form).entries()); ui.lgN = fd.name; ui.lgS = fd.surname; ui.authErr = '';
+        if (fd.password !== fd.password2) { ui.authErr = 'Le due password non coincidono'; c.render(); return true; }
+        ui.busy = true; c.render();
+        try { await A.bootstrap({ name: fd.name, surname: fd.surname, password: fd.password, code: fd.code }); await A.signIn(fd.name, fd.surname, fd.password); ui.busy = false; ui.setupOpen = false; ui.setupAvail = false; toast('Amministratore creato'); await c.onSignIn(); }
+        catch (e) { ui.busy = false; ui.authErr = e.message; c.render(); }
+        return true;
+      }
       if (form.id === 'loginForm') {
         const fd = Object.fromEntries(new FormData(form).entries()); ui.lgN = fd.name; ui.lgS = fd.surname; ui.authErr = ''; ui.busy = true; c.render();
         try { await A.signIn(fd.name, fd.surname, fd.password); ui.busy = false; await c.onSignIn(); } catch (e) { ui.busy = false; ui.authErr = e.message; c.render(); }

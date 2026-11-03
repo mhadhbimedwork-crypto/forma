@@ -97,6 +97,9 @@
   A.setLock = unlock => rest('rpc/set_admin_lock', { method: 'POST', body: JSON.stringify({ unlock: !!unlock }) });
   A.restoreData = (uid, data, reason) => admin({ action: 'restore_data', user_id: uid, data, reason });
   A.logAccess = (uid, act) => rest('rpc/log_access', { method: 'POST', body: JSON.stringify({ target: uid, act }) }).catch(() => { });
+  const boot = body => raw('/functions/v1/bootstrap-admin', { method: 'POST', headers: { apikey: cfg.anonKey, Authorization: 'Bearer ' + cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  A.bootstrapStatus = () => boot({ action: 'status' }).then(r => !!r.available);
+  A.bootstrap = o => boot(Object.assign({ action: 'create' }, o));
   const admin = body => api('/functions/v1/admin-users', { method: 'POST', body: JSON.stringify(body) });
   A.createUser = o => admin(Object.assign({ action: 'create' }, o));
   A.resetPassword = (uid, password) => admin({ action: 'reset_password', user_id: uid, password });

@@ -1,8 +1,8 @@
 {
-  "version": "1.16.10",
-  "build": 46,
+  "version": "1.16.11",
+  "build": 47,
   "date": "2026-11-03",
   "notes": [
-    "La console amministratore è collegata al server (Europa). L'app per i clienti resta com'è finché non la attivi."
+    "Prima configurazione dell'amministratore direttamente dall'app (codice monouso). Nessun dato personale online."
   ]
 }
