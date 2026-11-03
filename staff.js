@@ -12,7 +12,7 @@
     const staffMode = () => A.enabled ? A.staff() : !!S().settings.staffMode;
     const devMode = () => A.enabled ? A.isAdmin() : !!S().settings.devMode;
     X.showClients = staffMode; X.showDev = devMode;
-    X.forms = ['loginForm', 'pwForm', 'newClientForm', 'assignForm', 'mfaForm', 'newGymForm', 'setupForm'];
+    X.forms = ['loginForm', 'pwForm', 'newClientForm', 'assignForm', 'mfaForm', 'newGymForm', 'setupForm', 'linkForm'];
     X.tabs = I => {
       if (!staffMode()) return [];
       if (!A.enabled) return [['clients', 'Clienti', I.user]];
@@ -110,7 +110,7 @@
     views.consent = function () {
       const minor = A.me && A.me.birth && F.ageOf(A.me.birth) < 18;
       return `<div class="card hero"><h1>Consenso al trattamento dei dati</h1><p>Per usare l'app la palestra tratta i tuoi dati di allenamento e, se li inserisci, di salute (dolori, misure, peso).</p></div>
-        <div class="card"><p class="small">I dati sono visibili a te, all'allenatore e al titolare della palestra, che li usano per seguire il tuo allenamento. Puoi scaricarli in ogni momento e chiederne la cancellazione.</p>
+        <div class="card"><p class="small">I dati sono visibili a te, all'allenatore e al titolare della palestra, che li usano per seguire il tuo allenamento. Il gestore dell'app (amministratore) può accedervi solo per assistenza, sicurezza e manutenzione; ogni accesso è registrato. Puoi scaricarli in ogni momento e chiederne la cancellazione.</p>
         <p class="msg warn small">Testo provvisorio: va sostituito con l'informativa privacy ufficiale della palestra (versione ${esc(F.CONSENT_VERSION)}).</p>
         ${minor ? '<div class="msg danger small">Sei minorenne: il consenso deve essere dato da un genitore o tutore. Chiedi alla palestra di registrarlo.</div>' : `<label class="row" style="gap:8px"><input type="checkbox" id="cs_ok" style="width:auto"> <span class="small">Ho letto l'informativa e acconsento al trattamento dei miei dati, compresi quelli sulla salute.</span></label>
         <button class="primary" style="margin-top:10px" data-act="consentOk">Acconsento e continuo</button>`}
@@ -121,6 +121,11 @@
     acts.logout = () => { A.signOut(); c.onSignOut(); };
 
     X.onSubmit = async function (form) {
+      if (form.id === 'linkForm') {
+        const fd = Object.fromEntries(new FormData(form).entries()); ui.linkErr = '';
+        try { const row = await A.linkAccount(fd.name, fd.surname, fd.password); ui.linkOpen = false; toast('Profilo collegato: ' + row.full_name); } catch (e) { ui.linkErr = e.message; }
+        c.render(); return true;
+      }
       if (form.id === 'setupForm') {
         const fd = Object.fromEntries(new FormData(form).entries()); ui.lgN = fd.name; ui.lgS = fd.surname; ui.authErr = '';
         if (fd.password !== fd.password2) { ui.authErr = 'Le due password non coincidono'; c.render(); return true; }
@@ -485,6 +490,38 @@
     acts.devExportAll = () => exportXlsx(X.clients(), 'Tutti_i_dati');
     acts.devCfg = async () => { const k = $v('cfgK'), v = $v('cfgV'); if (!k) return; let val; try { val = JSON.parse(v); } catch (e) { val = v; } try { await A.setConfig(k, val); ui.dev = {}; c.render(); toast('Salvato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
     const $v = id => (document.getElementById(id) || {}).value || '';
+
+    /* ---------- menù profili in alto (account, profili collegati, creazione profili) ---------- */
+    const roleName = r => (A.roles && A.roles[r]) || r;
+    X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
+    X.menu = function () {
+      const me = A.me, r = me.role, links = A.links();
+      const mk = [];
+      if (r === 'admin') mk.push(['gymNew', '+ Nuova palestra con allenatore principale']);
+      if (r === 'head') { mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente']); }
+      if (r === 'coach') mk.push(['clientNew', '+ Nuovo cliente']);
+      return `<section class="card acctmenu" aria-label="Profili">
+        <div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div>
+        ${links.length ? `<h3 style="margin:12px 0 6px">Passa a</h3>${links.map(l => `<div class="row" style="gap:6px;margin-bottom:6px"><button class="sm grow" data-act="acctSwitch" data-id="${esc(l.id)}">${esc(l.name)} · ${esc(roleName(l.role))}</button><button class="ghost sm" data-act="acctUnlink" data-id="${esc(l.id)}" aria-label="Scollega">✕</button></div>`).join('')}` : ''}
+        ${ui.linkOpen ? `<form id="linkForm" autocomplete="off" style="margin-top:8px"><p class="mute small">Inserisci nome, cognome e password dell'altro tuo profilo (per esempio il profilo da atleta). Resta collegato a questo dispositivo.</p>
+          <label for="lk_n">Nome</label><input id="lk_n" name="name" required><label for="lk_s">Cognome</label><input id="lk_s" name="surname" required><label for="lk_p">Password</label><input id="lk_p" name="password" type="password" required autocomplete="current-password">
+          ${ui.linkErr ? `<div class="msg danger small" style="margin-top:6px">${esc(ui.linkErr)}</div>` : ''}<div class="row" style="gap:6px;margin-top:8px"><button class="primary sm">Collega</button><button type="button" class="ghost sm" data-act="linkClose">Annulla</button></div></form>`
+          : '<button class="sm" style="margin-top:6px" data-act="linkOpen">+ Aggiungi un altro mio profilo</button>'}
+        ${mk.length ? `<h3 style="margin:12px 0 6px">Crea profili</h3><div class="row wrap" style="gap:6px">${mk.map(([a, l]) => `<button class="sm" data-act="menuDo" data-do="${a}">${l}</button>`).join('')}</div>` : ''}
+        <div class="row wrap" style="gap:6px;margin-top:12px"><button class="sm" data-act="pwChange">Cambia password</button><button class="sm" data-act="logout">Esci</button></div></section>`;
+    };
+    acts.menuToggle = () => { ui.menu = !ui.menu; ui.linkOpen = false; ui.linkErr = ''; c.render(); };
+    acts.menuDo = t => { ui.menu = false; const f = acts[t.dataset.do]; if (f) f(t); else c.render(); };
+    acts.linkOpen = () => { ui.linkOpen = true; ui.linkErr = ''; c.render(); };
+    acts.linkClose = () => { ui.linkOpen = false; ui.linkErr = ''; c.render(); };
+    acts.acctUnlink = t => { A.unlink(t.dataset.id); c.render(); };
+    acts.acctSwitch = async t => {
+      try {
+        const r = await A.switchTo(t.dataset.id);
+        if (r.needLogin) { const parts = String(r.needLogin.name || '').trim().split(/\s+/); ui.lgN = parts[0] || ''; ui.lgS = parts.slice(1).join(' '); A.leave(); ui.menu = false; c.onSignOut(); return; }
+        ui.menu = false; await c.onSignIn();
+      } catch (e) { toast(e.message); }
+    };
 
     /* ---------- profilo: interruttori della modalità locale ---------- */
     X.advancedCard = function () {

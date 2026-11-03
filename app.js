@@ -119,12 +119,12 @@
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
     const brand = `<div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span><span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>`;
-    if (!p) return `<header class="top">${brand}</header>`;
+    if (!p) return `<header class="top">${brand}${AC.enabled && AC.me ? '<div style="position:absolute;right:var(--gutter);top:calc(env(safe-area-inset-top) + 22px)">' + X.menuBtn() + '</div>' : ''}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}
       <div class="who"><div class="avatar" aria-hidden="true">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
         <div class="grow"><div class="wname">${esc(p.name)}</div><div class="wsub">${c.age} anni${GYM ? '' : ' · ' + esc(goalLabel(p))}</div></div>
-        ${AC.enabled ? '' : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
+        ${AC.enabled ? X.menuBtn() : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
     const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team'].includes(x[0]));
@@ -147,7 +147,7 @@
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
     else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
-    $('#app').innerHTML = header() + `<main>${body}</main>` + (p || staff ? nav() : '');
+    $('#app').innerHTML = header() + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main>${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
   /* suoni del timer (generati con Web Audio: nessun file) */

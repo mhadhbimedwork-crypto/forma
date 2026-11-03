@@ -1,8 +1,8 @@
 {
-  "version": "1.17.0",
-  "build": 50,
+  "version": "1.18.0",
+  "build": 51,
   "date": "2026-11-03",
   "notes": [
-    "Un'unica app THE LIFTING ZONE per tutti: amministratore, allenatori e clienti entrano dalla stessa pagina con nome e password. Collegata al server."
+    "FORGIA collegata al server (si sincronizza solo l'allenamento, mai dieta o esami). Menù profili in alto: passa da amministratore ad atleta, crea palestre, allenatori e clienti."
   ]
 }

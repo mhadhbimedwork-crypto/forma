@@ -10,6 +10,16 @@ fs.cpSync('img', path.join(out, 'img'), { recursive: true });
 fs.cpSync('lib', path.join(out, 'lib'), { recursive: true });
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 
+/* App principale FORGIA collegata al server (stesso server di THE LIFTING ZONE): accesso con nome e password, sincronizzazione del solo allenamento */
+try {
+  const gc = JSON.parse(fs.readFileSync('gym-config.json', 'utf8'));
+  if (gc.server && gc.enableOnMain !== false) {
+    fs.writeFileSync(path.join(out, 'srvcfg.js'), 'window.FORMA_SERVER = ' + JSON.stringify({ server: gc.server }) + ';\n');
+    const ip = path.join(out, 'index.html'); fs.writeFileSync(ip, fs.readFileSync(ip, 'utf8').replace('<script src="data.js">', '<script src="srvcfg.js"></script>\n<script src="data.js">'));
+    const sp = path.join(out, 'sw.js'); fs.writeFileSync(sp, fs.readFileSync(sp, 'utf8').replace("'app.js',", "'app.js', 'srvcfg.js',"));
+  }
+} catch (e) { }
+
 /* Versione per la palestra (senza dieta): stessa app, altro nome, altri dati (chiave di archiviazione diversa) */
 if (path.basename(out) === '_site') {
   const g = path.join(out, 'gym'); fs.mkdirSync(g, { recursive: true });

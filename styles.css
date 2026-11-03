@@ -135,3 +135,5 @@ button.danger{border-color:var(--danger);color:var(--danger)}
 .dslide{flex:0 0 min(88%,430px);scroll-snap-align:start;background:#0a0e14;border:1px solid var(--line);border-radius:4px;padding:10px 12px;min-width:0;box-sizing:border-box}
 .dslide h3{margin:0 0 6px;font:italic 700 1rem/1 var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--accent2)}
 .dslide .kpi{padding:8px 4px}.dslide .kpi b{font-size:1.25rem}
+
+.acctmenu{margin:12px var(--gutter) 0}.acctbtn{border-radius:50%;clip-path:none!important;font-size:1rem!important}

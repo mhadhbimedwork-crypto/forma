@@ -22,6 +22,7 @@ Indirizzi: app dei clienti e allenatori `.../gym/`, console amministratore `.../
 - Dopo ogni aggiornamento la console propone (l'admin: parte da sola) il backup Excel di tutti gli utenti da tenere sul PC.
 
 ## Stato installazione
-- Progetto Supabase `the-lifting-zone` (eu-central-1) creato; tabelle, regole di sicurezza e funzione `admin-users` installate.
-- Mancano: creare il primo amministratore (Authentication > Users, con 'Auto Confirm'), inserire il suo profilo (vedi fondo di schema.sql), disattivare 'Allow new users to sign up' in Authentication > Sign In / Providers, e attivare la verifica a due passaggi dalla console.
-- `gym-config.json`: `enableOnGym` resta `false` finché non vuoi che l'app /gym/ chieda l'accesso ai clienti.
+- Progetto Supabase `the-lifting-zone` (eu-central-1): tabelle, regole di sicurezza, funzioni `admin-users` e `bootstrap-admin` installate.
+- Il primo amministratore si crea dall'app con la «Prima configurazione» (codice monouso `bootstrap_setup`, che si cancella dopo l'uso). Fatto il 2026-11-03.
+- Le app FORGIA (principale) e THE LIFTING ZONE usano lo stesso server: stesso accesso con nome e password, ruolo dall'account. Sul server va solo l'allenamento (lista `SHARE` in account.js): dieta, alimenti ed esami restano sul dispositivo.
+- Facoltativo: disattivare 'Allow new users to sign up' in Authentication > Sign In / Providers.

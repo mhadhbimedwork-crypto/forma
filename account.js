@@ -2,7 +2,7 @@
    Attivo solo se la versione palestra ha un server configurato (window.FORMA_GYM.server). Senza server l'app funziona come prima, solo sul dispositivo. */
 (function (F) {
   'use strict';
-  const cfg = (window.FORMA_GYM && window.FORMA_GYM.server) || null;
+  const cfg = (window.FORMA_GYM && window.FORMA_GYM.server) || (window.FORMA_SERVER && window.FORMA_SERVER.server) || null;
   const KEY = 'tlz.acct', ROLES = { client: 'Cliente', coach: 'Allenatore', head: 'Allenatore principale', admin: 'Amministratore' };
   F.ROLE_LABEL = ROLES;
   const A = F.Account = { enabled: !!(cfg && cfg.url && cfg.anonKey), roles: ROLES, me: null };
@@ -57,7 +57,34 @@
     const b = await api('/auth/v1/factors/' + factorId + '/verify', { method: 'POST', body: JSON.stringify({ challenge_id: ch.id, code: String(code).replace(/\s/g, '') }) }).catch(e => { throw new Error('Codice non valido'); });
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user || tok.user, at: Date.now() }; store(); A.needMfa = false; return true;
   };
-  A.signOut = function () { tok = null; A.me = null; store(); };
+  /* ---- profili collegati su questo dispositivo (es. amministratore + atleta): si passa dall'uno all'altro senza uscire.
+     Il token dell'amministratore non viene mai conservato: per tornare amministratore servono password e verifica a due passaggi. ---- */
+  const LK = 'tlz.acct.links';
+  const lkGet = () => { try { return JSON.parse(localStorage.getItem(LK) || '[]'); } catch (e) { return []; } };
+  const lkSet = v => { try { localStorage.setItem(LK, JSON.stringify(v)); } catch (e) { } };
+  const lkPut = (id, name, role, t) => { const l = lkGet().filter(x => x.id !== id); l.push({ id, name, role, tok: role === 'admin' ? null : (t || null) }); lkSet(l); };
+  A.links = () => lkGet().filter(l => !A.me || l.id !== A.me.id);
+  A.stashCurrent = () => { if (A.me && tok) lkPut(A.me.id, A.me.full_name, A.me.role, tok); };
+  A.linkAccount = async function (name, surname, password) {
+    if (!A.me) throw new Error('Entra prima');
+    const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) });
+    const t = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }, prev = tok; let row;
+    tok = t; try { row = (await rest('profiles?id=eq.' + t.user.id + '&select=id,full_name,role,active,must_change_password'))[0]; } finally { tok = prev; }
+    if (!row || !row.active) throw new Error('Account non attivo');
+    if (row.id === A.me.id) throw new Error('È l\'account con cui sei già dentro');
+    if (row.must_change_password) throw new Error('Entra prima con questo account per scegliere la sua password personale');
+    A.stashCurrent(); lkPut(row.id, row.full_name, row.role, t); return row;
+  };
+  A.unlink = id => lkSet(lkGet().filter(x => x.id !== id));
+  A.switchTo = async function (id) {
+    const e = lkGet().find(x => x.id === id); if (!e) throw new Error('Profilo non trovato');
+    if (!e.tok) return { needLogin: e };
+    A.stashCurrent(); tok = e.tok; store(); A.me = null;
+    try { await loadMe(); } catch (er) { tok = null; store(); throw new Error('Sessione scaduta: entra di nuovo con questo profilo'); }
+    return { ok: true };
+  };
+  A.leave = function () { A.stashCurrent(); tok = null; A.me = null; store(); };   // lascia la sessione senza dimenticare il profilo (passaggio ad altro profilo)
+  A.signOut = function () { if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
   A.changePassword = async function (pw) {
     if (String(pw).length < 8) throw new Error('La password deve avere almeno 8 caratteri');
     await api('/auth/v1/user', { method: 'PUT', body: JSON.stringify({ password: pw }) }); await rest('rpc/password_changed', { method: 'POST', body: '{}' }); if (A.me) A.me.must_change_password = false;
@@ -65,7 +92,11 @@
 
   /* ---- dati del cliente: il dispositivo resta la fonte principale (funziona offline), il server tiene la copia ---- */
   A.pullMine = async function () { const r = await rest('client_data?user_id=eq.' + A.me.id + '&select=data,version,updated_at'); return r[0] || null; };
+  /** Sul server va SOLO l'allenamento: mai dieta, alimenti, intolleranze, bozze o altro. Il resto resta sul dispositivo. */
+  const SHARE = ['id', 'name', 'birth', 'sex', 'height', 'weight', 'goal', 'waist', 'bf', 'style', 'days', 'level', 'stopMonths', 'pain', 'painLog', 'weights', 'measures', 'plans', 'sessions', 'activePlan', 'rm', 'symptoms', 'createdAt'];
+  F.shareable = p => { const o = {}; SHARE.forEach(k => { if (p && p[k] !== undefined) o[k] = p[k]; }); return o; };
   A.pushMine = async function (profile, device) {
+    profile = F.shareable(profile);
     return rest('client_data?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: A.me.id, data: profile, device: device || navigator.userAgent.slice(0, 80) }) });
   };
   /** Unione di due copie dello stesso profilo senza perdere nulla (sedute, dolori, peso, misure). */
