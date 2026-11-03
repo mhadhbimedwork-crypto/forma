@@ -377,7 +377,7 @@
     };
 
     /* ---------- palestre, team, account (amministratore e allenatore principale) ---------- */
-    async function loadAdmin() { try { ui.gyms = await A.listGyms(); ui.accts = await A.listAccounts(); ui.admErr = null; } catch (e) { ui.admErr = e.message; } ui.admLoaded = true; }
+    async function loadAdmin() { try { ui.gyms = await A.listGyms(); ui.accts = await A.listAccounts(); try { ui.own = await A.listOwn(); } catch (e2) { ui.own = ui.own || []; } ui.admErr = null; } catch (e) { ui.admErr = e.message; } ui.admLoaded = true; }
     X.ensureAdmin = function () { if (A.enabled && !ui.admLoaded && !ui.admBusy) { ui.admBusy = true; loadAdmin().then(() => { ui.admBusy = false; c.render(); }); } };
     const rl = r => esc(A.roles[r] || r);
     const reload = async () => { ui.admLoaded = false; ui.admBusy = false; await loadAdmin(); c.render(); };
@@ -387,9 +387,37 @@
         ${mgr ? `<div class="row wrap" style="margin-top:6px"><button class="sm" data-act="acctReset" data-id="${a.id}">Reimposta password</button><button class="sm" data-act="acctActive" data-id="${a.id}" data-on="${a.active ? 0 : 1}">${a.active ? 'Disattiva' : 'Riattiva'}</button>${a.role === 'coach' && A.me.role !== 'coach' ? `<label class="small row" style="gap:4px;margin:0"><input type="checkbox" style="width:auto" data-perm="${a.id}" ${a.can_see_all ? 'checked' : ''}> vede tutti i clienti</label>` : ''}${A.me.role !== 'coach' && a.role !== 'client' ? `<button class="sm danger" data-act="acctDelete" data-id="${a.id}">Elimina</button>` : ''}</div>` : ''}</div>`;
     }
     const gymStats = g => { const l = (ui.accts || []).filter(a => a.gym_id === g.id); return { heads: l.filter(a => a.role === 'head'), coaches: l.filter(a => a.role === 'coach').length, clients: l.filter(a => a.role === 'client').length, list: l }; };
+    /* accessi rapidi: l'amministratore entra in un altro profilo con un tocco, senza password */
+    function quick() {
+      const own = ui.own || [], all = ui.accts || [], me = A.me, gname = a => (((ui.gyms || []).find(g => g.id === a.gym_id) || {}).name || '');
+      const tile = (a, cur) => `<div class="card" style="padding:10px;margin:0;${cur ? 'border-color:var(--accent,currentColor)' : ''}"><div><b>${esc(a.full_name)}</b></div><div class="mute small">${a.role === 'client' ? 'Utente' : a.role === 'admin' ? 'Amministratore' : a.role === 'head' ? 'Allenatore principale' : 'Allenatore'}${gname(a) && a.role !== 'admin' ? ' · ' + esc(gname(a)) : ''}</div>
+        ${cur ? '<div class="chip" style="margin-top:6px">Sei qui</div>' : `<div class="row" style="gap:6px;margin-top:6px"><button class="sm primary grow" data-act="impGo" data-id="${esc(a.id)}">Entra</button>${a.role === 'client' ? `<button class="sm" data-act="ownToggle" data-id="${esc(a.id)}" data-on="${own.includes(a.id) ? 0 : 1}" title="${own.includes(a.id) ? 'Profilo mio: scrivo io. Tocca per toglierlo' : 'Segna come mio profilo'}">${own.includes(a.id) ? '★' : '☆'}</button>` : ''}</div>`}</div>`;
+      const mine = all.filter(a => own.includes(a.id) && a.active), staff = all.filter(a => (a.role === 'head' || a.role === 'coach') && a.active && !own.includes(a.id)), cl = all.filter(a => a.role === 'client' && a.active && !own.includes(a.id));
+      return `<div class="card"><h2 style="margin-top:0">Accessi rapidi</h2><p class="mute small">Con un tocco entri nel profilo scelto, senza password e senza uscire. I profili con ★ sono tuoi: ci scrivi normalmente. Negli altri sei in sola visione finché non togli il lucchetto. Gli accessi restano nel registro.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">${tile(me, true)}${mine.map(a => tile(a)).join('')}${staff.map(a => tile(a)).join('')}</div>
+        ${cl.length ? `<h3 style="margin:12px 0 6px">Altri clienti</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">${cl.map(a => tile(a)).join('')}</div>` : ''}
+        ${!ui.admLoaded ? '<p class="mute small">Caricamento…</p>' : ''}</div>`;
+    }
+    X.impBanner = function () {
+      const i = A.imp && A.imp(); if (!i) return '';
+      return `<div class="msg" role="status" style="margin:8px var(--gutter);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="small grow"><b>${esc(A.me.full_name)}</b> · ${esc(roleName(A.me.role))} — ${i.write ? 'puoi modificare' : 'sola visione'}</span><button class="sm primary" data-act="impBack">Torna amministratore</button></div>`;
+    };
+    acts.impGo = async t => {
+      if (ui.impBusy) return; ui.impBusy = true; const a = (ui.accts || []).find(x => x.id === t.dataset.id);
+      try { await A.impersonate(t.dataset.id, a ? a.full_name : ''); ui.menu = false; await c.onSignIn(); }
+      catch (e) { toast('Non riuscito: ' + e.message); }
+      ui.impBusy = false; c.render();
+    };
+    acts.impBack = async () => {
+      try { const me = await A.endImp(); ui.admLoaded = false; ui.admBusy = false; ui.menu = false; if (me) await c.onSignIn(); else { c.onSignOut(); } }
+      catch (e) { toast(e.message); }
+    };
+    acts.ownToggle = async t => {
+      const on = t.dataset.on === '1'; try { await A.setOwn(t.dataset.id, on); ui.own = on ? (ui.own || []).concat(t.dataset.id) : (ui.own || []).filter(x => x !== t.dataset.id); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); }
+    };
     views.gyms = function () {
       X.ensureAdmin(); X.ensureClients();
-      return `<h1>Palestre</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}
+      return `<h1>Palestre</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${quick()}
         <div class="card"><div class="row wrap"><button class="sm primary" data-act="gymNew">+ Nuova palestra</button><button class="sm" data-act="gymReload">Aggiorna</button><button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button></div>
         <p class="mute small" style="margin-bottom:0">Crei la palestra insieme al suo allenatore principale. Poi è lui a creare allenatori e clienti.</p></div>
         ${!ui.admLoaded ? '<p class="mute">Caricamento…</p>' : ''}
@@ -498,6 +526,7 @@
     X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
     X.menu = function () {
       const me = A.me, r = me.role, links = A.links();
+      if (A.imp && A.imp()) return `<section class="card acctmenu" aria-label="Profili"><div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div><button class="sm primary" style="margin-top:10px" data-act="impBack">Torna amministratore</button></section>`;
       const mk = [];
       if (r === 'admin') { mk.push(['gymNew', '+ Nuova palestra con allenatore principale']); mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente / atleta']); }
       if (r === 'head') { mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente']); }
@@ -528,6 +557,7 @@
     /* ---------- profilo: interruttori della modalità locale ---------- */
     X.advancedCard = function () {
       const st = S();
+      if (A.enabled && A.imp && A.imp()) return `<div class="card"><h2>Account</h2><p class="small">Stai usando il profilo di <b>${esc(A.me.full_name)}</b> come amministratore.</p><button class="sm primary" data-act="impBack">Torna amministratore</button></div>`;
       if (A.enabled) return `<div class="card"><h2>Account</h2><p class="small">Connesso come <b>${esc(A.me.full_name)}</b> (${esc(A.roles[A.me.role])}).</p>
         <div class="row wrap"><button class="sm" data-act="pwChange">Cambia password</button>${devMode() ? '<button class="sm" data-act="devOpen">Area sviluppatore</button>' : ''}<button class="sm" data-act="logout">Esci</button></div></div>`;
       if (window.FORMA_GYM) return '';   /* app palestra: il ruolo dell'account decide cosa si vede, niente interruttori manuali */
@@ -537,7 +567,7 @@
         ${devMode() ? '<button class="sm" style="margin-top:6px" data-act="devOpen">Apri area sviluppatore</button>' : ''}</details></div>`;
     };
     acts.devOpen = () => { ui.sub = { type: 'dev' }; c.render(); window.scrollTo(0, 0); };
-    acts.pwChange = async () => { const a = prompt('Nuova password (almeno 8 caratteri):'); if (!a) return; try { await A.changePassword(a); toast('Password aggiornata'); } catch (e) { toast(e.message); } };
+    acts.pwChange = async () => { if (A.imp && A.imp()) return toast('Non disponibile durante l\'accesso rapido'); const a = prompt('Nuova password (almeno 8 caratteri):'); if (!a) return; try { await A.changePassword(a); toast('Password aggiornata'); } catch (e) { toast(e.message); } };
     X.onChange = function (t) {
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }

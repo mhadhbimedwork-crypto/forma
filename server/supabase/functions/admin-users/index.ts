@@ -1,5 +1,6 @@
 // Edge Function "admin-users": crea e gestisce palestre e accessi (nome, cognome, password). Nessuno può leggere le password: si reimpostano.
 // Gerarchia: admin (fornitore) → head (allenatore principale della palestra) → coach → client.
+// L'admin può entrare come altro utente (impersonate): sola visione, oppure modifica se il blocco è tolto o se è un suo profilo (admin_own).
 // L'admin è in sola lettura sui dati dei clienti finché non toglie il blocco (admin_lock, solo lui, con 2FA); "restore_data" richiede il blocco tolto e un motivo, ed è sempre registrata.
 // Deploy: supabase functions deploy admin-users   (usa SUPABASE_SERVICE_ROLE_KEY, mai esposta all'app)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -64,6 +65,10 @@ Deno.serve(async (req) => {
     if (b.consent) await admin.from('consents').insert((['privacy', 'dati_salute', 'termini'] as const).map((kind) => ({ user_id: r.id, kind, version: String(b.consent.version ?? '1'), is_minor: !!b.consent.is_minor, guardian_name: b.consent.guardian_name ?? null, guardian_contact: b.consent.guardian_contact ?? null, recorded_by: me.id })));
     await log('create_user', r.id, { role, username: r.username }); return json({ ok: true, ...r });
   }
+  if (b.action === 'list_own') { // profili "miei" dell'amministratore (es. il suo account da atleta)
+    if (me.role !== 'admin') return json({ error: 'solo l\'amministratore' }, 403);
+    const { data: o } = await admin.from('admin_own').select('user_id').eq('owner_id', me.id); return json({ ok: true, ids: (o ?? []).map((x: { user_id: string }) => x.user_id) });
+  }
   const target = String(b.user_id ?? '');
   const { data: t } = await admin.from('profiles').select('id, role, gym_id, coach_id').eq('id', target).single();
   if (!t) return json({ error: 'utente non trovato' }, 404);
@@ -97,6 +102,22 @@ Deno.serve(async (req) => {
     if (!lk?.open) return json({ error: 'blocco in scrittura attivo: sbloccalo dalla console' }, 403);
     if (!String(b.reason ?? '').trim() || typeof b.data !== 'object') return json({ error: 'servono motivo e dati da ripristinare' }, 400);
     await admin.from('client_data').upsert({ user_id: target, data: b.data, device: 'ripristino' }); await log('restore_data', target, { reason: String(b.reason).slice(0, 300) }); return json({ ok: true });
+  }
+  if (b.action === 'set_own') {
+    if (me.role !== 'admin' || t.role === 'admin') return json({ error: 'non consentito' }, 403);
+    if (b.own) await admin.from('admin_own').upsert({ user_id: target, owner_id: me.id }); else await admin.from('admin_own').delete().eq('user_id', target);
+    await log('set_own', target, { own: !!b.own }); return json({ ok: true });
+  }
+  if (b.action === 'impersonate') { // entra come un altro utente senza password: sessione vera per l'utente scelto (registrata nel registro)
+    if (me.role !== 'admin' || t.role === 'admin') return json({ error: 'non consentito' }, 403);
+    const { data: tp } = await admin.from('profiles').select('username, active').eq('id', target).single();
+    if (!tp) return json({ error: 'utente non trovato' }, 404);
+    const { data: own } = await admin.from('admin_own').select('user_id').eq('user_id', target).eq('owner_id', me.id).maybeSingle();
+    const { data: lk } = await admin.from('admin_lock').select('open').eq('id', true).single();
+    const { data: gl, error: ge } = await admin.auth.admin.generateLink({ type: 'magiclink', email: `${tp.username}@${DOMAIN}` });
+    if (ge || !gl?.properties?.hashed_token) return json({ error: ge?.message ?? 'accesso non riuscito' }, 400);
+    await log('impersonate', target, { write: !!own || !!lk?.open });
+    return json({ ok: true, token_hash: gl.properties.hashed_token, write: !!own || !!lk?.open, own: !!own });
   }
   if (b.action === 'delete') { // diritto alla cancellazione: account e tutti i dati collegati
     if (RANK[me.role] < 2) return json({ error: 'solo allenatore principale o amministratore' }, 403);

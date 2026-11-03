@@ -22,7 +22,7 @@
     mem = S; try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { /* senza storage resta in memoria */ }
     if (AC.enabled && AC.me) { clearTimeout(syncT); syncT = setTimeout(syncUp, 4000); }
   }
-  async function syncUp() { const p = P(); if (!p || !navigator.onLine) return; try { await AC.pushMine(p); ui.syncAt = Date.now(); } catch (e) { ui.syncErr = e.message; } }
+  async function syncUp() { const p = P(); if (!p || !navigator.onLine || (AC.imp && AC.imp() && !AC.imp().write)) return; try { await AC.pushMine(p); ui.syncAt = Date.now(); } catch (e) { ui.syncErr = e.message; } }
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const planOf = p => p && p.plans.find(x => x.id === p.activePlan) || null;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -134,8 +134,9 @@
     if (!AC.enabled) return null;
     if (!AC.me) return X.views.login();
     if (AC.needMfa) return X.views.mfa();
-    if (AC.me.must_change_password) return X.views.newPassword();
-    if (ui.consent === false) return X.views.consent();
+    const imp = AC.imp && AC.imp();
+    if (AC.me.must_change_password && !imp) return X.views.newPassword();
+    if (ui.consent === false && !imp) return X.views.consent();
     return null;
   }
   function render() {
@@ -147,7 +148,7 @@
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
     else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
-    $('#app').innerHTML = header() + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main>${body}</main>` + (p || staff ? nav() : '');
+    $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main>${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
   /* suoni del timer (generati con Web Audio: nessun file) */
@@ -1048,9 +1049,10 @@
   /* ---------- area allenatore, sviluppatore, account ---------- */
   async function onSignIn() {
     ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
-    if (AC.me.must_change_password) return render();
+    const imp = AC.imp && AC.imp();
+    if (AC.me.must_change_password && !imp) return render();
     ui.consent = true;
-    if (!AC.staff()) { try { ui.consent = (await AC._rest('consents?user_id=eq.' + AC.me.id + '&kind=eq.privacy&select=id&limit=1')).length > 0; } catch (e) { ui.consent = true; } }
+    if (!AC.staff() && !imp) { try { ui.consent = (await AC._rest('consents?user_id=eq.' + AC.me.id + '&kind=eq.privacy&select=id&limit=1')).length > 0; } catch (e) { ui.consent = true; } }
     render(); if (!ui.consent) return;
     try {
       const srv = await AC.pullMine(), loc = P();
@@ -1062,7 +1064,7 @@
     } catch (e) { /* offline: si lavora in locale */ }
     { const l = !P() ? legacyRead() : null; ui.legacy = l && l.profiles ? l.profiles.length : 0; }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
-    await autoImportAssigned();
+    if (!imp || imp.write) await autoImportAssigned();
     render();
   }
   /* La scheda inviata dall'allenatore viene letta e resa eseguibile da sola (serie, recuperi, timer, alternative): niente da importare a mano. */
@@ -1087,7 +1089,7 @@
   Object.assign(act, X.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
-  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && AC.me.role === 'admin') { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
+  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && (AC.me.role === 'admin' || (AC.imp && AC.imp()))) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();

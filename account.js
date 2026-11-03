@@ -15,7 +15,12 @@
   A.mode = (window.FORMA_GYM && window.FORMA_GYM.mode) || 'app';   // 'admin' = console amministratore (indirizzo separato)
 
   let tok = null; try { tok = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { }
-  const store = () => { try { tok ? localStorage.setItem(KEY, JSON.stringify(tok)) : localStorage.removeItem(KEY); } catch (e) { } };
+  /* Accesso rapido dell'amministratore a un altro profilo: la sessione del profilo aperto vive solo in questa scheda (sessionStorage),
+     la sessione dell'amministratore resta dov'è, così "Torna amministratore" non chiede password. */
+  const IMP = 'tlz.imp'; let imp = null; try { imp = JSON.parse(sessionStorage.getItem(IMP) || 'null'); } catch (e) { }
+  if (imp && imp.tok) tok = imp.tok; else imp = null;
+  const store = () => { if (imp) { try { imp.tok = tok; sessionStorage.setItem(IMP, JSON.stringify(imp)); } catch (e) { } return; } try { tok ? localStorage.setItem(KEY, JSON.stringify(tok)) : localStorage.removeItem(KEY); } catch (e) { } };
+  A.imp = () => imp ? { write: !!imp.write, name: imp.name, uid: imp.uid } : null;
   async function raw(path, o) {
     const r = await fetch(cfg.url + path, o); let b = null; try { b = await r.json(); } catch (e) { }
     if (!r.ok) { const m = (b && (b.error_description || b.msg || b.message || b.error)) || ('errore ' + r.status); const err = new Error(String(m)); err.status = r.status; throw err; } return b;
@@ -27,7 +32,9 @@
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }; store();
   }
   async function api(path, o) {
-    o = o || {}; try { return await raw(path, Object.assign({}, o, { headers: hdr(o.headers) })); }
+    o = o || {};
+    if (imp && !imp.write && o.method && o.method !== 'GET') throw new Error('Sola visione: per modificare togli il lucchetto dalla console');
+    try { return await raw(path, Object.assign({}, o, { headers: hdr(o.headers) })); }
     catch (e) { if (e.status === 401 && tok) { await refresh(); return raw(path, Object.assign({}, o, { headers: hdr(o.headers) })); } throw e; }
   }
   const rest = (p, o) => api('/rest/v1/' + p, o);
@@ -64,7 +71,7 @@
   const lkSet = v => { try { localStorage.setItem(LK, JSON.stringify(v)); } catch (e) { } };
   const lkPut = (id, name, role, t) => { const l = lkGet().filter(x => x.id !== id); l.push({ id, name, role, tok: role === 'admin' ? null : (t || null) }); lkSet(l); };
   A.links = () => lkGet().filter(l => !A.me || l.id !== A.me.id);
-  A.stashCurrent = () => { if (A.me && tok) lkPut(A.me.id, A.me.full_name, A.me.role, tok); };
+  A.stashCurrent = () => { if (A.me && tok && !imp) lkPut(A.me.id, A.me.full_name, A.me.role, tok); };
   A.linkAccount = async function (name, surname, password) {
     if (!A.me) throw new Error('Entra prima');
     const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) });
@@ -84,7 +91,27 @@
     return { ok: true };
   };
   A.leave = function () { A.stashCurrent(); tok = null; A.me = null; store(); };   // lascia la sessione senza dimenticare il profilo (passaggio ad altro profilo)
-  A.signOut = function () { if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
+  A.signOut = function () { if (imp) { imp = null; try { sessionStorage.removeItem(IMP); } catch (e) { } } if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
+  /* ---- accessi rapidi (solo amministratore) ---- */
+  A.listOwn = () => admin({ action: 'list_own' }).then(r => r.ids || []);
+  A.setOwn = (uid, own) => admin({ action: 'set_own', user_id: uid, own: !!own });
+  A.impersonate = async function (uid, name) {
+    if (!A.isAdmin() || imp) throw new Error('Non disponibile');
+    const r = await admin({ action: 'impersonate', user_id: uid });
+    const b = await raw('/auth/v1/verify', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'magiclink', token_hash: r.token_hash }) });
+    const prev = tok, prevMe = A.me;
+    imp = { tok: { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }, write: !!r.write, name: name || '', uid }; tok = imp.tok;
+    try { sessionStorage.setItem(IMP, JSON.stringify(imp)); await loadMe(); }
+    catch (e) { imp = null; tok = prev; A.me = prevMe; try { sessionStorage.removeItem(IMP); } catch (e2) { } throw e; }
+    return { write: imp.write };
+  };
+  A.endImp = async function () {
+    if (!imp) return;
+    imp = null; try { sessionStorage.removeItem(IMP); } catch (e) { }
+    try { tok = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { tok = null; }
+    A.me = null; if (!tok) return null;
+    try { return await loadMe(); } catch (e) { return null; }
+  };
   A.changePassword = async function (pw) {
     if (String(pw).length < 8) throw new Error('La password deve avere almeno 8 caratteri');
     await api('/auth/v1/user', { method: 'PUT', body: JSON.stringify({ password: pw }) }); await rest('rpc/password_changed', { method: 'POST', body: '{}' }); if (A.me) A.me.must_change_password = false;

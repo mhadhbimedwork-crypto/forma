@@ -1,8 +1,8 @@
 {
-  "version": "1.18.1",
-  "build": 52,
+  "version": "1.19.0",
+  "build": 53,
   "date": "2026-11-03",
   "notes": [
-    "L'amministratore può creare allenatori e atleti (anche il proprio profilo da atleta) dal menù in alto, scegliendo allenatore e palestra."
+    "Accessi rapidi per l'amministratore: dalla dashboard entri con un tocco nel profilo di un utente o di un allenatore, senza password e senza uscire. Con ★ segni i profili tuoi (ci scrivi); negli altri sei in sola visione finché non togli il lucchetto."
   ]
 }
