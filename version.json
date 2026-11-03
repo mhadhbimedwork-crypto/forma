@@ -1,8 +1,8 @@
 {
-  "version": "1.19.2",
-  "build": 55,
+  "version": "1.20.0",
+  "build": 56,
   "date": "2026-11-03",
   "notes": [
-    "Protezione: se sul dispositivo c'è il profilo di un'altra persona, l'app non lo mescola con quello dell'account (ne fa una copia di sicurezza e usa i dati dell'account)."
+    "Backup ordinato: per ogni utente una cartella (palestra → allenatore → utente) con il suo Excel, i dati e lo storico giornaliero, più un Excel con tutti. Con una cartella del PC collegata si salva da solo ogni giorno."
   ]
 }

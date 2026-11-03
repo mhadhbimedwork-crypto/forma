@@ -21,6 +21,8 @@
     parts.push(...cd, new Uint8Array([0x50, 0x4b, 5, 6, 0, 0, 0, 0, ...u16(files.length), ...u16(files.length), ...u32(cdLen), ...u32(off), 0, 0]));
     return new Blob(parts, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
+  /** files: [{path, data:Uint8Array}] → Blob .zip (nomi in UTF-8) */
+  F.zipBuild = files => new Blob([zip(files.map(f => ({ name: f.path, data: f.data })))], { type: 'application/zip' });
   const colName = i => { let s = ''; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
 
   /** sheets: [{name, cols:[...], rows:[[...]]}] → Blob .xlsx */

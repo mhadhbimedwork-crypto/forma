@@ -111,7 +111,7 @@
       const parts = f.path.split('/'); let d = root;
       for (const part of parts.slice(0, -1)) d = await d.getDirectoryHandle(part, { create: true });
       const fh = await d.getFileHandle(parts[parts.length - 1], { create: true });
-      const w = await fh.createWritable(); await w.write(f.text); await w.close();
+      const w = await fh.createWritable(); await w.write(f.blob || f.text); await w.close();
     }
   }
   F._writeToDir = writeToDir;

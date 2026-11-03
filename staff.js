@@ -285,12 +285,12 @@
       const all = X.clients().filter(p => inLens(p._acct || {}));
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
-      if (needBk && A.isAdmin() && !ui.bkAuto) { ui.bkAuto = true; setTimeout(() => acts.bkUpdate(), 400); }
+      if (A.isAdmin() && ui.clLoaded && all.length) setTimeout(dailyOrg, 400);
       return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}
-        ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Scarica subito il file Excel con i dati di tutti, da tenere sul PC. Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup completo adesso</button></div>` : ''}
+        ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Salva subito la copia di tutti, ordinata per palestra, allenatore e utente (un Excel per ciascuno). Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup ordinato adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
-        <div class="card"><div class="row wrap"><button class="sm primary" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button>
+        <div class="card"><div class="row wrap"><button class="sm primary" data-act="bkUpdate">Backup ordinato per utente</button>${F.fsSupported() ? `<button class="sm" data-act="bkOrgPick">${ui.bkDir ? 'Cambia cartella PC' : 'Scegli cartella del PC'}</button>` : ''}<button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button>
           <label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa Excel/CSV<input type="file" id="impTabAll" accept=".xlsx,.csv" hidden></label>
           ${A.enabled ? '<button class="sm" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button>' : ''}</div>
           <p class="mute small" style="margin-bottom:0">${all.length} client${all.length === 1 ? 'e' : 'i'}. L'Excel ha un foglio per tipo di dato con la colonna Cliente; l'importazione riconosce i clienti dal nome.</p></div>
@@ -369,7 +369,39 @@
     acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
     acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: A.me && A.me.role === 'admin' ? 'gyms' : 'clients' }; c.render(); window.scrollTo(0, 0); };
     acts.clientsReload = async () => { ui.clLoaded = false; ui.clBusy = false; await loadClients(); c.render(); toast('Elenco aggiornato'); };
-    acts.bkUpdate = async () => { const all = X.clients(); if (!all.length) return; try { await exportXlsx(all, 'BACKUP_TLZ_v' + F.VERSION.version + '_' + (A.enabled ? 'tutti' : 'profili')); localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); c.render(); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
+    /* ---- backup ordinato: una cartella per palestra → allenatore → utente, con Excel e dati di ciascuno ---- */
+    const dayStr = () => F.todayISO();
+    async function orgFiles() {
+      const all = X.clients(); if (!all.length) return [];
+      if (A.enabled && !ui.admLoaded) { try { ui.gyms = await A.listGyms(); } catch (e) { } try { ui.accts = await A.listAccounts(); } catch (e) { } ui.admLoaded = true; }
+      const gy = id => ((ui.gyms || []).find(g => g.id === id) || {}).name || (A.gym && A.gym.id === id ? A.gym.name : '') || 'Palestra', nm = id => ((ui.accts || []).find(a => a.id === id) || {}).full_name || (A.me && A.me.id === id ? A.me.full_name : '');
+      const enc = new TextEncoder(), d = dayStr(), root = 'BACKUP_TLZ', out = [];
+      const u8 = async blob => new Uint8Array(await blob.arrayBuffer());
+      const used = new Set(), uniq = p => { let b = p, i = 2; while (used.has(b)) b = p + '_' + i++; used.add(b); return b; };
+      for (const p of all) {
+        const a = p._acct || {}, folder = [root, F.safeName(gy(a.gym_id)), F.safeName(nm(a.coach_id) || 'Senza_allenatore'), uniq(F.safeName(p.name))].join('/'), fn = folder.split('/').pop();
+        const prof = F.profileObject(Object.assign({}, p, { _uid: undefined, _acct: undefined, _updated: undefined })), json = JSON.stringify(prof, null, 2);
+        out.push({ path: folder + '/' + fn + '.xlsx', blob: F.xlsxBuild(F.datasets([p])) });
+        out.push({ path: folder + '/' + fn + '.json', text: json, mime: 'application/json' });
+        out.push({ path: folder + '/storico/' + fn + '_' + d + '.json', text: json, mime: 'application/json' });
+      }
+      out.unshift({ path: root + '/00_TUTTI_I_CLIENTI_' + d + '.xlsx', blob: F.xlsxBuild(F.datasets(all)) });
+      out.unshift({ path: root + '/LEGGIMI.txt', text: 'Backup ordinato per palestra, allenatore e utente.\r\nOgni utente ha la sua cartella: <nome>.xlsx e <nome>.json sono sempre l\'ultima copia; nella cartella "storico" resta una copia per ogni giorno.\r\n00_TUTTI_I_CLIENTI contiene tutti gli utenti in un solo Excel.\r\nCreato il ' + d + ' con la versione ' + F.VERSION.version + '.\r\n', mime: 'text/plain' });
+      void enc; void u8; return out;
+    }
+    async function orgBackup(interactive) {
+      const files = await orgFiles(); if (!files.length) return { ok: false, reason: 'nessun utente' };
+      const h = F.fsSupported() ? await F.getDir() : null;
+      if (h) { try { const perm = await F.dirPermission(h, !!interactive); if (perm === 'granted') { await F._writeToDir(h, files); return { ok: true, where: 'cartella "' + h.name + '" del PC', n: files.length }; } } catch (e) { if (!interactive) return { ok: false, reason: e.message }; } if (!interactive) return { ok: false, reason: 'permission' }; }
+      if (!interactive) return { ok: false, reason: 'nodir' };
+      const zf = []; for (const f of files) zf.push({ path: f.path, data: f.blob ? new Uint8Array(await f.blob.arrayBuffer()) : new TextEncoder().encode(f.text) });
+      await deliver(F.zipBuild(zf), 'BACKUP_TLZ_' + dayStr() + '.zip'); return { ok: true, where: 'file ZIP con le cartelle ordinate', n: files.length };
+    }
+    acts.bkUpdate = async () => { try { const r = await orgBackup(true); if (r.ok) { localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); localStorage.setItem('tlz.orgday', dayStr()); toast('Backup ordinato salvato: ' + r.where); c.render(); } else toast('Backup non riuscito: ' + (r.reason || '')); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
+    acts.bkOrgPick = async () => { try { await F.pickDir(); ui.bkDir = (await F.getDir()).name; await acts.bkUpdate(); } catch (e) { if (e && e.name !== 'AbortError') toast('Cartella non collegata: ' + e.message); } };
+    /* ogni giorno, alla prima apertura, se una cartella del PC è collegata e il permesso c'è ancora: backup silenzioso */
+    async function dailyOrg() { if (!A.enabled || !F.fsSupported() || ui.orgAuto) return; ui.orgAuto = true; let seen = null; try { seen = localStorage.getItem('tlz.orgday'); } catch (e) { } if (seen === dayStr()) return; try { const r = await orgBackup(false); if (r.ok) { localStorage.setItem('tlz.orgday', dayStr()); toast('Backup giornaliero salvato sul PC'); } } catch (e) { } }
+    X.dailyOrg = dailyOrg;
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.xlsxClient = t => { const p = find(t.dataset.id); if (p) exportXlsx([p], F.safeName(p.name)); };
