@@ -1,8 +1,8 @@
 {
-  "version": "1.16.13",
-  "build": 49,
+  "version": "1.17.0",
+  "build": 50,
   "date": "2026-11-03",
   "notes": [
-    "Verifica a due passaggi: QR disegnato dall'app (si vede sempre) e chiave che resta la stessa finché non confermi."
+    "Un'unica app THE LIFTING ZONE per tutti: amministratore, allenatori e clienti entrano dalla stessa pagina con nome e password. Collegata al server."
   ]
 }

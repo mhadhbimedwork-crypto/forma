@@ -81,7 +81,7 @@
 
     /* ---------- accesso (versione con server) ---------- */
     views.login = function () {
-      if (A.mode === 'admin' && ui.setupAvail === undefined) { ui.setupAvail = false; A.bootstrapStatus().then(v => { ui.setupAvail = v; if (v) c.render(); }).catch(() => { }); }
+      if (ui.setupAvail === undefined) { ui.setupAvail = false; A.bootstrapStatus().then(v => { ui.setupAvail = v; if (v) c.render(); }).catch(() => { }); }
       if (ui.setupOpen) return `<div class="card hero"><h1>Prima configurazione</h1><p>Crea l'amministratore. Scegli tu nome, cognome e password. Il codice di installazione ti è stato dato da chi ha installato il server e vale una sola volta.</p></div>
         <form class="card" id="setupForm" autocomplete="off"><label for="su_n">Nome</label><input id="su_n" name="name" autocomplete="given-name" required value="${esc(ui.lgN || '')}">
         <label for="su_s">Cognome</label><input id="su_s" name="surname" autocomplete="family-name" required value="${esc(ui.lgS || '')}">
@@ -97,7 +97,7 @@
         <label for="lg_p">Password</label><input id="lg_p" name="password" type="password" autocomplete="current-password" required>
         ${ui.authErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.authErr)}</div>` : ''}
         <button class="primary" style="margin-top:12px;width:100%" ${ui.busy ? 'disabled' : ''}>${ui.busy ? 'Accesso…' : 'Accedi'}</button>
-        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p></form>${A.mode === 'admin' && ui.setupAvail ? '<div class="card"><b>Prima volta?</b><p class="mute small">Nessun amministratore esiste ancora.</p><button class="primary" style="width:100%" data-act="setupOpen">Prima configurazione</button></div>' : ''}`;
+        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p></form>${ui.setupAvail ? '<div class="card"><b>Prima volta?</b><p class="mute small">Nessun amministratore esiste ancora.</p><button class="primary" style="width:100%" data-act="setupOpen">Prima configurazione</button></div>' : ''}`;
     };
     views.newPassword = function () {
       return `<div class="card hero"><h1>Scegli la tua password</h1><p>È la prima volta che entri: imposta una password personale (almeno 8 caratteri).</p></div>
@@ -491,6 +491,7 @@
       const st = S();
       if (A.enabled) return `<div class="card"><h2>Account</h2><p class="small">Connesso come <b>${esc(A.me.full_name)}</b> (${esc(A.roles[A.me.role])}).</p>
         <div class="row wrap"><button class="sm" data-act="pwChange">Cambia password</button>${devMode() ? '<button class="sm" data-act="devOpen">Area sviluppatore</button>' : ''}<button class="sm" data-act="logout">Esci</button></div></div>`;
+      if (window.FORMA_GYM) return '';   /* app palestra: il ruolo dell'account decide cosa si vede, niente interruttori manuali */
       return `<div class="card"><details ${ui.advOpen ? 'open' : ''}><summary style="cursor:pointer"><b>Strumenti avanzati</b></summary>
         <label class="row" style="gap:8px;margin-top:8px"><input type="checkbox" data-adv="staffMode" style="width:auto" ${st.settings.staffMode ? 'checked' : ''}> <span class="small">Area allenatore: elenco dei profili di questo dispositivo con Excel/CSV di tutti</span></label>
         <label class="row" style="gap:8px"><input type="checkbox" data-adv="devMode" style="width:auto" ${st.settings.devMode ? 'checked' : ''}> <span class="small">Area sviluppatore: diagnostica e strumenti</span></label>

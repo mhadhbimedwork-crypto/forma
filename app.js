@@ -15,6 +15,7 @@
     try { const r = localStorage.getItem(keyNow() + '.pre'); if (r) return JSON.parse(r); } catch (e) { }
     return emptyState();
   }
+  function legacyRead() { if (!(AC.enabled && AC.me)) return null; try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
   let S = load(), syncT = null;
   function save() {
     if (AC.enabled && !AC.me) return;
@@ -181,7 +182,8 @@
     return `<div class="card hero"><h1>Benvenuto in ${esc(BRAND)}</h1>
       <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.'}</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
-      <p class="mute small">I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).</p>`;
+      ${AC.enabled && ui.legacy ? `<div class="card"><b>Dati trovati su questo dispositivo</b><p class="mute small">Ci sono ${ui.legacy} profil${ui.legacy === 1 ? 'o' : 'i'} salvat${ui.legacy === 1 ? 'o' : 'i'} prima di entrare con un account. Vuoi portarli nel tuo account? Restano comunque sul telefono.</p><button class="primary" data-act="legacyYes">Sì, importa i miei dati</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}
+      <p class="mute small">${AC.enabled ? 'I tuoi dati sono salvati sul tuo dispositivo, con una copia protetta sul server: li vedono solo tu e il tuo allenatore.' : 'I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).'}</p>`;
   }
 
   /* --- profilo (form) --- */
@@ -835,6 +837,8 @@
     rCancel() { ui.sub = null; render(); },
     tab(t) { ui.tab = t.dataset.tab; ui.sub = null; render(); window.scrollTo(0, 0); },
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
+    legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { S.profiles = l.profiles; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
+    legacyNo() { ui.legacy = 0; render(); },
     editProfile() { ui.sub = { type: 'profile', id: S.active }; render(); },
     cancelSub() { ui.sub = null; render(); },
     genPlan() { const p = P(), pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda creata e attivata'); },
@@ -1056,6 +1060,7 @@
         save();
       } else if (P()) syncUp();
     } catch (e) { /* offline: si lavora in locale */ }
+    { const l = !P() ? legacyRead() : null; ui.legacy = l && l.profiles ? l.profiles.length : 0; }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
     await autoImportAssigned();
     render();
@@ -1082,7 +1087,7 @@
   Object.assign(act, X.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
-  if (AC.mode === 'admin') { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
+  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && AC.me.role === 'admin') { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();
