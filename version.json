@@ -1,8 +1,8 @@
 {
-  "version": "1.16.9",
-  "build": 45,
+  "version": "1.16.10",
+  "build": 46,
   "date": "2026-11-03",
   "notes": [
-    "Dashboard del cliente: da PC si scorre con le frecce laterali semitrasparenti, con le linguette in alto, con le frecce della tastiera o trascinando col mouse."
+    "La console amministratore è collegata al server (Europa). L'app per i clienti resta com'è finché non la attivi."
   ]
 }

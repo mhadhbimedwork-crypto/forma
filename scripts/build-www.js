@@ -13,8 +13,8 @@ fs.writeFileSync(path.join(out, '.nojekyll'), '');
 /* Versione per la palestra (senza dieta): stessa app, altro nome, altri dati (chiave di archiviazione diversa) */
 if (path.basename(out) === '_site') {
   const g = path.join(out, 'gym'); fs.mkdirSync(g, { recursive: true });
-  let server = null; try { server = JSON.parse(fs.readFileSync('gym-config.json', 'utf8')).server || null; } catch (e) { }
-  const cfgJs = 'window.FORMA_GYM = ' + JSON.stringify({ name: 'THE LIFTING ZONE', tag: 'TRAIN · LIFT · REPEAT', key: 'tlz.v1', server }) + ';\n'; const cfg = '<script src="gymcfg.js"></script>\n'; fs.writeFileSync(path.join(g, 'gymcfg.js'), cfgJs);
+  let server = null, gymServer = null; try { const gc = JSON.parse(fs.readFileSync('gym-config.json', 'utf8')); server = gc.server || null; gymServer = gc.enableOnGym ? server : null; } catch (e) { }   // la console admin usa sempre il server; l'app /gym/ solo quando enableOnGym è true
+  const cfgJs = 'window.FORMA_GYM = ' + JSON.stringify({ name: 'THE LIFTING ZONE', tag: 'TRAIN · LIFT · REPEAT', key: 'tlz.v1', server: gymServer }) + ';\n'; const cfg = '<script src="gymcfg.js"></script>\n'; fs.writeFileSync(path.join(g, 'gymcfg.js'), cfgJs);
   for (const f of FILES) {
     let t = fs.readFileSync(f, 'utf8');
     if (f === 'index.html') t = t.replace('<script src="data.js">', cfg + '<script src="data.js">').replace(/<title>.*?<\/title>/, '<title>THE LIFTING ZONE</title>').replace('content="#05070c"', 'content="#0b0b0d"').replace('icons/icon.svg', 'icons/gym/icon.svg').replace('icons/apple-touch-icon.png', 'icons/gym/icon-192.png');

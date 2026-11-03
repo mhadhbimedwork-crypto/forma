@@ -20,3 +20,8 @@ Indirizzi: app dei clienti e allenatori `.../gym/`, console amministratore `.../
 - Funzione `admin-users`: imposta `ALLOWED_ORIGINS` (indirizzi di /gym/ e /admin/ separati da virgola) per accettare solo quelli.
 - Console amministratore: disconnessione automatica dopo 15 minuti di inattività; verifica a due passaggi obbligatoria.
 - Dopo ogni aggiornamento la console propone (l'admin: parte da sola) il backup Excel di tutti gli utenti da tenere sul PC.
+
+## Stato installazione
+- Progetto Supabase `the-lifting-zone` (eu-central-1) creato; tabelle, regole di sicurezza e funzione `admin-users` installate.
+- Mancano: creare il primo amministratore (Authentication > Users, con 'Auto Confirm'), inserire il suo profilo (vedi fondo di schema.sql), disattivare 'Allow new users to sign up' in Authentication > Sign In / Providers, e attivare la verifica a due passaggi dalla console.
+- `gym-config.json`: `enableOnGym` resta `false` finché non vuoi che l'app /gym/ chieda l'accesso ai clienti.
