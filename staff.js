@@ -139,7 +139,7 @@
         const fd = Object.fromEntries(new FormData(form).entries());
         if (!fd.title.trim() || !fd.body.trim()) { toast('Scrivi titolo e testo della scheda'); return true; }
         const r = F.parseScheda(fd.body); if (!r.days.length || !r.days.some(d => d.exercises.length)) { toast('Non riesco a leggere esercizi in questo testo'); return true; }
-        try { await A.assignPlan(ui.sub.uid, fd.title.trim(), fd.body); toast('Scheda inviata al cliente'); form.reset(); } catch (e) { toast('Invio non riuscito: ' + e.message); } return true;
+        try { const prevN = ((ui.ph || {})[ui.sub.uid] || []).filter(m => keyT(m.title) === keyT(fd.title)).length; await A.assignPlan(ui.sub.uid, fd.title.trim(), fd.body); toast(prevN ? 'Scheda modificata e inviata: versione ' + (prevN + 1) : 'Scheda inviata al cliente'); form.reset(); ui.asgDraft = null; if (ui.ph) delete ui.ph[ui.sub.uid]; c.render(); } catch (e) { toast('Invio non riuscito: ' + e.message); } return true;
       }
       return false;
     };
@@ -182,6 +182,33 @@
       const ss = (p.sessions || []).slice().sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 10);
       return ss.length ? ss.map(s => { const x = F.sessionStats(s); return `<details style="border-top:1px solid var(--line);padding:6px 0"><summary><b>${tr(s.date)}</b> · ${esc(s.dayName)} <span class="mute small">${x.sets} serie · ${fmt(x.volume)} kg${x.rpe ? ' · RPE ' + x.rpe : ''}</span></summary>${s.ex.map(e => `<div class="small"><b>${esc(e.name)}</b>: ${e.sets.map(t => `${t.kg ? fmt(t.kg, 1) + '×' : ''}${t.reps}${t.rpe ? '@' + t.rpe : ''}`).join(' · ')}</div>`).join('')}</details>`; }).join('') : '<p class="mute small">Nessuna seduta registrata.</p>';
     }
+    /* ---------- storico schede inviate (ogni invio resta, con versione e differenze) ---------- */
+    const keyT = t => String(t || '').trim().toLowerCase();
+    function planVersions(list) {
+      const cnt = {}; return list.map(m => { const k = keyT(m.title); cnt[k] = (cnt[k] || 0) + 1; return Object.assign({}, m, { ver: cnt[k] }); });
+    }
+    function lineDiff(prev, cur) {
+      const norm = t => String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean), a = norm(prev), b = norm(cur);
+      return { add: b.filter(x => !a.includes(x)), del: a.filter(x => !b.includes(x)) };
+    }
+    X.planHistoryCard = function (p) {
+      const uid = uidOf(p); ui.ph = ui.ph || {};
+      if (ui.ph[uid] === undefined && !ui.phBusy) { ui.phBusy = true; A.clientPlans(uid).then(r => { ui.ph[uid] = r; ui.phBusy = false; c.render(); }).catch(() => { ui.ph[uid] = []; ui.phBusy = false; }); }
+      const list = planVersions(ui.ph[uid] || []);
+      if (!list.length) return `<div class="card"><h2>Schede inviate</h2><p class="mute small">${ui.ph[uid] === undefined ? 'Carico…' : 'Nessuna scheda inviata a questo cliente.'}</p></div>`;
+      const last = {};
+      const rows = list.map(m => {
+        const k = keyT(m.title), prev = last[k]; last[k] = m;
+        const d = prev ? lineDiff(prev.body, m.body) : null;
+        return `<details style="border-top:1px solid var(--line);padding:6px 0"><summary><b>${esc(m.title)}</b> <span class="chip">v${m.ver}</span> <span class="mute small">${tr(String(m.created_at).slice(0, 10))}${m.coach && m.coach.full_name ? ' · ' + esc(m.coach.full_name) : ''} · ${m.imported_at ? 'ricevuta dal cliente' : 'in attesa'}</span></summary>
+          ${d ? `<p class="small" style="margin:6px 0 2px"><b>Modifiche rispetto alla v${prev.ver}:</b> ${d.add.length} righe nuove o cambiate, ${d.del.length} tolte o cambiate.</p>${d.add.length ? '<div class="small" style="color:var(--ok)">' + d.add.map(x => '+ ' + esc(x)).join('<br>') + '</div>' : ''}${d.del.length ? '<div class="small" style="color:var(--danger)">' + d.del.map(x => '− ' + esc(x)).join('<br>') + '</div>' : ''}` : '<p class="small mute" style="margin:6px 0 2px">Prima versione.</p>'}
+          <pre class="small" style="white-space:pre-wrap;font-family:inherit;margin:6px 0;max-height:220px;overflow:auto">${esc(m.body)}</pre>
+          ${A.me && A.me.role !== 'admin' ? `<button class="sm" data-act="planReuse" data-id="${m.id}" data-u="${esc(uid)}">Modifica e rinvia</button>` : ''}</details>`;
+      }).reverse().join('');
+      return `<div class="card"><h2>Schede inviate (${list.length})</h2><p class="mute small" style="margin-top:0">Ogni invio resta registrato: se rinvii una scheda con lo stesso titolo diventa una nuova versione.</p>${rows}</div>`;
+    };
+    acts.planReuse = t => { const m = ((ui.ph || {})[t.dataset.u] || []).find(x => String(x.id) === t.dataset.id); if (!m) return; ui.asgDraft = { uid: t.dataset.u, title: m.title, body: m.body }; c.render(); setTimeout(() => { const el = document.getElementById('assignForm'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 50); toast('Modifica il testo e invia: sarà una nuova versione'); };
+
     views.client = function () {
       const p = find(ui.sub.uid); if (!p) return `<div class="row"><button class="ghost" data-act="clientBack">← Clienti</button></div><p class="mute">Cliente non trovato.</p>`;
       const st = F.clientStats(p), ex = F.exerciseStats(p).slice(0, 8), ws = (p.weights || []).slice().sort((a, b) => a.date < b.date ? -1 : 1).map(w => ({ x: w.date, y: w.kg }));
@@ -195,9 +222,10 @@
         <div class="card"><h2>Ultime sedute</h2>${sessionsDetail(p)}</div>
         ${ex.length ? `<div class="card"><h2>Progressi per esercizio</h2><table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Esercizio</th><th>Sedute</th><th>Miglior 1RM</th><th>Var.</th></tr></thead><tbody>${ex.map(o => `<tr><td style="text-align:left">${esc(o.name)}</td><td>${o.sessions}</td><td>${o.bestE1 || '–'}</td><td>${o.change == null ? '–' : (o.change > 0 ? '+' : '') + o.change + '%'}</td></tr>`).join('')}</tbody></table></div>` : ''}
         ${ws.length > 1 ? `<div class="card"><h2>Peso</h2>${c.lineChart(ws, 'kg')}</div>` : ''}
-        ${can && role !== 'admin' ? `<div class="card"><h2>Invia una scheda</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" placeholder="Es. Scheda forza novembre">
-          <label for="as_b">Testo della scheda (come dal personal trainer)</label><textarea id="as_b" name="body" style="min-height:120px;font-family:inherit" placeholder="Giorno 1&#10;Panca piana 4x6-8 rec 120s&#10;…"></textarea>
-          <button class="primary" style="margin-top:8px">Invia al cliente</button></form><p class="mute small">Il cliente la trova nella schermata iniziale e la importa con un tocco.</p></div>` : ''}
+        ${X.planHistoryCard(p)}
+        ${can && role !== 'admin' ? `<div class="card"><h2>Invia una scheda</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" value="${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.title : '') || '')}" placeholder="Es. Scheda forza novembre">
+          <label for="as_b">Testo della scheda (come dal personal trainer)</label><textarea id="as_b" name="body" style="min-height:120px;font-family:inherit" placeholder="Giorno 1&#10;Panca piana 4x6-8 rec 120s&#10;…">${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.body : '') || '')}</textarea>
+          <button class="primary" style="margin-top:8px">Invia al cliente</button></form><p class="mute small">L'app del cliente la legge da sola (serie, recuperi, timer, alternative) e lo avvisa: sceglie lui se attivarla subito o continuare con la scheda attuale. Ogni invio resta nello storico.</p></div>` : ''}
         ${can ? `<div class="card"><h2>Account</h2>${acctExtra(p)}<div class="row wrap"><button class="sm" data-act="clientReset" data-id="${esc(uidOf(p))}">Reimposta password</button><button class="sm" data-act="clientActive" data-id="${esc(uidOf(p))}">${acct.active ? 'Disattiva accesso' : 'Riattiva accesso'}</button>${role === 'head' || role === 'admin' ? `<button class="sm danger" data-act="clientDelete" data-id="${esc(uidOf(p))}">Elimina account e dati</button>` : ''}</div></div>` : ''}`;
     };
     views.newClient = function () {

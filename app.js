@@ -208,7 +208,8 @@
   function viewHome() {
     const p = P(), c = F.calc(p), plan = planOf(p), adv = F.weightAdvice(p);
     const done = (p.sessions || []).length;
-    const inbox = (ui.inbox || []).map(m => `<div class="card" style="border-color:var(--accent)"><b>Nuova scheda dal tuo allenatore</b><div class="small">${esc(m.title)}</div><button class="sm primary" style="margin-top:8px" data-act="inboxImport" data-id="${m.id}">Controlla e importa</button></div>`).join('');
+    const offers = (p ? p.plans : []).filter(x => x.offer).map(x => `<div class="card" style="border-color:var(--accent)"><b>Hai ricevuto una nuova scheda dal tuo allenatore</b><div class="small">${esc(x.title)} · caricata il ${esc(x.createdAt)}</div><p class="mute small" style="margin:6px 0 0">È già salvata tra le tue schede. Vuoi usarla subito o continuare con quella che hai?</p><div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="offerYes" data-id="${x.id}">Attiva ora</button><button class="sm" data-act="offerNo" data-id="${x.id}">Continuo con la mia</button></div></div>`).join('');
+    const inbox = offers + (ui.inbox || []).map(m => `<div class="card" style="border-color:var(--warn)"><b>Scheda dal tuo allenatore da controllare</b><div class="small">${esc(m.title)}</div><button class="sm primary" style="margin-top:8px" data-act="inboxImport" data-id="${m.id}">Controlla e importa</button></div>`).join('');
     let next = '';
     if (plan && plan.days.length) {
       const cnt = (p.sessions || []).filter(s => s.planId === plan.id).length, ls = (p.sessions || []).filter(s => s.planId === plan.id).slice(-1)[0], li = ls ? plan.days.findIndex(x => x.name === ls.dayName) : -1, auto = li >= 0 ? (li + 1) % plan.days.length : cnt % plan.days.length;
@@ -217,7 +218,7 @@
       const early = early0(p, plan);
       const picker = hasDraft ? '' : `<div class="row wrap" style="margin:8px 0" role="group" aria-label="Scegli il giorno">${plan.days.map((x, k) => `<button class="sm ${k === idx ? 'primary' : 'ghost'}" data-act="pickDay" data-day="${k}">${esc(x.name.length > 14 ? x.name.slice(0, 14) + '…' : x.name)}${k === auto ? ' ★' : ''}</button>`).join('')}</div><div class="mute small">★ = prossimo giorno in ordine. Scegli tu quello che vuoi fare oggi.</div>`;
       next = `<div class="card hero"><div class="mute small">${hasDraft ? 'Seduta in corso' : 'Seduta di oggi'} · ${esc(plan.title)}</div><h1 style="margin:.1em 0">${esc(d.name)}</h1>
-        <p>${d.exercises.length} esercizi · ${d.exercises.reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${(p.sessions || []).length ? (() => { const r = F.dayReadiness(p, d); return `<p class="small" style="margin:.2em 0 .6em">Recupero dei muscoli di oggi: <b>${r.pct}%</b>${r.pct < 70 && r.worst ? ' · il più affaticato è ' + esc(F.MUSCLE_LABEL[r.worst]).toLowerCase() : ''}</p>`; })() : ''}${picker}
+        <p>${d.exercises.filter(x => !x.alt).length} esercizi${d.exercises.some(x => x.alt) ? ' (+ alternative)' : ''} · ${d.exercises.filter(x => !x.alt).reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${(p.sessions || []).length ? (() => { const r = F.dayReadiness(p, d); return `<p class="small" style="margin:.2em 0 .6em">Recupero dei muscoli di oggi: <b>${r.pct}%</b>${r.pct < 70 && r.worst ? ' · il più affaticato è ' + esc(F.MUSCLE_LABEL[r.worst]).toLowerCase() : ''}</p>`; })() : ''}${picker}
         <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -253,6 +254,8 @@
   }
   /* minuti di EMOM: principale (tech.emom) oppure indicato come alternativa nella nota ("... in EMOM 6'") */
   function emomN(x) { if (x.tech && x.tech.emom) return x.tech.emom; const m = /EMOM\s*(\d+)/i.exec(x.note || ''); return m ? +m[1] : 0; }
+  /* alternative: di base si fa l'esercizio principale; l'utente può spuntare l'alternativa, o entrambi */
+  function exOn(d, x, i) { return d.use && d.use[i] !== undefined ? !!d.use[i] : !x.alt; }
   function emomStart(i) {
     const p = P(), plan = planOf(p), x = plan.days[p.draft.dayIdx].exercises[i], n = emomN(x);
     if (!n) return;
@@ -268,6 +271,8 @@
     const lastBW = (p.weights || []).slice(-1)[0];
     const prevS = (p.sessions || []).filter(q => q.planId === plan.id && q.dayName === day.name).slice(-1)[0];
     const blocks = day.exercises.map((x, i) => {
+      const on = exOn(d, x, i), altBar = x.altGroup ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;cursor:pointer"><input type="checkbox" data-altuse="${i}" ${on ? 'checked' : ''}> <b>${x.alt ? 'Alternativa' : 'Esercizio principale'}</b> · lo faccio oggi <span class="mute">(puoi sceglierne uno o entrambi)</span></label>` : '';
+      if (!on) return `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b> <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = setCount(d, i, x, early);
       const pe0 = prevS && prevS.ex.find(q => q.exId === x.exId);
@@ -282,7 +287,7 @@
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>`);
       }
-      return `<div class="card"><div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
+      return `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
         ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Dati della volta scorsa (${prevS.date}) in ogni serie · solo lettura</div>` : ''}
@@ -832,6 +837,8 @@
     cancelSub() { ui.sub = null; render(); },
     genPlan() { const p = P(), pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda creata e attivata'); },
     importPlan() { ui.sub = { type: 'import', state: {} }; render(); },
+    offerYes(t) { const p = P(), x = p.plans.find(q => q.id === t.dataset.id); if (!x) return; if (p.draft && p.draft.planId !== x.id) { if (!confirm('Hai una seduta in corso con la scheda attuale: se attivi la nuova verrà scartata. Continuare?')) return; p.draft = null; } x.offer = false; p.activePlan = x.id; save(); render(); toast('Scheda attivata'); },
+    offerNo(t) { const p = P(), x = p.plans.find(q => q.id === t.dataset.id); if (x) { x.offer = false; save(); render(); toast('Resta la scheda di prima. La nuova è tra le tue schede.'); } },
     inboxImport(t) { const m = (ui.inbox || []).find(x => String(x.id) === t.dataset.id); if (!m) return; const r = F.parseScheda(m.body); ui.sub = { type: 'import', state: { parsed: r, title: m.title, inboxId: m.id } }; render(); window.scrollTo(0, 0); },
     openPlan(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
     activate(t) { const p = P(); p.activePlan = t.dataset.id; p.draft = null; save(); render(); toast('Scheda attivata'); },
@@ -1007,6 +1014,7 @@
     if (t.id === 'rc_name' || t.id === 'rc_note') { readRecipe(); return; }
     if (t.id === 'rc_por') { readRecipe(); render(); return; }
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
+    if (t.dataset.altuse != null) { const d = p.draft, i = +t.dataset.altuse; d.use = d.use || {}; d.use[i] = t.checked; save(); render(); return; }
     if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
@@ -1036,7 +1044,25 @@
       } else if (P()) syncUp();
     } catch (e) { /* offline: si lavora in locale */ }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
+    await autoImportAssigned();
     render();
+  }
+  /* La scheda inviata dall'allenatore viene letta e resa eseguibile da sola (serie, recuperi, timer, alternative): niente da importare a mano. */
+  async function autoImportAssigned() {
+    const p = P(); if (!p || !ui.inbox || !ui.inbox.length) return;
+    const left = [], done = [];
+    for (const m of ui.inbox) {
+      let r; try { r = F.parseScheda(m.body); } catch (e) { r = null; }
+      if (!r || !r.days.some(d => d.exercises.length)) { left.push(m); continue; }
+      if (!(p.plans || []).some(x => x.assignedId === m.id)) {
+        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length) };
+        pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
+        const same = p.plans.filter(x => x.assignedId && x.title.replace(/ \(v\d+\)$/, '').toLowerCase() === m.title.toLowerCase()).length; if (same) pl.title = m.title + ' (v' + (same + 1) + ')'; p.plans.forEach(x => { if (x.offer) x.offer = false; }); if (m.created_at) pl.createdAt = String(m.created_at).slice(0, 10); const had = planOf(p) && planOf(p).days.length; if (had) pl.offer = true; p.plans.push(pl); if (!had) p.activePlan = pl.id; done.push(m.title);
+      }
+      try { await AC.markPlanImported(m.id); } catch (e) { left.push(m); }
+    }
+    ui.inbox = left;
+    if (done.length) { save(); toast('Hai ricevuto una nuova scheda: ' + done[done.length - 1]); }
   }
   function onSignOut() { S = emptyState(); mem = null; ui.sub = null; ui.tab = 'home'; ui.consent = undefined; ui.cl = null; ui.clLoaded = false; ui.inbox = []; render(); }
   const X = F.mountExtras({ S: () => S, P, save, render, toast, esc, ui, fmt, lineChart, onSignIn, onSignOut });

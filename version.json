@@ -1,8 +1,11 @@
 {
-  "version": "1.16.2",
-  "build": 38,
+  "version": "1.16.3",
+  "build": 39,
   "date": "2026-11-03",
   "notes": [
-    "EMOM indicato come alternativa (per esempio nelle trazioni): ora c'è il pulsante per avviare il timer, un minuto alla volta."
+    "La scheda inviata dall'allenatore viene letta e resa eseguibile in automatico: serie, recuperi, timer EMOM e alternative.",
+    "Alternative (es. 'A / B - 3x8 / EMOM 6'): nella seduta spunti quale fai, o entrambe.",
+    "Il cliente viene avvisato della nuova scheda e decide se attivarla subito; la scheda resta salvata con la data.",
+    "Per l'allenatore: storico di tutte le schede inviate a ogni cliente, con versioni e differenze, e 'Modifica e rinvia'."
   ]
 }

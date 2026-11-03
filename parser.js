@@ -129,25 +129,27 @@
   F.parseScheda = function (text) {
     const days = []; let cur = null, defRest = null; const globalFlags = [];
     const newDay = n => { cur = { name: n, exercises: [] }; days.push(cur); defRest = null; };
-    for (const rawLine of text.split(/\r?\n/)) {
-      let line = rawLine.trim(); if (!line) continue;
-      if (/^#/.test(line) || /:$/.test(line) && !/\d\s*[x×]/i.test(line)) { newDay(line.replace(/^#+\s*/, '').replace(/:$/, '')); continue; }
-      // formato a colonne NOME | serie | rip | extra
-      if (line.includes('|') || line.includes('\t')) {
-        const parts = line.split(/\||\t/).map(x => x.trim()), sets = parseInt(parts[1], 10);
-        if (parts[0] && sets > 0 && parts[2]) line = `${parts[0]} ${sets}x${parts.slice(2).join(' ')}`;
-        else line = parts.join(' ');
-      }
+    let gseq = 0;
+    /* alternative: "A / B - 3x8-10 / EMOM 6'" (stesso numero di parti) oppure "A / B - 3x8" con entrambi gli esercizi riconosciuti */
+    const splitAlt = line => {
+      const sp = line.split(/\s+[-–—]\s+/); if (sp.length < 2) return null;
+      const names = sp[0].split(/\s+\/\s+/), schemes = sp.slice(1).join(' - ').split(/\s+\/\s+/);
+      if (names.length < 2 || names.some(n => !n.trim())) return null;
+      if (schemes.length === names.length) return names.map((n, k) => n.trim() + ' - ' + schemes[k].trim());
+      if (schemes.length === 1 && names.every(n => { const m = F.matchExercise(n.trim()); return m && m.score >= 0.75; })) return names.map(n => n.trim() + ' - ' + schemes[0].trim());
+      return null;
+    };
+    const addLine = (line, rawLine, grp) => {
       const pre = advanced(line); line = pre.line;
       const L = F.parseLine(line);
       if (L.none) {
-        if (L.rest && !L.text.replace(/\d+/g, '').trim()) { defRest = L.rest; continue; } // "Rest 90s tra le serie" vale per le righe seguenti
-        if (L.rest && /^(?:rest|rec|pausa)/i.test(line)) { defRest = L.rest; continue; }
-        if (L.text && L.text.length <= 45 && !/\d/.test(L.text.replace(/\b(day|giorno|workout|seduta|session|week|settimana|a|b|c|d)\s*\d*\b/ig, ''))) { newDay(L.text); continue; }
-        globalFlags.push(`Riga non letta: "${rawLine.trim()}"`); continue;
+        if (L.rest && !L.text.replace(/\d+/g, '').trim()) { defRest = L.rest; return; } // "Rest 90s tra le serie" vale per le righe seguenti
+        if (L.rest && /^(?:rest|rec|pausa)/i.test(line)) { defRest = L.rest; return; }
+        if (L.text && L.text.length <= 45 && !/\d/.test(L.text.replace(/\b(day|giorno|workout|seduta|session|week|settimana|a|b|c|d)\s*\d*\b/ig, ''))) { newDay(L.text); return; }
+        globalFlags.push(`Riga non letta: "${rawLine.trim()}"`); return;
       }
       if (!cur) newDay('Giorno 1');
-      if (!L.name || !(L.sets > 0)) { globalFlags.push(`Riga non letta: "${rawLine.trim()}"`); continue; }
+      if (!L.name || !(L.sets > 0)) { globalFlags.push(`Riga non letta: "${rawLine.trim()}"`); return; }
       const info = F.parseReps(L.reps, L.sets), mt = F.matchExercise(L.name);
       if (info.scheme.length === 2 && info.scheme[0] < info.scheme[1] && !/cresc|crescente|ramp|pyramid|piramide/i.test(L.reps)) {
         info.range = [info.scheme[0], info.scheme[1]]; info.scheme = [info.scheme[1]]; info.flags = info.flags.filter(f => !/ripetizioni indicate/.test(f));
@@ -160,7 +162,20 @@
       if (pre.tech && pre.tech.drop && pre.tech.drop.after < 0) pre.tech.drop.after = L.sets - 1;
       cur.exercises.push({ name: L.name, sets: L.sets + (pre.tech && pre.tech.drop ? 1 : 0), repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
         unit: timed ? 'sec' : (mt ? mt.ex.unit : 'reps'), rest: L.rest || defRest || (L.pct && L.pct[1] >= 80 ? 150 : 90), restRead: !!L.rest,
-        tech: pre.tech || null, exact: true, pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', pre.note].filter(Boolean).join(' '), flags: fl });
+        tech: pre.tech || null, exact: true, pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', grp && grp.alt ? 'Alternativa a: ' + grp.main + '.' : '', pre.note].filter(Boolean).join(' '), flags: fl, altGroup: grp ? grp.id : null, alt: !!(grp && grp.alt) });
+    };
+    for (const rawLine of text.split(/\r?\n/)) {
+      let line = rawLine.trim(); if (!line) continue;
+      if (/^#/.test(line) || /:$/.test(line) && !/\d\s*[x×]/i.test(line)) { newDay(line.replace(/^#+\s*/, '').replace(/:$/, '')); continue; }
+      // formato a colonne NOME | serie | rip | extra
+      if (line.includes('|') || line.includes('\t')) {
+        const parts = line.split(/\||\t/).map(x => x.trim()), sets = parseInt(parts[1], 10);
+        if (parts[0] && sets > 0 && parts[2]) line = `${parts[0]} ${sets}x${parts.slice(2).join(' ')}`;
+        else line = parts.join(' ');
+      }
+      const alts = splitAlt(line);
+      if (alts) { const gid = 'g' + (++gseq); alts.forEach((ln, k) => addLine(ln, rawLine, { id: gid, alt: k > 0, main: alts[0].split(' - ')[0] })); }
+      else addLine(line, rawLine, null);
     }
     return { days, flags: globalFlags };
   };
