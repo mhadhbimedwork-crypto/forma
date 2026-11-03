@@ -1,8 +1,8 @@
 {
-  "version": "1.16.12",
-  "build": 48,
+  "version": "1.16.13",
+  "build": 49,
   "date": "2026-11-03",
   "notes": [
-    "Corretto il codice QR della verifica a due passaggi (ora si vede sempre, con chiave manuale di riserva)."
+    "Verifica a due passaggi: QR disegnato dall'app (si vede sempre) e chiave che resta la stessa finché non confermi."
   ]
 }
