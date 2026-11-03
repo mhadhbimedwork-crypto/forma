@@ -1,8 +1,8 @@
 {
-  "version": "1.20.0",
-  "build": 56,
+  "version": "1.20.1",
+  "build": 57,
   "date": "2026-11-03",
   "notes": [
-    "Backup ordinato: per ogni utente una cartella (palestra → allenatore → utente) con il suo Excel, i dati e lo storico giornaliero, più un Excel con tutti. Con una cartella del PC collegata si salva da solo ogni giorno."
+    "Se su un telefono ci sono più profili, l'app sceglie quello del tuo account, unisce i tuoi vecchi allenamenti e non carica mai sul server i dati di un'altra persona."
   ]
 }

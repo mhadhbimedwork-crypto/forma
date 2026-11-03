@@ -15,6 +15,9 @@
     try { const r = localStorage.getItem(keyNow() + '.pre'); if (r) return JSON.parse(r); } catch (e) { }
     return emptyState();
   }
+  const nameTok = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/)[0];
+  const isMine = p => !!(p && AC.me && nameTok(p.name) && nameTok(p.name) === nameTok(AC.me.full_name));
+  const nSess = p => ((p && p.sessions) || []).length;
   function legacyRead() { if (!(AC.enabled && AC.me)) return null; try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
   let S = load(), syncT = null;
   function save() {
@@ -22,7 +25,14 @@
     mem = S; try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { /* senza storage resta in memoria */ }
     if (AC.enabled && AC.me) { clearTimeout(syncT); syncT = setTimeout(syncUp, 4000); }
   }
-  async function syncUp() { const p = P(); if (!p || !navigator.onLine || (AC.imp && AC.imp() && !AC.imp().write)) return; try { await AC.pushMine(p); ui.syncAt = Date.now(); } catch (e) { ui.syncErr = e.message; } }
+  async function syncUp() { const p = P(); if (!p || !navigator.onLine || (AC.imp && AC.imp() && !AC.imp().write)) return; try {
+      if (ui.pushOkFor !== AC.me.id + p.id) {   // mai sovrascrivere sul server i dati di un'altra persona
+        const srv = await AC.pullMine(), d = srv && srv.data;
+        if (d && d.name && p.name && d.birth && p.birth && String(d.name).trim().toLowerCase() !== String(p.name).trim().toLowerCase() && d.birth !== p.birth) { ui.syncErr = 'Il profilo su questo dispositivo non è quello del tuo account: non sincronizzato'; return; }
+        ui.pushOkFor = AC.me.id + p.id;
+      }
+      await AC.pushMine(p); ui.syncAt = Date.now();
+    } catch (e) { ui.syncErr = e.message; } }
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const planOf = p => p && p.plans.find(x => x.id === p.activePlan) || null;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -183,7 +193,7 @@
     return `<div class="card hero"><h1>Benvenuto in ${esc(BRAND)}</h1>
       <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.'}</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
-      ${AC.enabled && ui.legacy ? `<div class="card"><b>Dati trovati su questo dispositivo</b><p class="mute small">Ci sono ${ui.legacy} profil${ui.legacy === 1 ? 'o' : 'i'} salvat${ui.legacy === 1 ? 'o' : 'i'} prima di entrare con un account. Vuoi portarli nel tuo account? Restano comunque sul telefono.</p><button class="primary" data-act="legacyYes">Sì, importa i miei dati</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}
+      ${AC.enabled && ui.legacyMine ? `<div class="card"><b>Trovato il tuo profilo con i tuoi allenamenti</b><p class="mute small">Su questo telefono c'è il profilo «${esc(ui.legacyMine.name)}» con ${ui.legacyMine.n} allenament${ui.legacyMine.n === 1 ? 'o' : 'i'} salvat${ui.legacyMine.n === 1 ? 'o' : 'i'} prima di entrare con un account. Lo unisco al tuo account senza perdere nulla.</p><button class="primary" data-act="legacyMerge">Sì, unisci i miei allenamenti</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}${AC.enabled && ui.legacy ? `<div class="card"><b>Dati trovati su questo dispositivo</b><p class="mute small">Ci sono ${ui.legacy} profil${ui.legacy === 1 ? 'o' : 'i'} salvat${ui.legacy === 1 ? 'o' : 'i'} prima di entrare con un account. Vuoi portarli nel tuo account? Restano comunque sul telefono.</p><button class="primary" data-act="legacyYes">Sì, importa i miei dati</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}
       <p class="mute small">${AC.enabled ? 'I tuoi dati sono salvati sul tuo dispositivo, con una copia protetta sul server: li vedono solo tu e il tuo allenatore.' : 'I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).'}</p>`;
   }
 
@@ -838,8 +848,9 @@
     rCancel() { ui.sub = null; render(); },
     tab(t) { ui.tab = t.dataset.tab; ui.sub = null; render(); window.scrollTo(0, 0); },
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
-    legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { S.profiles = l.profiles; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
-    legacyNo() { ui.legacy = 0; render(); },
+    legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { const mine = l.profiles.filter(isMine); S.profiles = mine.length ? mine : l.profiles; l.active = mine.length ? mine[0].id : l.active; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
+    legacyMerge() { const l = legacyRead(), m = l && l.profiles && l.profiles.find(isMine), p = P(); if (m && p) { Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, m, { id: p.id })))); save(); syncUp(); toast('Allenamenti uniti al tuo profilo'); } ui.legacyMine = null; render(); },
+    legacyNo() { ui.legacyMine = null; ui.legacy = 0; render(); },
     editProfile() { ui.sub = { type: 'profile', id: S.active }; render(); },
     cancelSub() { ui.sub = null; render(); },
     genPlan() { const p = P(), pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id; save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda creata e attivata'); },
@@ -1050,6 +1061,7 @@
   async function onSignIn() {
     ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
     const imp = AC.imp && AC.imp();
+    if (AC.me.role === 'client' && !imp && S.profiles.length > 1) { const m = S.profiles.find(isMine); if (m) S.active = m.id; }
     if (AC.me.must_change_password && !imp) return render();
     ui.consent = true;
     if (!AC.staff() && !imp) { try { ui.consent = (await AC._rest('consents?user_id=eq.' + AC.me.id + '&kind=eq.privacy&select=id&limit=1')).length > 0; } catch (e) { ui.consent = true; } }
@@ -1060,14 +1072,19 @@
         if (!loc) { const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = [pr]; S.active = pr.id; }
         else if (srv.data.name && loc.name && srv.data.birth && loc.birth && String(srv.data.name).trim().toLowerCase() !== String(loc.name).trim().toLowerCase() && srv.data.birth !== loc.birth) {
           /* sul dispositivo c'è il profilo di un'altra persona: non si mescola. Copia di sicurezza e si usa quello dell'account. */
-          try { localStorage.setItem(KEY + '.altro.' + Date.now(), JSON.stringify(loc)); } catch (e) { }
-          const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = [pr]; S.active = pr.id;
+          try { localStorage.setItem(KEY + '.altro.' + Date.now(), JSON.stringify(S)); } catch (e) { }
+          const pr = F.normalizeProfile(Object.assign({}, srv.data, { id: 'acct-' + AC.me.id })); S.profiles = S.profiles.filter(x => x !== loc && !(nameTok(x.name) === nameTok(loc.name) && x.birth === loc.birth)); S.profiles.unshift(pr); S.active = pr.id;
         }
         else Object.assign(loc, F.mergeProfiles(loc, F.normalizeProfile(Object.assign({}, srv.data, { id: loc.id }))));
         save();
       } else if (P()) syncUp();
     } catch (e) { /* offline: si lavora in locale */ }
-    { const l = !P() ? legacyRead() : null; ui.legacy = l && l.profiles ? l.profiles.length : 0; }
+    { const l = legacyRead(); ui.legacy = 0; ui.legacyMine = null;
+      if (l && l.profiles && l.profiles.length) {
+        const m = l.profiles.find(isMine);
+        if (!P()) ui.legacy = l.profiles.length;
+        else if (m && nSess(m) > nSess(P())) ui.legacyMine = { name: m.name, n: nSess(m) };
+      } }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
     if (!imp || imp.write) await autoImportAssigned();
     render();
