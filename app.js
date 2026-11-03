@@ -18,6 +18,16 @@
   const nameTok = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/)[0];
   const isMine = p => !!(p && AC.me && nameTok(p.name) && nameTok(p.name) === nameTok(AC.me.full_name));
   const nSess = p => ((p && p.sessions) || []).length;
+  /** Cerca su questo telefono ogni copia salvata dell'app e ne elenca i profili che hanno allenamenti (per recuperarli). */
+  function scanLocal() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i); if (!/^(forma|tlz)\.v1/.test(k)) continue; let o; try { o = JSON.parse(localStorage.getItem(k)); } catch (e) { continue; }
+      const profs = o && Array.isArray(o.profiles) ? o.profiles : (o && o.name && Array.isArray(o.sessions) ? [o] : []);
+      profs.forEach((p, j) => { if (!p || !p.name || !(p.sessions || []).length) return; const ds = p.sessions.map(s => s.date || '').sort(); out.push({ k, j, name: p.name, birth: p.birth || '', n: p.sessions.length, last: ds[ds.length - 1] || '' }); });
+    }
+    return out;
+  }
   function legacyRead() { if (!(AC.enabled && AC.me)) return null; try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
   let S = load(), syncT = null;
   function save() {
@@ -695,8 +705,16 @@
   }
 
   /* --- profilo / impostazioni --- */
+  function recoverCard() {
+    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp())) return '';
+    if (!ui.rec) return `<div class="card"><h2>Recupera i miei allenamenti</h2><p class="small mute">Se i tuoi allenamenti non si vedono, qui cerco le copie salvate su questo telefono.</p><button class="sm" data-act="recScan">Cerca su questo telefono</button></div>`;
+    const l = ui.rec.list;
+    return `<div class="card"><h2>Recupera i miei allenamenti</h2>${l.length ? '<p class="small mute">Ho trovato queste copie su questo telefono. Tocca «Aggiungi» sul tuo profilo: i dati si uniscono a quelli che hai già, senza cancellare nulla.</p>' : '<p class="small">Non ho trovato allenamenti salvati su questo telefono.</p>'}
+      ${l.map(x => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0"><div class="grow"><b>${esc(x.name)}</b> ${x.birth ? '<span class="mute small">' + esc(x.birth) + '</span>' : ''}<div class="mute small">${x.n} allenament${x.n === 1 ? 'o' : 'i'} · ultimo ${esc(x.last)}</div></div><button class="sm primary" data-act="recAdd" data-k="${esc(x.k)}" data-j="${x.j}">Aggiungi</button></div>`).join('')}
+      <button class="ghost sm" data-act="recClose">Chiudi</button></div>`;
+  }
   function viewMe() {
-    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
+    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${recoverCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
     const c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
@@ -727,7 +745,7 @@
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
 </div>
       ${X.dataCard(p)}
-      ${X.advancedCard()}
+      ${X.advancedCard()}${recoverCard()}
       ${AC.enabled ? '' : `<div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
         <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>`}
@@ -850,6 +868,16 @@
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
     legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { const mine = l.profiles.filter(isMine); S.profiles = mine.length ? mine : l.profiles; l.active = mine.length ? mine[0].id : l.active; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
     legacyMerge() { const l = legacyRead(), m = l && l.profiles && l.profiles.find(isMine), p = P(); if (m && p) { Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, m, { id: p.id })))); save(); syncUp(); toast('Allenamenti uniti al tuo profilo'); } ui.legacyMine = null; render(); },
+    recScan() { ui.rec = { list: scanLocal() }; render(); },
+    recClose() { ui.rec = null; render(); },
+    recAdd(t) {
+      const p = P(); if (!p) return toast('Crea prima il profilo');
+      try { const o = JSON.parse(localStorage.getItem(t.dataset.k)); const src = Array.isArray(o.profiles) ? o.profiles[+t.dataset.j] : o;
+        if (!isMine(src) && !confirm('Questo profilo si chiama «' + src.name + '» e non sembra il tuo. Aggiungerlo comunque?')) return;
+        const keep = JSON.stringify(S); try { localStorage.setItem(KEY + '.prerecupero.' + Date.now(), keep); } catch (e) { }
+        Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, src, { id: p.id })))); save(); syncUp(); ui.rec = { list: scanLocal() }; toast('Allenamenti aggiunti: ora ne hai ' + (p.sessions || []).length); render();
+      } catch (e) { toast('Non riuscito: ' + e.message); }
+    },
     legacyNo() { ui.legacyMine = null; ui.legacy = 0; render(); },
     editProfile() { ui.sub = { type: 'profile', id: S.active }; render(); },
     cancelSub() { ui.sub = null; render(); },

@@ -1,8 +1,8 @@
 {
-  "version": "1.20.1",
-  "build": 57,
+  "version": "1.20.2",
+  "build": 58,
   "date": "2026-11-03",
   "notes": [
-    "Se su un telefono ci sono più profili, l'app sceglie quello del tuo account, unisce i tuoi vecchi allenamenti e non carica mai sul server i dati di un'altra persona."
+    "Nuovo: Profilo → «Recupera i miei allenamenti». Cerca tutte le copie salvate sul telefono e le aggiunge al tuo profilo senza cancellare nulla."
   ]
 }
