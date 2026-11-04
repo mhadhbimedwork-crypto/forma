@@ -166,7 +166,8 @@
     off() { try { localStorage.removeItem(bio.key()); } catch (e) { } }
   };
   function bioCard() {
-    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp()) || !bio.ok || AC.me.role === 'admin') return '';
+    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp()) || GYM) return '';
+    if (!bio.ok) return `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Su questo dispositivo non è disponibile. Succede se usi l'app installata dal file APK o un browser senza impronta. Apri FORGIA dal browser del telefono (Chrome o Safari) e scegli «Aggiungi a schermata Home»: lì l'impronta funziona.</p></div>`;
     return bio.id ? `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Attivo su questo dispositivo: ogni volta che apri l'app ti chiede l'impronta (o il volto) invece della password.</p><button class="sm" data-act="bioOff">Disattiva su questo dispositivo</button></div>`
       : `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Apri l'app con l'impronta o il volto, senza riscrivere nome e password. Vale solo su questo telefono; la password resta valida come alternativa.</p><button class="sm primary" data-act="bioOn">Attiva l'impronta</button>${ui.bioErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.bioErr)}</div>` : ''}</div>`;
   }
@@ -1168,7 +1169,6 @@
   Object.assign(act, X.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
-  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && (AC.me.role === 'admin' || (AC.imp && AC.imp() && (!AC.imp().own || (AC.imp().from && AC.imp().from.role === 'admin'))))) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
   { let hid = 0; document.addEventListener('visibilitychange', () => { if (document.hidden) hid = Date.now(); else if (hid && Date.now() - hid > 120000 && AC.enabled && AC.me && bio.ok && bio.id && !(AC.imp && AC.imp()) && !ui.locked) { ui.locked = true; render(); } }); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });

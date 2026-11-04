@@ -1,9 +1,10 @@
 {
-  "version": "1.25.0",
-  "build": 63,
+  "version": "1.25.1",
+  "build": 64,
   "date": "2026-11-04",
   "notes": [
-    "Allenatori e allenatori principali: «Il mio profilo atleta» nel menu. Crea con un tocco un profilo personale con il tuo nome, dati separati dai clienti; passi da allenatore ad atleta e torni senza altra password.",
-    "Nell'elenco clienti il tuo profilo atleta è segnato «personale»."
+    "Niente più uscita per inattività: resti dentro finché non esci tu.",
+    "Schermata di accesso: «Password dimenticata?» spiega come farsela reimpostare.",
+    "Profilo: la scheda «Sblocco con impronta» compare sempre, anche per l'amministratore; se il dispositivo non la supporta lo dice e spiega cosa fare."
   ]
 }

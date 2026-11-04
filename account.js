@@ -50,7 +50,7 @@
     return A.me;
   }
   /** Ripristina una sessione già aperta (all'avvio). */
-  A.restore = async function () { if (!A.enabled || !tok) return null; try { return await loadMe(); } catch (e) { if (e.status === 401 || /scaduta|attivo/.test(e.message)) { tok = null; store(); } return null; } };
+  A.restore = async function () { if (!A.enabled || !tok) return null; for (let k = 0; k < 4; k++) { try { return await loadMe(); } catch (e) { if (e.status === 401 || e.status === 400 && /refresh/i.test(e.message) || /scaduta|attivo/.test(e.message)) { tok = null; store(); return null; } if (e.status) return null; await new Promise(r => setTimeout(r, 1500)); } } return null; };
   A.signIn = async function (name, surname, password) {
     const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) }).catch(e => { throw new Error(e.status === 400 ? 'Nome, cognome o password non corretti' : e.message); });
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }; store(); return loadMe();

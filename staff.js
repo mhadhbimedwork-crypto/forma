@@ -97,7 +97,8 @@
         <label for="lg_p">Password</label><input id="lg_p" name="password" type="password" autocomplete="current-password" required>
         ${ui.authErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.authErr)}</div>` : ''}
         <button class="primary" style="margin-top:12px;width:100%" ${ui.busy ? 'disabled' : ''}>${ui.busy ? 'Accesso…' : 'Accedi'}</button>
-        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p></form>${ui.setupAvail ? '<div class="card"><b>Prima volta?</b><p class="mute small">Nessun amministratore esiste ancora.</p><button class="primary" style="width:100%" data-act="setupOpen">Prima configurazione</button></div>' : ''}`;
+        <p class="mute small">Non hai le credenziali? Chiedile al titolare della palestra. Puoi cambiare la password dopo il primo accesso.</p>
+        <details style="margin-top:6px"><summary class="small"><b>Password dimenticata?</b></summary><p class="small mute" style="margin:8px 0 0">La password è cifrata e nessuno può leggerla, nemmeno l'amministratore. Chiedi al tuo allenatore o al titolare di reimpostarla: ti dà una password temporanea e, entrando, scegli la tua nuova. I tuoi dati restano tutti. Dopo l'accesso, in Profilo puoi attivare l'impronta per non riscriverla più.</p></details></form>${ui.setupAvail ? '<div class="card"><b>Prima volta?</b><p class="mute small">Nessun amministratore esiste ancora.</p><button class="primary" style="width:100%" data-act="setupOpen">Prima configurazione</button></div>' : ''}`;
     };
     views.newPassword = function () {
       return `<div class="card hero"><h1>Scegli la tua password</h1><p>È la prima volta che entri: imposta una password personale (almeno 8 caratteri).</p></div>
