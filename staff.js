@@ -270,7 +270,7 @@
         <div class="mute small">${F.ageOf(p.birth)} anni · ${fmt(st.weight, 1)} kg · ${st.sessions} sedute${st.last ? ` · ultima ${tr(st.last)} (${st.daysSince === 0 ? 'oggi' : st.daysSince + ' g fa'})` : ' · nessuna seduta'}</div></div>
         <button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(p))}">Apri</button></div>
         ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : ''}
-        <div style="margin-top:8px">${X.dashStrip(p)}</div>`;
+      </div>`;
     }
     /* ---- ripristino da file di backup (amministratore per tutti, allenatore per i suoi utenti) ---- */
     const nTok = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/)[0] || '';
@@ -301,6 +301,67 @@
       for (const it of todo) { try { await A.restoreData(it.uid, r.mode === 'replace' ? it.bk : it.merged, 'Ripristino da backup ' + (r.file || it.src)); ok++; } catch (e) { err = e.message; } }
       ui.clLoaded = false; ui.clBusy = false; await loadClients(); ui.rst = null; c.render(); toast(err ? `Ripristinati ${ok}. Errore: ${err}` : `Ripristino completato: ${ok} utent${ok === 1 ? 'e' : 'i'}`);
     };
+    /* ---------- cruscotto dell'allenatore: cosa guardare subito + confronto tra clienti ---------- */
+    const wkSeries = (p, n, f) => { const t = F.todayISO(), a = new Array(n).fill(0); (p.sessions || []).forEach(x => { const k = Math.floor((new Date(t) - new Date(x.date)) / 864e5 / 7); if (k >= 0 && k < n) a[n - 1 - k] += f(x); }); return a; };
+    function spk(a, w, h, col) { const mx = Math.max(1, ...a), bw = w / a.length; return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${a.map((v, i) => `<rect x="${(i * bw + 1).toFixed(1)}" y="${(h - Math.max(v ? 2 : 0, v / mx * h)).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${Math.max(v ? 2 : 0, v / mx * h).toFixed(1)}" fill="${col || 'var(--accent2)'}" opacity="${i === a.length - 1 ? 1 : .6}"/>`).join('')}</svg>`; }
+    function boardRows(list) {
+      return list.map(p => {
+        const st = F.clientStats(p), ws = (p.weights || []).slice().sort((a, b) => a.date < b.date ? -1 : 1), t = F.todayISO(), w14 = ws.filter(w => w.date >= F.isoAddDays(t, -14)), d14 = w14.length > 1 ? Math.round((w14[w14.length - 1].kg - w14[0].kg) * 10) / 10 : 0;
+        const flags = [];
+        st.alerts.forEach(h => flags.push({ lv: 3, txt: `Dolore ${h.label} ${h.level}/10 (${h.statusLabel.toLowerCase()})` }));
+        if (st.sessions === 0) flags.push({ lv: 1, txt: 'Nessuna seduta registrata' });
+        else if (st.daysSince > 10) flags.push({ lv: 2, txt: `Fermo da ${st.daysSince} giorni` });
+        if (st.sessions >= 3 && st.sessions28 > 0 && st.adherence < 40) flags.push({ lv: 1, txt: `Aderenza bassa (${st.adherence}%)` });
+        if (st.rpe28 != null && st.rpe28 >= 9) flags.push({ lv: 2, txt: `RPE medio ${st.rpe28}: rischio sovraccarico, valuta uno scarico` });
+        if (Math.abs(d14) >= 2) flags.push({ lv: 1, txt: `Peso ${d14 > 0 ? '+' : ''}${d14} kg in 14 giorni` });
+        if (F.isMinor(p) && st.alerts.length) flags.push({ lv: 3, txt: 'Minorenne con dolore: avvisa il tutore' });
+        return { p, st, d14, flags, wk: wkSeries(p, 8, () => 1), vol: wkSeries(p, 8, x => F.sessionStats(x).volume) };
+      });
+    }
+    function coachBoard(list) {
+      if (!list.length) return '';
+      const R = boardRows(list), sort = ui.cmpSort || 'flags', dir = ui.cmpDir === 'asc' ? 1 : -1;
+      const keyf = { name: r => String(r.p.name).toLowerCase(), last: r => r.st.daysSince == null ? 9999 : r.st.daysSince, s7: r => r.st.sessions7, s28: r => r.st.sessions28, adh: r => r.st.adherence, vol: r => r.st.volume28, rpe: r => r.st.rpe28 || 0, w: r => Math.abs(r.d14), flags: r => r.flags.reduce((a, f) => a + f.lv * 10, 0) + r.flags.length }[sort] || (r => 0);
+      const rows = R.slice().sort((a, b) => { const x = keyf(a), y = keyf(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+      const alerts = R.filter(r => r.flags.length).sort((a, b) => b.flags.reduce((s2, f) => s2 + f.lv, 0) - a.flags.reduce((s2, f) => s2 + f.lv, 0));
+      const nTrain = R.filter(r => r.st.sessions7 > 0).length, nStop = R.filter(r => r.st.sessions === 0 || r.st.daysSince > 10).length, nPain = R.filter(r => r.st.alerts.length).length, adh = Math.round(R.reduce((a, r) => a + r.st.adherence, 0) / R.length);
+      const kp = (n, l, c) => `<div class="kpi" ${c ? `style="border-top-color:${c}"` : ''}><b>${n}</b><span>${l}</span></div>`;
+      const th = (k, l) => `<th><button class="ghost sm" data-act="cmpSort" data-k="${k}" style="min-height:0;padding:2px 6px;font-weight:700">${l}${sort === k ? (dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>`;
+      const lc = lv => lv >= 3 ? 'danger' : lv === 2 ? 'warn' : '';
+      const sel = ui.cmpSel || [];
+      const cmp = sel.length >= 2 ? cmpPanel(R.filter(r => sel.includes(uidOf(r.p)))) : '';
+      return `<div class="coachboard">
+        <div class="card"><h2>Cruscotto allenatore</h2><div class="grid3 k4">${kp(R.length, 'clienti')}${kp(nTrain, 'si sono allenati negli ultimi 7 giorni', '#22c55e')}${kp(nPain, 'con avvisi dolore', nPain ? '#ef4444' : '')}${kp(nStop, 'fermi o senza sedute', nStop ? '#f59e0b' : '')}</div><p class="mute small" style="margin:8px 0 0">Aderenza media ultime 4 settimane: <b>${adh}%</b>. Si aggiorna da solo a ogni caricamento.</p></div>
+        <div class="card" style="${nPain ? 'border-color:var(--danger)' : ''}"><h2>Da guardare subito${alerts.length ? ` <span class="chip ${nPain ? 'danger' : 'warn'}">${alerts.length}</span>` : ''}</h2>
+          ${alerts.length ? alerts.slice(0, 12).map(r => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:7px 0;align-items:flex-start"><div class="grow"><b>${esc(r.p.name)}</b>${F.isMinor(r.p) ? ' <span class="chip warn">minorenne</span>' : ''}<div class="small" style="margin-top:3px">${r.flags.sort((a, b) => b.lv - a.lv).map(f => `<span class="chip ${lc(f.lv)}" style="margin:0 4px 4px 0">${esc(f.txt)}</span>`).join('')}</div></div><button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(r.p))}">Apri</button></div>`).join('') : '<p class="mute small">Nessun avviso: dolori, assenze e carichi sono nella norma.</p>'}
+          <p class="mute small" style="margin:8px 0 0">Controllo: dolori nuovi o in aumento, fermi da più di 10 giorni, aderenza sotto il 40%, RPE medio da 9 in su, variazioni di peso di 2 kg in 14 giorni.</p></div>
+        <div class="card"><h2>Confronto clienti</h2><div style="overflow-x:auto"><table class="cmp" style="width:100%;border-collapse:collapse;min-width:760px;font-size:.84rem"><thead><tr style="text-align:left">${th('name', 'Cliente')}${th('last', 'Ultima seduta')}${th('s7', 'Sedute 7 g')}${th('s28', 'Sedute 4 sett.')}${th('adh', 'Aderenza')}${th('vol', 'Volume 4 sett. (kg)')}${th('rpe', 'RPE')}${th('w', 'Peso')}<th>Sedute per settimana (8)</th>${th('flags', 'Avvisi')}<th>Confronta</th></tr></thead><tbody>
+          ${rows.map(r => { const id = uidOf(r.p), on = sel.includes(id), ad = r.st.adherence; return `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 4px;position:sticky;left:0;background:var(--bg,#05070c)"><button class="ghost sm" data-act="clientOpen" data-id="${esc(id)}" style="padding:0;min-height:0;font-weight:700;text-align:left">${esc(r.p.name)}</button></td>
+            <td>${r.st.last ? `${tr(r.st.last)} <span class="mute small">(${r.st.daysSince === 0 ? 'oggi' : r.st.daysSince + ' g'})</span>` : '<span class="mute">mai</span>'}</td><td>${r.st.sessions7}</td><td>${r.st.sessions28}</td>
+            <td style="min-width:90px"><div style="height:6px;background:var(--line);border-radius:3px"><div style="height:6px;width:${ad}%;border-radius:3px;background:${ad >= 70 ? '#22c55e' : ad >= 40 ? '#f59e0b' : '#ef4444'}"></div></div><span class="small">${ad}%</span></td>
+            <td>${fmt(r.st.volume28)}</td><td>${r.st.rpe28 != null ? `<span class="chip ${r.st.rpe28 >= 9 ? 'danger' : r.st.rpe28 >= 8 ? 'warn' : ''}">${r.st.rpe28}</span>` : '–'}</td>
+            <td>${fmt(r.st.weight, 1)} kg ${Math.abs(r.d14) >= 0.1 ? `<span class="mute small">${r.d14 > 0 ? '+' : ''}${r.d14}/14g</span>` : ''}</td><td>${spk(r.wk, 80, 24)}</td>
+            <td>${r.flags.length ? r.flags.sort((a, b) => b.lv - a.lv).slice(0, 2).map(f => `<span class="chip ${lc(f.lv)}" title="${esc(f.txt)}">${f.lv >= 3 ? '▲' : '●'}</span>`).join(' ') + (r.flags.length > 2 ? ` +${r.flags.length - 2}` : '') : '<span class="chip ok">✓</span>'}</td>
+            <td><input type="checkbox" style="width:auto" data-act="cmpTick" data-id="${esc(id)}" ${on ? 'checked' : ''} aria-label="Confronta ${esc(r.p.name)}"></td></tr>`; }).join('')}
+          </tbody></table></div><p class="mute small" style="margin:8px 0 0">Tocca un'intestazione per ordinare. Spunta due o tre clienti per confrontare gli allenamenti.</p></div>
+        ${cmp}</div>`;
+    }
+    function cmpPanel(rs) {
+      const cols = ['var(--accent)', 'var(--accent2)', '#a3e635'], W = 520, H = 130, n = 8, mx = Math.max(1, ...rs.flatMap(r => r.vol));
+      const lines = rs.map((r, i) => `<polyline fill="none" stroke="${cols[i]}" stroke-width="2.4" points="${r.vol.map((v, k) => `${(k / (n - 1) * (W - 20) + 10).toFixed(1)},${(H - 10 - v / mx * (H - 20)).toFixed(1)}`).join(' ')}"/>`).join('');
+      const exs = rs.map(r => new Map(F.exerciseStats(r.p).map(e => [String(e.name).toLowerCase(), e])));
+      const common = [...exs[0].keys()].filter(k => exs.every(m => m.has(k) && m.get(k).bestE1)).sort((a, b) => exs[0].get(b).sessions - exs[0].get(a).sessions).slice(0, 8);
+      return `<div class="card"><h2>Confronto allenamento</h2>
+        <div class="row wrap" style="gap:12px;margin-bottom:6px">${rs.map((r, i) => `<span class="small"><i style="display:inline-block;width:12px;height:4px;background:${cols[i]};margin-right:5px;vertical-align:middle"></i><b>${esc(r.p.name)}</b></span>`).join('')}<button class="ghost sm" data-act="cmpClear" style="margin-left:auto">Chiudi confronto</button></div>
+        <div class="mute small">Volume settimanale (kg sollevati), ultime 8 settimane</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:640px;height:auto" role="img" aria-label="Volume settimanale a confronto">${[0, .5, 1].map(f => `<line x1="10" x2="${W - 10}" y1="${(H - 10 - f * (H - 20)).toFixed(1)}" y2="${(H - 10 - f * (H - 20)).toFixed(1)}" stroke="var(--line)"/>`).join('')}${lines}</svg>
+        <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:420px"><thead><tr style="text-align:left"><th>Dato</th>${rs.map(r => `<th>${esc(String(r.p.name).split(' ')[0])}</th>`).join('')}</tr></thead><tbody>
+          ${[['Sedute totali', r => r.st.sessions], ['Sedute 4 sett.', r => r.st.sessions28], ['Aderenza', r => r.st.adherence + '%'], ['Volume 4 sett.', r => fmt(r.st.volume28) + ' kg'], ['RPE medio', r => r.st.rpe28 != null ? r.st.rpe28 : '–'], ['Serie totali', r => r.st.totalSets], ['Peso', r => fmt(r.st.weight, 1) + ' kg'], ['Dolori attivi', r => r.st.pain.length ? r.st.pain.map(h => h.label + ' ' + h.level + '/10').join(', ') : 'nessuno']].map(([l, f]) => `<tr style="border-top:1px solid var(--line)"><td class="mute">${l}</td>${rs.map(r => `<td>${esc(String(f(r)))}</td>`).join('')}</tr>`).join('')}
+          ${common.length ? `<tr><td colspan="${rs.length + 1}" style="padding-top:10px"><b>Forza stimata (1RM) sugli esercizi in comune</b></td></tr>` + common.map(k => `<tr style="border-top:1px solid var(--line)"><td class="mute">${esc(exs[0].get(k).name)}</td>${exs.map(m => `<td>${fmt(m.get(k).bestE1, 1)} kg</td>`).join('')}</tr>`).join('') : '<tr><td colspan="' + (rs.length + 1) + '" class="mute small" style="padding-top:8px">Nessun esercizio in comune con carichi registrati.</td></tr>'}
+        </tbody></table></div></div>`;
+    }
+    acts.cmpSort = t => { const k = t.dataset.k; if (ui.cmpSort === k) ui.cmpDir = ui.cmpDir === 'asc' ? 'desc' : 'asc'; else { ui.cmpSort = k; ui.cmpDir = k === 'name' ? 'asc' : 'desc'; } c.render(); };
+    acts.cmpTick = t => { const id = t.dataset.id, a = (ui.cmpSel || []).slice(); const i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else { if (a.length >= 3) a.shift(); a.push(id); } ui.cmpSel = a; c.render(); };
+    acts.cmpClear = () => { ui.cmpSel = []; c.render(); };
     function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
     function bkBanner() { if (!A.enabled) return ''; const d = bkDue(); if (!d) return ''; return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup da fare</b><p class="small" style="margin:4px 0">${d.h === null ? 'Non risulta ancora nessun backup su questo dispositivo.' : 'Ultimo backup di tutti gli utenti: oltre ' + d.h + ' ore fa.'} Fallo 1–2 volte al giorno: salva la copia ordinata di tutti sul PC.</p><button class="primary sm" data-act="bkUpdate">Backup ordinato adesso</button></div>`; }
     function rstCard() {
@@ -335,17 +396,19 @@
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
       if (A.isAdmin() && ui.clLoaded && all.length) setTimeout(dailyOrg, 400);
-      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${bkBanner()}${A.enabled ? rstCard() : ''}
+      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${coachBoard(list)}${bkBanner()}<details class="card" ${ui.rst || needBk ? 'open' : ''} style="padding:10px 14px"><summary><b>Backup, ripristino e importazione</b></summary>${A.enabled ? rstCard() : ''}
         ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Salva subito la copia di tutti, ordinata per palestra, allenatore e utente (un Excel per ciascuno). Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup ordinato adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
         <div class="card"><div class="row wrap"><button class="sm primary" data-act="bkUpdate">Backup ordinato per utente</button>${F.fsSupported() ? `<button class="sm" data-act="bkOrgPick">${ui.bkDir ? 'Cambia cartella PC' : 'Scegli cartella del PC'}</button>` : ''}<button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button>
           <label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa Excel/CSV<input type="file" id="impTabAll" accept=".xlsx,.csv" hidden></label>
-          ${A.enabled ? '<button class="sm" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button>' : ''}</div>
+</div>
           <p class="mute small" style="margin-bottom:0">${all.length} client${all.length === 1 ? 'e' : 'i'}. L'Excel ha un foglio per tipo di dato con la colonna Cliente; l'importazione riconosce i clienti dal nome.</p></div>
+        </details>
+        ${A.enabled ? '<div class="row wrap" style="gap:6px;margin:8px 0"><button class="sm primary" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button></div>' : ''}
         <input id="clQ" type="search" placeholder="Cerca per nome, cognome, allenatore, palestra, obiettivo…" value="${esc(ui.clQ || '')}" aria-label="Cerca utente" autocomplete="off">${toks.length ? `<p class="mute small" style="margin:4px 2px">${list.length} risultat${list.length === 1 ? 'o' : 'i'} su ${all.length}</p>` : ''}
         ${A.enabled && !ui.clLoaded ? '<p class="mute">Caricamento…</p>' : ''}
-        ${list.map(clientCard).join('') || (ui.clLoaded || !A.enabled ? '<p class="mute">Nessun cliente.</p>' : '')}`;
+        <div class="clgrid">${list.map(clientCard).join('') || (ui.clLoaded || !A.enabled ? '<p class="mute">Nessun cliente.</p>' : '')}</div>`;
     };
     function sessionsDetail(p) {
       const ss = (p.sessions || []).slice().sort((a, b) => b.date < a.date ? -1 : 1).slice(0, 10);

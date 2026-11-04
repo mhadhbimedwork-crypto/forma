@@ -1,9 +1,9 @@
 {
-  "version": "1.23.0",
-  "build": 61,
+  "version": "1.24.0",
+  "build": 62,
   "date": "2026-11-04",
   "notes": [
-    "Nuovo (FORGIA): sblocco con impronta o volto. Profilo → «Attiva l'impronta»; vale solo sul tuo telefono, la password resta come alternativa.",
-    "Password dimenticata: l'allenatore o l'amministratore genera una password temporanea da dettare; la persona ne sceglie una sua al primo accesso."
+    "Clienti: cruscotto dell'allenatore con avvisi (dolori, fermi, RPE alto, peso), tabella di confronto ordinabile e confronto allenamento tra 2-3 clienti.",
+    "Elenco clienti più compatto e a più colonne su PC; strumenti di backup raccolti in un riquadro."
   ]
 }

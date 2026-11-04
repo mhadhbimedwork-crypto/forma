@@ -161,3 +161,9 @@ button.danger{border-color:var(--danger);color:var(--danger)}
   main.multi{column-count:3}
   #toast{bottom:28px;left:calc(50% + 105px)}
 }
+
+.clgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:0 16px;align-items:start}
+.clgrid>.card{min-width:0}
+main.multi>details.card{break-inside:avoid}
+table.cmp th{white-space:nowrap}
+table.cmp td{vertical-align:middle}
