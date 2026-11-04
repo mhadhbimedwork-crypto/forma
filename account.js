@@ -44,7 +44,6 @@
     const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all');
     if (!rows.length || !rows[0].active) { tok = null; store(); throw new Error('account non attivo'); }
     if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
-    if (window.FORMA_GYM && A.mode !== 'admin' && rows[0].role === 'admin') { tok = null; store(); throw new Error('L\'amministrazione è disponibile solo su FORGIA. In questa app entra con il tuo profilo da allenatore o da atleta.'); }
     A.me = rows[0]; A.gym = null;
     if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
     A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2';

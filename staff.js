@@ -552,7 +552,7 @@
         ${!ui.admLoaded ? '<p class="mute small">Caricamento…</p>' : ''}</div>`;
     }
     X.impBanner = function () {
-      const i = A.imp && A.imp(); if (!i) return '';
+      const i = A.imp && A.imp(); if (!i || (window.FORMA_GYM && !window.FORMA_GYM.mode)) return '';
       return `<div class="msg" role="status" style="margin:8px var(--gutter);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="small grow"><b>${esc(A.me.full_name)}</b> · ${esc(roleName(A.me.role))} — ${i.write ? 'puoi modificare' : 'sola visione'}</span><button class="sm primary" data-act="impBack">Torna ${esc(i.from ? roleName(i.from.role).toLowerCase() : 'indietro')}</button></div>`;
     };
     acts.impGo = async t => {

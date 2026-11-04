@@ -1117,6 +1117,10 @@
 
   /* ---------- area allenatore, sviluppatore, account ---------- */
   async function onSignIn() {
+    if (GYM && AC.me && AC.me.role === 'admin' && !AC.needMfa && !(AC.imp && AC.imp())) {   /* nell'app della palestra l'amministratore entra con gli stessi dati, ma direttamente nel suo profilo atleta: l'amministrazione resta su FORGIA */
+      try { const ids = await AC.listOwn(); if (!ids.length) throw new Error('Nessun profilo atleta collegato al tuo account: collegalo da FORGIA (Accessi rapidi → ★).'); await AC.impersonate(ids[0], ''); }
+      catch (e) { AC.signOut(); onSignOut(); ui.authErr = e.message; return render(); }
+    }
     ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
     const imp = AC.imp && AC.imp();
     if (AC.me.role === 'client' && !imp && S.profiles.length > 1) { const m = S.profiles.find(isMine); if (m) S.active = m.id; }

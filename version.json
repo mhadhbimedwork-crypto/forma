@@ -1,8 +1,8 @@
 {
-  "version": "1.25.2",
-  "build": 65,
+  "version": "1.25.3",
+  "build": 66,
   "date": "2026-11-04",
   "notes": [
-    "THE LIFTING ZONE: l'amministrazione totale resta solo su FORGIA; nell'app della palestra non si entra come amministratore."
+    "THE LIFTING ZONE: l'amministratore entra con gli stessi dati di sempre e si ritrova direttamente nel suo profilo atleta. L'amministrazione resta solo su FORGIA."
   ]
 }
