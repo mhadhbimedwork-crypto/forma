@@ -796,7 +796,7 @@
 `}
       <div class="card"><h2>Aggiornamenti e richieste</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${ui.update ? ` · <span class="chip warn">disponibile v${esc(ui.update.version)}</span>` : ''}</p>
-      <div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}</div>
+      ${GYM ? '<p class="mute small" style="margin:4px 0">L\'icona sulla Home dopo un cambio di logo si aggiorna da sola su Android (Chrome) e PC: basta aprire l\'app, ci vogliono da uno a qualche giorno. Su iPhone va tolta dalla Home e aggiunta di nuovo (i dati restano sul tuo account).</p>' : ''}<div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}</div>
       ${GYM ? '</div>' : `
       <h3>Chiedi una modifica o una funzione nuova</h3>
       <textarea id="reqText" style="min-height:90px;font-family:inherit;font-size:.95rem" placeholder="Es. aggiungi un esercizio, cambia i colori, correggi un errore…" aria-label="Richiesta di modifica"></textarea>
