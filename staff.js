@@ -166,6 +166,7 @@
         const fd = Object.fromEntries(new FormData(form).entries());
         if (!fd.title.trim() || !fd.body.trim()) { toast('Scrivi titolo e testo della scheda'); return true; }
         const r = F.parseScheda(fd.body); if (!r.days.length || !r.days.some(d => d.exercises.length)) { toast('Non riesco a leggere esercizi in questo testo'); return true; }
+        { const tc = find(ui.sub.uid); if (tc && F.isMinor(tc) && !F.rmActive(tc) && (r.days.some(d => d.exercises.some(x => x.pct)) || /\b1\s*rm\b|massimal/i.test(fd.body)) && !confirm('Attenzione: ' + tc.name + ' è minorenne e il sistema massimali non è attivo. La scheda chiede massimali o percentuali di 1RM, che per lui non verranno calcolati.\n\nInviare la scheda lo stesso?')) return true; }
         if (!A.enabled) {
           const cl = find(ui.sub.uid); if (!cl) return true;
           const key = fd.title.trim().toLowerCase(), prevN = (cl.plans || []).filter(x => x.assignedLocal && (x.baseTitle || x.title).toLowerCase() === key).length;
@@ -250,6 +251,16 @@
     const dragEnd = () => { if (!drag) return; const d = drag.d, moved = drag.moved; drag = null; if (moved) { d.classList.remove('drag'); d.scrollTo({ left: Math.round(d.scrollLeft / dashStep(d)) * dashStep(d), behavior: 'smooth' }); } };
     document.addEventListener('pointerup', dragEnd); document.addEventListener('pointercancel', dragEnd);
     /* ---------- corpo del cliente: recupero muscolare e dolori, con i tempi ---------- */
+    X.rmCard = function (p) {
+      const rows = F.rmTable(p), on = F.rmActive(p), minor = F.isMinor(p), st = F.clientStats(p), bw = st.weight, d = x => x == null ? '–' : fmt(x, 1);
+      const plan = (p.plans || []).find(x => x.id === p.activePlan), usesPct = plan && plan.days.some(dd => dd.exercises.some(x => x.pct || /\b1\s*rm\b|massimal/i.test((x.note || '') + ' ' + (x.name || ''))));
+      const can = A.me && ['admin', 'head', 'coach'].includes(A.me.role);
+      const tog = minor && can ? `<div class="row wrap" style="gap:8px;margin:6px 0"><label style="margin:0;display:flex;gap:8px;align-items:center"><input type="checkbox" style="width:auto" data-act="rmToggle" data-id="${esc(uidOf(p))}" ${p.rmOn ? 'checked' : ''}> Attiva i massimali per questo minorenne</label></div>` : '';
+      const warn = minor && !on && usesPct ? '<div class="msg warn small"><b>Attenzione:</b> la scheda attiva chiede massimali o percentuali di 1RM, ma il sistema massimali non è attivo per questo minorenne. Attivalo qui sopra oppure cambia la scheda.</div>' : '';
+      const head = `<h2>Massimali (1RM) <span class="chip ${on ? '' : 'warn'}">${on ? 'attivi' : 'non attivi'}</span></h2>`;
+      const table = rows.length ? `<div style="overflow-x:auto"><table class="small" style="width:100%;border-collapse:collapse"><thead><tr class="mute"><th align="left">Esercizio</th><th>Inserito</th><th>Stimato</th><th>Ultimo</th>${bw ? '<th>× peso</th>' : ''}<th align="left">Ultima volta</th></tr></thead><tbody>${rows.map(r => `<tr style="border-top:1px solid var(--line)"><td style="padding:5px 4px">${esc(r.name)}</td><td align="center">${d(r.manual)}</td><td align="center">${d(r.est)}</td><td align="center">${d(r.last)}</td>${bw ? `<td align="center">${r.use ? fmt(r.use / bw, 2) : '–'}</td>` : ''}<td>${esc(tr(r.lastDate || ''))}</td></tr>`).join('')}</tbody></table></div><p class="mute small" style="margin:6px 0 0">«Inserito» è il massimale scritto dall'utente, «Stimato» il migliore dalle sue serie (peso × (1 + ripetizioni ÷ 30)), «Ultimo» la stima dell'ultima seduta.${on ? '' : ' Per ora sono solo stime, non da testare.'}</p>` : '<p class="mute small">Nessun dato: appena registra una seduta compaiono le stime.</p>';
+      return `<div class="card">${head}${warn}${tog}${table}${on ? '' : `<details style="margin-top:6px"><summary class="small">Come si calcola</summary>${F.rmExplain(p)}</details>`}</div>`;
+    };
     X.bodyCard = function (p) {
       const rec = F.recovery(p), rows = Object.keys(F.MUSCLE_LABEL).map(m => [m, rec[m]]).sort((a, b) => a[1].pct - b[1].pct);
       const ph = F.painHistory(p).filter(h => h.level > 0), pain = {}; ph.forEach(h => { pain[h.zone] = h.level; });
@@ -323,7 +334,7 @@
         return { p, st, d14, flags, wk: wkSeries(p, 8, () => 1), vol: wkSeries(p, 8, x => F.sessionStats(x).volume) };
       });
     }
-    function coachBoard(list) {
+    function coachBoard(list, all) {
       if (!list.length) return '';
       const R = boardRows(list), sort = ui.cmpSort || 'flags', dir = ui.cmpDir === 'asc' ? 1 : -1;
       const keyf = { name: r => String(r.p.name).toLowerCase(), last: r => r.st.daysSince == null ? 9999 : r.st.daysSince, s7: r => r.st.sessions7, s28: r => r.st.sessions28, adh: r => r.st.adherence, vol: r => r.st.volume28, rpe: r => r.st.rpe28 || 0, w: r => Math.abs(r.d14), flags: r => r.flags.reduce((a, f) => a + f.lv * 10, 0) + r.flags.length }[sort] || (r => 0);
@@ -334,7 +345,7 @@
       const th = (k, l) => `<th><button class="ghost sm" data-act="cmpSort" data-k="${k}" style="min-height:0;padding:2px 6px;font-weight:700">${l}${sort === k ? (dir === 1 ? ' ▲' : ' ▼') : ''}</button></th>`;
       const lc = lv => lv >= 3 ? 'danger' : lv === 2 ? 'warn' : '';
       const sel = ui.cmpSel || [];
-      const cmp = sel.length >= 2 ? cmpPanel(R.filter(r => sel.includes(uidOf(r.p)))) : '';
+      const cmp = cmpPicker(all, sel) + (sel.length >= 2 ? cmpPanel(boardRows(all.filter(p => sel.includes(uidOf(p))))) : '');
       return `<div class="coachboard">
         <div class="card"><h2>Cruscotto allenatore</h2><div class="grid3 k4">${kp(R.length, 'clienti')}${kp(nTrain, 'si sono allenati negli ultimi 7 giorni', '#22c55e')}${kp(nPain, 'con avvisi dolore', nPain ? '#ef4444' : '')}${kp(nStop, 'fermi o senza sedute', nStop ? '#f59e0b' : '')}</div><p class="mute small" style="margin:8px 0 0">Aderenza media ultime 4 settimane: <b>${adh}%</b>. Si aggiorna da solo a ogni caricamento.</p></div>
         <div class="card" style="${nPain ? 'border-color:var(--danger)' : ''}"><h2>Da guardare subito${alerts.length ? ` <span class="chip ${nPain ? 'danger' : 'warn'}">${alerts.length}</span>` : ''}</h2>
@@ -351,22 +362,42 @@
           </tbody></table></div><p class="mute small" style="margin:8px 0 0">Tocca un'intestazione per ordinare. Spunta due o tre clienti per confrontare gli allenamenti.</p></div>
         ${cmp}</div>`;
     }
+    const cmpCol = i => `hsl(${(i * 47) % 360} 70% 55%)`;
     function cmpPanel(rs) {
-      const cols = ['var(--accent)', 'var(--accent2)', '#a3e635'], W = 520, H = 130, n = 8, mx = Math.max(1, ...rs.flatMap(r => r.vol));
-      const lines = rs.map((r, i) => `<polyline fill="none" stroke="${cols[i]}" stroke-width="2.4" points="${r.vol.map((v, k) => `${(k / (n - 1) * (W - 20) + 10).toFixed(1)},${(H - 10 - v / mx * (H - 20)).toFixed(1)}`).join(' ')}"/>`).join('');
-      const exs = rs.map(r => new Map(F.exerciseStats(r.p).map(e => [String(e.name).toLowerCase(), e])));
-      const common = [...exs[0].keys()].filter(k => exs.every(m => m.has(k) && m.get(k).bestE1)).sort((a, b) => exs[0].get(b).sessions - exs[0].get(a).sessions).slice(0, 8);
-      return `<div class="card"><h2>Confronto allenamento</h2>
-        <div class="row wrap" style="gap:12px;margin-bottom:6px">${rs.map((r, i) => `<span class="small"><i style="display:inline-block;width:12px;height:4px;background:${cols[i]};margin-right:5px;vertical-align:middle"></i><b>${esc(r.p.name)}</b></span>`).join('')}<button class="ghost sm" data-act="cmpClear" style="margin-left:auto">Chiudi confronto</button></div>
+      const W = 520, H = 130, n = 8, mx = Math.max(1, ...rs.flatMap(r => r.vol));
+      const lines = rs.map((r, i) => `<polyline fill="none" stroke="${cmpCol(i)}" stroke-width="2.4" points="${r.vol.map((v, k) => `${(k / (n - 1) * (W - 20) + 10).toFixed(1)},${(H - 10 - v / mx * (H - 20)).toFixed(1)}`).join(' ')}"/>`).join('');
+      const tabs = rs.map(r => new Map(F.rmTable(r.p).filter(x => x.use).map(x => [String(x.name).toLowerCase(), x])));
+      const q = String(ui.cmpEx || '').toLowerCase().trim();
+      const keys = [...new Set(tabs.flatMap(m => [...m.keys()]))].filter(k => !q || k.includes(q))
+        .sort((a, b) => tabs.filter(m => m.has(b)).length - tabs.filter(m => m.has(a)).length || Math.max(...tabs.map(m => m.has(b) ? m.get(b).use : 0)) - Math.max(...tabs.map(m => m.has(a) ? m.get(a).use : 0)));
+      const shown = keys.slice(0, q ? 80 : 20), name = k => { const m = tabs.find(x => x.has(k)); return m.get(k).name; };
+      const cell = (r, m, k) => { const o = m.get(k); if (!o) return '<td class="mute">–</td>'; const est = F.isMinor(r.p) && !F.rmActive(r.p), bw = r.st.weight; return `<td>${fmt(o.use, 1)} kg${est ? '*' : ''}${bw ? `<div class="mute small">× ${fmt(o.use / bw, 2)}</div>` : ''}</td>`; };
+      const sticky = 'position:sticky;left:0;background:var(--card,var(--bg,#fff));';
+      return `<div class="card"><h2>Confronto allenamento <span class="chip">${rs.length} utenti</span></h2>
+        <div class="row wrap" style="gap:12px;margin-bottom:6px">${rs.map((r, i) => `<span class="small"><i style="display:inline-block;width:12px;height:4px;background:${cmpCol(i)};margin-right:5px;vertical-align:middle"></i><b>${esc(r.p.name)}</b></span>`).join('')}<button class="ghost sm" data-act="cmpClear" style="margin-left:auto">Chiudi confronto</button></div>
         <div class="mute small">Volume settimanale (kg sollevati), ultime 8 settimane</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:640px;height:auto" role="img" aria-label="Volume settimanale a confronto">${[0, .5, 1].map(f => `<line x1="10" x2="${W - 10}" y1="${(H - 10 - f * (H - 20)).toFixed(1)}" y2="${(H - 10 - f * (H - 20)).toFixed(1)}" stroke="var(--line)"/>`).join('')}${lines}</svg>
-        <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:420px"><thead><tr style="text-align:left"><th>Dato</th>${rs.map(r => `<th>${esc(String(r.p.name).split(' ')[0])}</th>`).join('')}</tr></thead><tbody>
-          ${[['Sedute totali', r => r.st.sessions], ['Sedute 4 sett.', r => r.st.sessions28], ['Aderenza', r => r.st.adherence + '%'], ['Volume 4 sett.', r => fmt(r.st.volume28) + ' kg'], ['RPE medio', r => r.st.rpe28 != null ? r.st.rpe28 : '–'], ['Serie totali', r => r.st.totalSets], ['Peso', r => fmt(r.st.weight, 1) + ' kg'], ['Dolori attivi', r => r.st.pain.length ? r.st.pain.map(h => h.label + ' ' + h.level + '/10').join(', ') : 'nessuno']].map(([l, f]) => `<tr style="border-top:1px solid var(--line)"><td class="mute">${l}</td>${rs.map(r => `<td>${esc(String(f(r)))}</td>`).join('')}</tr>`).join('')}
-          ${common.length ? `<tr><td colspan="${rs.length + 1}" style="padding-top:10px"><b>Forza stimata (1RM) sugli esercizi in comune</b></td></tr>` + common.map(k => `<tr style="border-top:1px solid var(--line)"><td class="mute">${esc(exs[0].get(k).name)}</td>${exs.map(m => `<td>${fmt(m.get(k).bestE1, 1)} kg</td>`).join('')}</tr>`).join('') : '<tr><td colspan="' + (rs.length + 1) + '" class="mute small" style="padding-top:8px">Nessun esercizio in comune con carichi registrati.</td></tr>'}
-        </tbody></table></div></div>`;
+        <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:${Math.max(420, 120 + rs.length * 96)}px"><thead><tr style="text-align:left"><th style="${sticky}">Dato</th>${rs.map(r => `<th>${esc(String(r.p.name).split(' ')[0])}</th>`).join('')}</tr></thead><tbody>
+          ${[['Età', r => F.ageOf(r.p.birth) + (F.isMinor(r.p) ? ' (minorenne)' : '')], ['Sedute totali', r => r.st.sessions], ['Sedute 4 sett.', r => r.st.sessions28], ['Aderenza', r => r.st.adherence + '%'], ['Volume 4 sett.', r => fmt(r.st.volume28) + ' kg'], ['RPE medio', r => r.st.rpe28 != null ? r.st.rpe28 : '–'], ['Serie totali', r => r.st.totalSets], ['Peso', r => fmt(r.st.weight, 1) + ' kg'], ['Massimali', r => F.rmActive(r.p) ? 'attivi' : 'non attivi'], ['Dolori attivi', r => r.st.pain.length ? r.st.pain.map(h => h.label + ' ' + h.level + '/10').join(', ') : 'nessuno']].map(([l, f]) => `<tr style="border-top:1px solid var(--line)"><td class="mute" style="${sticky}">${l}</td>${rs.map(r => `<td>${esc(String(f(r)))}</td>`).join('')}</tr>`).join('')}
+          <tr><td colspan="${rs.length + 1}" style="padding-top:10px"><b>Massimali (1RM) per esercizio</b> <input id="cmpEx" type="search" placeholder="Filtra esercizi…" value="${esc(ui.cmpEx || '')}" aria-label="Filtra esercizi" style="max-width:200px;margin-left:8px" autocomplete="off"></td></tr>
+          ${shown.length ? shown.map(k => `<tr style="border-top:1px solid var(--line)"><td class="mute" style="${sticky}">${esc(name(k))}</td>${rs.map((r, i) => cell(r, tabs[i], k)).join('')}</tr>`).join('') : '<tr><td colspan="' + (rs.length + 1) + '" class="mute small" style="padding-top:8px">Nessun massimale o stima per questi utenti' + (q ? ' con questo filtro' : '') + '.</td></tr>'}
+        </tbody></table></div><p class="mute small" style="margin:6px 0 0">Valore = massimale inserito, altrimenti stima migliore dalle serie; «× n» è il rapporto con il peso corporeo (per confrontare persone di peso diverso). * = stima di un minorenne con massimali non attivi.${keys.length > shown.length ? ` Mostrati ${shown.length} esercizi su ${keys.length}: usa il filtro.` : ''}</p></div>`;
+    }
+    function cmpPicker(all, sel) {
+      const plain = v => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), GL = { recomp: 'ricomposizione', cut: 'definizione dimagrire', mass: 'massa', strength: 'forza' };
+      const hay = p => { const a = p._acct || {}, co = (ui.accts || []).find(x => x.id === a.coach_id), g = (ui.gyms || []).find(x => x.id === a.gym_id);
+        return plain([p.name, a.full_name, a.username, co && co.full_name, g && g.name, p.birth, F.ageOf(p.birth) + ' anni', F.isMinor(p) ? 'minorenne' : 'maggiorenne', GL[p.goal], p.sex === 'F' ? 'donna femmina' : 'uomo maschio', (p.plans || []).map(x => x.title).join(' ')].join(' ')); };
+      const toks = plain(ui.cmpQ || '').split(/\s+/).filter(Boolean), res = toks.length ? all.filter(p => (h => toks.every(t => h.includes(t)))(hay(p))) : [];
+      ui.cmpRes = res.map(uidOf);
+      const chip = (p, on) => `<button class="sm ${on ? 'primary' : ''}" data-act="cmpTick" data-id="${esc(uidOf(p))}" aria-pressed="${on}">${on ? '✓ ' : '+ '}${esc(p.name)}</button>`;
+      return `<div class="card"><h2>Confronta utenti${sel.length ? ` <span class="chip">${sel.length} scelti</span>` : ''}</h2>
+        <input id="cmpQ" type="search" placeholder="Cerca chi vuoi confrontare: nome, allenatore, palestra, obiettivo, età, minorenne…" value="${esc(ui.cmpQ || '')}" aria-label="Cerca utenti da confrontare" autocomplete="off">
+        ${toks.length ? `<div class="row wrap" style="gap:6px;margin-top:8px">${res.slice(0, 60).map(p => chip(p, sel.includes(uidOf(p)))).join('') || '<span class="mute small">Nessun risultato.</span>'}</div>${res.length ? `<div class="row wrap" style="gap:6px;margin-top:6px"><button class="sm" data-act="cmpAddAll">Aggiungi tutti i ${res.length} risultati</button></div>` : ''}` : '<p class="mute small" style="margin:6px 0 0">Scrivi per cercare. Puoi confrontare quanti utenti vuoi, anche con la tabella qui sotto.</p>'}
+        ${sel.length ? `<div class="row wrap" style="gap:6px;margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span class="mute small">Scelti:</span>${sel.map(id => { const p = all.find(x => uidOf(x) === id); return p ? `<button class="sm" data-act="cmpTick" data-id="${esc(id)}" aria-label="Togli ${esc(p.name)}">${esc(p.name)} ✕</button>` : ''; }).join('')}<button class="ghost sm" data-act="cmpClear">Svuota</button></div>${sel.length < 2 ? '<p class="mute small">Scegline almeno 2 per vedere il confronto.</p>' : ''}` : ''}</div>`;
     }
     acts.cmpSort = t => { const k = t.dataset.k; if (ui.cmpSort === k) ui.cmpDir = ui.cmpDir === 'asc' ? 'desc' : 'asc'; else { ui.cmpSort = k; ui.cmpDir = k === 'name' ? 'asc' : 'desc'; } c.render(); };
-    acts.cmpTick = t => { const id = t.dataset.id, a = (ui.cmpSel || []).slice(); const i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else { if (a.length >= 3) a.shift(); a.push(id); } ui.cmpSel = a; c.render(); };
+    acts.cmpTick = t => { const id = t.dataset.id, a = (ui.cmpSel || []).slice(); const i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else { a.push(id); } ui.cmpSel = a; c.render(); };
     acts.cmpClear = () => { ui.cmpSel = []; c.render(); };
+    acts.cmpAddAll = () => { const a = new Set(ui.cmpSel || []); (ui.cmpRes || []).forEach(id => a.add(id)); ui.cmpSel = Array.from(a); c.render(); };
     function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
     function bkBanner() { if (!A.enabled) return ''; const d = bkDue(); if (!d) return ''; return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup da fare</b><p class="small" style="margin:4px 0">${d.h === null ? 'Non risulta ancora nessun backup su questo dispositivo.' : 'Ultimo backup di tutti gli utenti: oltre ' + d.h + ' ore fa.'} Fallo 1–2 volte al giorno: salva la copia ordinata di tutti sul PC.</p><button class="primary sm" data-act="bkUpdate">Backup ordinato adesso</button></div>`; }
     function rstCard() {
@@ -401,7 +432,7 @@
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
       if (A.isAdmin() && ui.clLoaded && all.length) setTimeout(dailyOrg, 400);
-      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${coachBoard(list)}${bkBanner()}<details class="card" ${ui.rst || needBk ? 'open' : ''} style="padding:10px 14px"><summary><b>Backup, ripristino e importazione</b></summary>${A.enabled ? rstCard() : ''}
+      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${coachBoard(list, X.clients().filter(p => inLens(p._acct || {})))}${bkBanner()}<details class="card" ${ui.rst || needBk ? 'open' : ''} style="padding:10px 14px"><summary><b>Backup, ripristino e importazione</b></summary>${A.enabled ? rstCard() : ''}
         ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Salva subito la copia di tutti, ordinata per palestra, allenatore e utente (un Excel per ciascuno). Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup ordinato adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
@@ -457,6 +488,7 @@
           <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button>${can && acct.role === 'client' ? `<label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica backup di ${esc(String(p.name).split(' ')[0])}<input type="file" id="rstOne" data-u="${esc(uidOf(p))}" accept=".zip,.json" multiple hidden></label>` : ''}</div></div>
         ${can ? rstCard() : ''}
         <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
+        ${X.rmCard(p)}
         ${X.bodyCard(p)}
         ${st.alerts.length ? `<div class="msg danger small"><b>Attenzione:</b> ${st.alerts.map(h => `${esc(h.label)} ${h.level}/10 (${esc(h.statusLabel.toLowerCase())})`).join(', ')}.</div>` : ''}
         ${X.painHistoryCard(p)}
@@ -482,6 +514,15 @@
         <label class="row" style="gap:8px"><input type="checkbox" name="guardianOk" style="width:auto"> <span class="small">Il genitore/tutore ha firmato il consenso.</span></label>`
         : `<label class="row" style="gap:8px;margin-top:8px"><input type="checkbox" name="canSeeAll" style="width:auto"> <span class="small">Può vedere i clienti di tutta la palestra (altrimenti solo i suoi)</span></label>`}
         <button class="primary" style="margin-top:12px;width:100%">Crea account</button></form>`;
+    };
+    acts.rmToggle = async t => {
+      const p = find(t.dataset.id), on = !!t.checked; if (!p) return;
+      try {
+        if (A.enabled) { await A.setRm(uidOf(p), on); if (p._acct) p._acct.rm_enabled = on; }
+        p.rmOn = on; if (!A.enabled) c.save();
+        toast(on ? 'Massimali attivati per ' + p.name : 'Massimali disattivati per ' + p.name);
+      } catch (e) { toast('Non riesco a cambiare: ' + e.message); }
+      c.render();
     };
     acts.clientOpen = t => { ui.sub = { type: 'client', uid: t.dataset.id }; const p = find(t.dataset.id); if (A.enabled && p && p._acct) A.logAccess(p._uid, 'view_client'); c.render(); window.scrollTo(0, 0); };
     acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
@@ -753,7 +794,7 @@
       if (t.id === 'impTabAll' && t.files[0]) { importFile(t.files[0], X.clients(), null); t.value = ''; return true; }
       return false;
     };
-    X.onInput = function (t) { if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
+    X.onInput = function (t) { if (t.id === 'cmpQ' || t.id === 'cmpEx') { ui[t.id] = t.value; const pos = t.selectionStart, id = t.id; c.render(); const n = document.getElementById(id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
     Object.assign(X.views, { newClient: views.newClient });
     return X;
   };

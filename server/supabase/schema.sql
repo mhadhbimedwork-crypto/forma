@@ -184,3 +184,23 @@ create policy cd_admin_upd on client_data for update using (admin_unlocked()) wi
 -- Primo amministratore (UNA volta, dopo aver creato il proprio utente in Authentication > Users):
 --   insert into profiles(id, username, full_name, role, must_change_password) values ('<uuid-utente>', 'admin', 'Amministratore', 'admin', false);
 -- Poi attiva la verifica a due passaggi (TOTP) dalla console: senza di essa l'amministratore non legge nulla degli altri.
+
+-- 1.26.0: massimali (1RM) dei minorenni, attivabili solo da staff
+alter table public.profiles add column if not exists rm_enabled boolean not null default false;
+create or replace function public.set_rm_enabled(target uuid, enabled boolean)
+returns void language plpgsql security definer set search_path = public as $$
+declare me record; t record;
+begin
+  select id, role, gym_id, can_see_all, active into me from profiles where id = auth.uid();
+  if me.id is null or not me.active then raise exception 'non autorizzato'; end if;
+  select id, role, gym_id, coach_id into t from profiles where id = target;
+  if t.id is null or t.role <> 'client' then raise exception 'utente non valido'; end if;
+  if me.role = 'admin' then null;
+  elsif me.role = 'head' and me.gym_id = t.gym_id then null;
+  elsif me.role = 'coach' and me.gym_id = t.gym_id and (t.coach_id = me.id or me.can_see_all) then null;
+  else raise exception 'non autorizzato su questo utente'; end if;
+  update profiles set rm_enabled = enabled where id = target;
+  insert into audit_log(actor, action, target, detail) values (me.id, 'set_rm_enabled', target, jsonb_build_object('enabled', enabled));
+end $$;
+revoke all on function public.set_rm_enabled(uuid, boolean) from public, anon;
+grant execute on function public.set_rm_enabled(uuid, boolean) to authenticated;

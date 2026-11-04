@@ -222,6 +222,10 @@
     if ((freq.abs || 0) >= 4) flags.push({ k: 'tip', t: 'Addominali quasi tutti i giorni: 2-3 sedute a settimana bastano e riducono il carico sulla zona lombare.' });
     const heavy = plan.days.flatMap(d => d.exercises).filter(x => F.EXMAP[x.exId] && F.EXMAP[x.exId].minor === false);
     if (minor && heavy.length) flags.push({ k: 'warn', t: `Per un minorenne: ${heavy.map(x => x.name).join(', ')} richiedono supervisione diretta e carichi moderati.` });
+    if (p && minor && F.rmActive && !F.rmActive(p)) {
+      const rmx = plan.days.flatMap(d => d.exercises).filter(x => x.pct || /\b1\s*rm\b|massimal/i.test((x.note || '') + ' ' + (x.name || '')));
+      if (rmx.length) flags.push({ k: 'warn', t: `Questa scheda chiede massimali o percentuali di 1RM (${rmx.slice(0, 4).map(x => x.name).join(', ')}) ma il sistema massimali non è attivo per questo minorenne: i carichi in percentuale non vengono calcolati. Se vuoi usarli, attivalo nel profilo dell'utente.` });
+    }
     const unk = plan.days.flatMap(d => d.exercises).filter(x => !F.EXMAP[x.exId]);
     if (unk.length) flags.push({ k: 'info', t: `${unk.length} esercizi non riconosciuti (non entrano nei conteggi): ${unk.map(x => x.name).join(', ')}.` });
     if (p && Object.values(p.pain || {}).some(v => v >= 4)) {

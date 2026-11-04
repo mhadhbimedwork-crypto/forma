@@ -5,7 +5,7 @@
   const r1 = x => Math.round(x * 10) / 10, yn = b => (b ? 'sì' : 'no');
   const MEAS = () => F.MEASURES || [];
   const KIND = { new: 'Nuovo dolore', up: 'Aumento', down: 'Calo', clear: 'Azzerato' };
-  F.SHEETS = { sum: 'Riepilogo', ses: 'Sedute', sesSum: 'Sedute_Riepilogo', ex: 'Esercizi', vol: 'Volume_Muscoli', painLog: 'Dolori_Registro', painTrend: 'Dolori_Andamento', weight: 'Peso', meas: 'Misure', plans: 'Schede' };
+  F.SHEETS = { sum: 'Riepilogo', ses: 'Sedute', sesSum: 'Sedute_Riepilogo', ex: 'Esercizi', vol: 'Volume_Muscoli', painLog: 'Dolori_Registro', painTrend: 'Dolori_Andamento', weight: 'Peso', meas: 'Misure', plans: 'Schede', rm: 'Massimali' };
 
   /** profiles: [profilo]; ritorna [{name, cols, rows}] */
   F.datasets = function (profiles, today) {
@@ -19,6 +19,7 @@
     add('painLog', ['Cliente', 'Data', 'Zona', 'Livello 0-10', 'Prima', 'Evento', 'Sedute di quel giorno']);
     add('painTrend', ['Cliente', 'Zona', 'Livello attuale', 'Stato', 'Picco', 'Primo inserimento', 'Ultima variazione', 'Azzerato il', 'Giorni di dolore', 'Variazione 7 gg']);
     add('weight', ['Cliente', 'Data', 'kg']);
+    add('rm', ['Cliente', 'Esercizio', 'Massimale inserito kg', 'Stima migliore kg', 'Stima ultima seduta kg', 'Valore usato kg', 'Valore usato / peso corporeo', 'Miglior carico kg', 'Data record', 'Ultima volta', 'Massimali attivi', 'Nota']);
     add('meas', ['Cliente', 'Data'].concat(MEAS().map(m => m[1] + ' ' + m[2])));
     add('plans', ['Cliente', 'Scheda', 'Attiva', 'Giorno', 'Esercizio', 'Serie', 'Ripetizioni', 'Recupero s', 'Note']);
     profiles.forEach(p => {
@@ -31,6 +32,7 @@
         s.ex.forEach(e => e.sets.forEach((t, i) => S.ses.rows.push([n, s.date, s.dayName, pn, e.name, i + 1, t.kg || 0, t.reps || 0, t.rpe || '', t.kg > 0 && t.reps > 0 ? r1(t.kg * t.reps) : 0, F.e1rm(t.kg, t.reps) || ''])));
       });
       F.exerciseStats(p).forEach(o => S.ex.rows.push([n, o.name, o.sessions, o.lastDate, o.bestKg || '', o.bestE1 || '', o.lastE1 || '', o.change == null ? '' : o.change, o.prDate || '']));
+      F.rmTable(p).forEach(r => S.rm.rows.push([n, r.name, r.manual || '', r.est || '', r.last || '', r.use || '', r.use && st.weight ? Math.round(r.use / st.weight * 100) / 100 : '', r.bestKg || '', r.prDate, r.lastDate, F.rmActive(p) ? 'sì' : 'no', F.rmActive(p) ? '' : 'minorenne: stima non da testare']));
       F.weeklyMuscleSets(p).forEach(v => S.vol.rows.push([n, v.week, v.label, v.sets]));
       F.painHistory(p, today).forEach(h => {
         S.painTrend.rows.push([n, h.label, h.level, h.statusLabel, h.peak, h.first, h.lastChange, h.clearedOn || '', h.daysActive, h.delta7]);

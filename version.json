@@ -1,8 +1,9 @@
 {
-  "version": "1.25.5",
-  "build": 68,
+  "version": "1.26.0",
+  "build": 69,
   "date": "2026-11-04",
   "notes": [
-    "Vista cliente (amministratore e allenatore): ora c'è il recupero completo come nell'app dell'atleta, con tutti i muscoli e «Quanto è pronto per ogni giorno»."
+    "Massimali (1RM): scheda dedicata per l'atleta, l'allenatore e l'amministratore, inclusa nei file Excel e nei backup. I minorenni li hanno spenti finché non li attiva l'allenatore o l'amministratore; finché sono spenti vedono la stima e la spiegazione del calcolo.",
+    "Confronto utenti senza limite, con ricerca per nome, allenatore, palestra, obiettivo ed età, e massimali per esercizio anche rapportati al peso corporeo."
   ]
 }

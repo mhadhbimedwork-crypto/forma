@@ -186,8 +186,26 @@
     let best = 0; (p.sessions || []).forEach(s => s.ex.forEach(e => { if (e.exId === exId) e.sets.forEach(t => { const v = F.e1rm(t.kg, t.reps); if (v && v > best) best = v; }); }));
     return best ? { kg: Math.round(best * 10) / 10, src: 'stimato' } : null;
   };
+  /* massimali attivi: sempre per i maggiorenni; per i minorenni solo se li attiva l'allenatore o l'amministratore */
+  F.rmActive = p => !F.isMinor(p) || p.rmOn === true;
+  /* tabella massimali di un utente: valore inserito a mano + stima dalle serie (Epley), ultima volta, ultima stima */
+  F.rmTable = function (p) {
+    const ex = {}; (F.exerciseStats(p) || []).forEach(o => { ex[o.exId || o.name] = o; });
+    const ids = new Set(Object.keys(ex)); Object.keys(p.rm || {}).forEach(k => ids.add(k));
+    return Array.from(ids).map(k => {
+      const o = ex[k] || {}, e = F.EXMAP[k], man = p.rm && p.rm[k] > 0 ? p.rm[k] : null;
+      return { id: k, name: o.name || (e && e.name) || k, manual: man, est: o.bestE1 || null, last: o.lastE1 || null, lastDate: o.lastDate || '', prDate: o.prDate || '', bestKg: o.bestKg || null, use: man || o.bestE1 || null };
+    }).sort((a, b) => (b.use || 0) - (a.use || 0));
+  };
+  /* spiegazione del calcolo stimato (per chi non ha i massimali attivi o vuole capire come funziona) */
+  F.rmExplain = function (p) {
+    let ex = null; (p.sessions || []).forEach(s => s.ex.forEach(e => e.sets.forEach(t => { const v = F.e1rm(t.kg, t.reps); if (v && (!ex || v > ex.v)) ex = { v, kg: t.kg, reps: t.reps, n: e.name }; })));
+    const fx = ex ? `${ex.n}: ${ex.kg} kg × ${ex.reps} ripetizioni → ${ex.kg} × (1 + ${ex.reps} ÷ 30) = ${ex.v} kg` : 'Esempio: 60 kg × 8 ripetizioni → 60 × (1 + 8 ÷ 30) = 76 kg';
+    return `<p class="small" style="margin:6px 0">Il massimale (1RM) è il peso che solleveresti una sola volta. Non va provato: si stima da una serie normale con la formula <b>peso × (1 + ripetizioni ÷ 30)</b>. Vale fino a 12 ripetizioni; più ne fai, meno è precisa.</p><p class="small" style="margin:6px 0"><b>${fx}</b></p><p class="mute small" style="margin:6px 0">È una stima per capire come si calcola: serve a vedere i progressi, non a caricare il massimo.</p>`;
+  };
   F.pctTarget = function (p, x) {
     if (!x.pct) return null;
+    if (!F.rmActive(p)) return { need: true, off: true };
     const rm = F.oneRM(p, x.exId); if (!rm) return { need: true };
     const r5 = v => Math.round(v / 2.5) * 2.5;
     return { lo: r5(rm.kg * x.pct[0] / 100), hi: r5(rm.kg * x.pct[1] / 100), rm };

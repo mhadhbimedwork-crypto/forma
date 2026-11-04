@@ -98,6 +98,7 @@
   }
   function rmInput(p, x) {
     if (!x.pct || !x.exId) return '';
+    if (!F.rmActive(p)) return '<div class="msg warn small">Per ora i carichi in percentuale del massimale non sono attivi per te: segui i kg o le sensazioni indicate dall\'allenatore. Li attiva lui quando sarà il momento.</div>';
     const t = F.pctTarget(p, x), cur = p.rm && p.rm[x.exId] || '';
     const hint = t && !t.need ? `<span class="small">${t.lo === t.hi ? t.lo : t.lo + '-' + t.hi} kg · ${esc(F.pctLabel(x))} (1RM ${t.rm.kg} kg, ${t.rm.src})</span>` : '<span class="mute small">La scheda indica una percentuale: inserisci il tuo massimale (1RM) per avere i kg. Se non lo conosci, fai la prima seduta leggera e lo stimo io.</span>';
     return `<div class="row wrap" style="margin:4px 0"><label style="margin:0">1RM kg</label><input inputmode="decimal" style="width:80px" data-rm="${x.exId}" value="${cur}" aria-label="Massimale ${esc(x.name)}">${hint}</div>`;
@@ -186,6 +187,7 @@
   }
   function render() {
     const p = P(), g = gate(), staff = !!(X && X.showClients());
+    if (p && AC.enabled && AC.me && AC.me.role === 'client' && !p._acct) p.rmOn = !!AC.me.rm_enabled;
     let body;
     if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span></div></header><main>${g}</main>`; return; }
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team'].includes(ui.tab)) ui.tab = X.homeTab();
@@ -339,7 +341,7 @@
       }
       return `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
-        ${x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
+        ${x.pct && pt && pt.off ? '<div class="msg warn small">Percentuale del massimale non attiva per ora: usa i kg o lo sforzo indicati dall\'allenatore.</div>' : x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
         ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Dati della volta scorsa (${prevS.date}) in ogni serie · solo lettura</div>` : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}
         <div class="msg ${sug.kind === 'up' ? 'ok' : sug.kind === 'warn' ? 'warn' : ''} small">${esc(sug.text)}</div>
@@ -706,6 +708,12 @@
       ${asym.length ? `<div class="msg tip" style="margin-top:8px">${asym.map(esc).join('<br>')}. Sotto il 3% è normale. Sopra, aggiungi esercizi a un braccio o a una gamba per volta, partendo dal lato più debole.</div>` : ''}
       ${(p.measures || []).length ? '<div class="row" style="margin-top:8px"><button class="ghost sm danger" data-act="delMeas">Elimina l\'ultima registrazione</button></div>' : ''}</div>`;
   }
+  function rmCard(p) {
+    const rows = F.rmTable(p), on = F.rmActive(p), d = x => x == null ? '–' : fmt(x, 1);
+    if (!on) return `<div class="card"><h2>Come si calcola il massimale</h2><p class="mute small" style="margin-top:0">I massimali per ora non sono attivi: li attiva il tuo allenatore. Intanto ti spiego il calcolo.</p>${F.rmExplain(p)}${rows.length ? `<div class="small" style="margin-top:6px">${rows.slice(0, 8).map(r => `<div class="row" style="border-top:1px solid var(--line);padding:4px 0"><span class="grow">${esc(r.name)}</span><span class="mute">stima ${d(r.est)} kg</span></div>`).join('')}</div>` : ''}</div>`;
+    return `<div class="card"><h2>I miei massimali (1RM)</h2><p class="mute small" style="margin-top:0">Scrivi il tuo massimale se lo conosci. Se lasci vuoto uso la stima dalle tue serie. L'allenatore vede questi dati nella tua scheda.</p>
+      ${rows.length ? `<div class="small">${rows.map(r => `<div class="row wrap" style="gap:8px;border-top:1px solid var(--line);padding:6px 0"><span class="grow">${esc(r.name)}</span><input inputmode="decimal" style="width:76px" data-rm="${esc(r.id)}" value="${r.manual || ''}" placeholder="${r.est ? fmt(r.est, 0) : 'kg'}" aria-label="Massimale ${esc(r.name)}"><span class="mute" style="min-width:150px;text-align:right">stima ${d(r.est)} · ultima ${d(r.last)}${r.last && r.est ? ' <b style="color:' + (r.last >= r.est ? 'var(--ok,#2a9d4b)' : 'inherit') + '">' + (r.last >= r.est ? '=' : fmt(r.last - r.est, 1)) + '</b>' : ''}</span></div>`).join('')}</div>` : '<p class="small mute">Registra qualche seduta e qui compaiono le stime.</p>'}</div>`;
+  }
   function viewProg() {
     const p = P(), ws = (p.weights || []).slice().sort((a, b) => a.date.localeCompare(b.date));
     const exs = {}; (p.sessions || []).forEach(s => s.ex.forEach(e => { if (e.exId) exs[e.exId] = e.name; }));
@@ -724,6 +732,7 @@
       <div class="msg ${F.weightAdvice(p).kind}" style="margin-top:8px">${esc(F.weightAdvice(p).text)}</div></div>
       ${measuresCard(p)}
       <div class="card"><h2>Forza per esercizio</h2>${exChart}</div>
+      ${rmCard(p)}
       <div class="card"><h2>Ultime sedute</h2>${sess.length ? sess.map(s => `<details style="padding:4px 0;border-top:1px solid var(--line)"><summary class="small"><b>${esc(s.dayName)}</b> · ${s.date} <span class="mute">· ${s.ex.length} esercizi, ${s.ex.reduce((a, e) => a + e.sets.length, 0)} serie</span></summary>
         ${s.ex.map(e => `<div class="small" style="margin:6px 0"><b>${esc(e.name)}</b><br><span class="mute">${e.sets.map((x, k) => `${k + 1}) ${x.kg ? fmt(x.kg, 1) + ' kg × ' : ''}${x.reps}${x.rpe ? ' (RPE ' + x.rpe + ')' : ''}`).join(' · ')}</span></div>`).join('')}
         <div class="row wrap" style="margin-top:6px"><button class="sm" data-act="editSession" data-id="${s.id}">Modifica</button><button class="ghost sm danger" data-act="delSession" data-id="${s.id}" aria-label="Elimina seduta">Elimina</button></div></details>`).join('') : '<p class="mute small">Ancora nessuna seduta.</p>'}</div>`;

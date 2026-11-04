@@ -41,7 +41,7 @@
   A._rest = rest;
 
   async function loadMe() {
-    const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all');
+    const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all,rm_enabled');
     if (!rows.length || !rows[0].active) { tok = null; store(); throw new Error('account non attivo'); }
     if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
     A.me = rows[0]; A.gym = null;
@@ -142,13 +142,14 @@
 
   /* ---- area staff ---- */
   A.listClients = async function () {
-    const rows = await rest('client_data?select=user_id,updated_at,version,data,profile:profiles!client_data_user_id_fkey(id,username,full_name,role,birth,active,coach_id,gym_id,must_change_password)');
-    return rows.filter(r => r.profile && r.profile.role === 'client').map(r => Object.assign({}, r.data, { _uid: r.user_id, _updated: r.updated_at, _acct: r.profile }));
+    const rows = await rest('client_data?select=user_id,updated_at,version,data,profile:profiles!client_data_user_id_fkey(id,username,full_name,role,birth,active,coach_id,gym_id,must_change_password,rm_enabled)');
+    return rows.filter(r => r.profile && r.profile.role === 'client').map(r => Object.assign({}, r.data, { _uid: r.user_id, _updated: r.updated_at, _acct: r.profile, rmOn: !!r.profile.rm_enabled }));
   };
   A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,gym_id,can_see_all,must_change_password,created_at&order=created_at.desc');
   A.listGyms = () => rest('gyms?select=id,name,active,created_at&order=name');
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
+  A.setRm = (uid, on) => rest('rpc/set_rm_enabled', { method: 'POST', body: JSON.stringify({ target: uid, enabled: !!on }) });
   A.setPerms = (uid, can_see_all) => admin({ action: 'set_perms', user_id: uid, can_see_all });
   A.assignCoach = (uid, coach_id) => admin({ action: 'assign_coach', user_id: uid, coach_id });
   A.lockState = async () => { const r = await rest('admin_lock?select=open'); return { open: !!(r[0] && r[0].open) }; };
