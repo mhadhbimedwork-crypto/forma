@@ -1226,4 +1226,17 @@
     if (r === 'new' && updTried()) ui.updStuck = true;
     if (r === 'new' || ui.whatsNew) render();
   });
+  /* app lasciata aperta in background: ricontrolla ogni 20 minuti e quando torni sull'app; aggiorna da sola appena non stai facendo nulla */
+  const idleNow = () => !(P() && P().draft) && !(ui.sub && ui.sub.type === 'session') && !ui.locked && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+  async function autoUpd() {
+    if (navigator.onLine === false || document.hidden) return;
+    const r = await checkVersion(); if (r !== 'new') return;
+    if (updTried()) { ui.updStuck = true; render(); return; }
+    if (idleNow()) return applyUpdateNow(true);
+    render();   // mostra il riquadro «Aggiornamento disponibile»; si applica appena finisci
+    setTimeout(() => { if (ui.update && idleNow() && !updTried()) applyUpdateNow(true); }, 60000);
+  }
+  setInterval(autoUpd, 20 * 60e3);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(autoUpd, 1500); });
+  window.addEventListener('online', () => setTimeout(autoUpd, 2000));
 })(window.FORMA);

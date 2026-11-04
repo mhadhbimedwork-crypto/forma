@@ -1,4 +1,4 @@
-const V = 'forgia-v71';
+const V = 'forgia-v72';
 const FILES = ['./', 'index.html', 'styles.css', 'data.js', 'body.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'guide.js', 'planner.js', 'backup.js', 'app.js', 'manifest.webmanifest', 'icons/icon.svg', 'img/body-front.jpg', 'img/body-back.jpg', 'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png', 'fonts/chakra-petch-latin-600-italic.woff2', 'fonts/chakra-petch-latin-700-italic.woff2', 'fonts/chakra-petch-latin-700-normal.woff2', 'fonts/inter-latin-400-normal.woff2', 'fonts/inter-latin-600-normal.woff2', 'fonts/inter-latin-800-normal.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== V).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
