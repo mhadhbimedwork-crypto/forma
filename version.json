@@ -1,8 +1,8 @@
 {
-  "version": "1.25.3",
-  "build": 66,
+  "version": "1.25.4",
+  "build": 67,
   "date": "2026-11-04",
   "notes": [
-    "THE LIFTING ZONE: l'amministratore entra con gli stessi dati di sempre e si ritrova direttamente nel suo profilo atleta. L'amministrazione resta solo su FORGIA."
+    "THE LIFTING ZONE: tolto ogni «Torna amministratore». Il tuo profilo è un profilo come gli altri; l'amministrazione resta solo su FORGIA."
   ]
 }

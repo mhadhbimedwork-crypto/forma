@@ -691,6 +691,8 @@
     X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
     X.menu = function () {
       const me = A.me, r = me.role, links = A.links();
+      const gymAdm = !!(window.FORMA_GYM && !window.FORMA_GYM.mode && A.imp && A.imp());
+      if (gymAdm) return `<section class="card acctmenu" aria-label="Profilo"><div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div><div class="row wrap" style="gap:6px;margin-top:12px"><button class="sm" data-act="logout">Esci</button></div></section>`;
       if (A.imp && A.imp()) return `<section class="card acctmenu" aria-label="Profili"><div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div><button class="sm primary" style="margin-top:10px" data-act="impBack">Torna ${esc((A.imp().from && roleName(A.imp().from.role).toLowerCase()) || 'indietro')}</button></section>`;
       const mk = [];
       if (r === 'admin') { mk.push(['gymNew', '+ Nuova palestra con allenatore principale']); mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente / atleta']); }
@@ -723,6 +725,7 @@
     /* ---------- profilo: interruttori della modalità locale ---------- */
     X.advancedCard = function () {
       const st = S();
+      if (A.enabled && A.imp && A.imp() && window.FORMA_GYM && !window.FORMA_GYM.mode) return `<div class="card"><h2>Account</h2><p class="small">Profilo di <b>${esc(A.me.full_name)}</b>.</p><button class="sm" data-act="logout">Esci</button></div>`;
       if (A.enabled && A.imp && A.imp()) return `<div class="card"><h2>Account</h2><p class="small">Stai usando il profilo di <b>${esc(A.me.full_name)}</b>${A.imp().from ? ' come ' + esc(roleName(A.imp().from.role).toLowerCase()) : ''}.</p><button class="sm primary" data-act="impBack">Torna ${esc((A.imp().from && roleName(A.imp().from.role).toLowerCase()) || 'indietro')}</button></div>`;
       if (A.enabled) return `<div class="card"><h2>Account</h2><p class="small">Connesso come <b>${esc(A.me.full_name)}</b> (${esc(A.roles[A.me.role])}).</p>
         <div class="row wrap"><button class="sm" data-act="pwChange">Cambia password</button>${devMode() ? '<button class="sm" data-act="devOpen">Area sviluppatore</button>' : ''}<button class="sm" data-act="logout">Esci</button></div></div>`;
