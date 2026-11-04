@@ -33,16 +33,49 @@
   function save() {
     if (AC.enabled && !AC.me) return;
     mem = S; try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { /* senza storage resta in memoria */ }
-    if (AC.enabled && AC.me) { clearTimeout(syncT); syncT = setTimeout(syncUp, 4000); }
+    if (AC.enabled && AC.me) { lsSet(dkey(), String(Date.now())); updSync(); clearTimeout(syncT); syncT = setTimeout(syncUp, 4000); }
   }
-  async function syncUp() { const p = P(); if (!p || !navigator.onLine || (AC.imp && AC.imp() && !AC.imp().write)) return; try {
+  /* sincronizzazione: i dati restano sul telefono e partono da soli appena c'è rete; se un altro dispositivo ha scritto, le due copie si uniscono */
+  const dkey = () => 'forgia.dirty.' + (AC.me ? AC.me.id : ''), vkey = () => 'forgia.sv.' + (AC.me ? AC.me.id : '');
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
+  const isDirty = () => !!(AC.enabled && AC.me && lsGet(dkey()));
+  let syncBusy = false, syncAgain = false;
+  function syncText() {
+    if (!(AC.enabled && AC.me)) return '';
+    const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    if (navigator.onLine === false) return isDirty() ? 'Offline · dati salvati sul telefono, si inviano da soli appena torna la rete' : 'Offline · puoi continuare, i dati restano sul telefono';
+    if (syncBusy) return 'Sincronizzo…';
+    if (isDirty()) return ui.syncErr ? 'Da inviare · riprovo da solo' : 'Da inviare…';
+    return ui.syncAt ? 'Sincronizzato alle ' + hm(ui.syncAt) : 'Dati al sicuro sul server';
+  }
+  function updSync() { const n = document.getElementById('syncLine'); if (n) n.textContent = syncText(); }
+  async function syncUp() {
+    const p = P(); if (!p || !(AC.enabled && AC.me) || navigator.onLine === false || (AC.imp && AC.imp() && !AC.imp().write)) { updSync(); return; }
+    if (syncBusy) { syncAgain = true; return; }
+    syncBusy = true; updSync(); const t0 = Date.now();
+    try {
+      const srv = await AC.pullMine(), d = srv && srv.data;
       if (ui.pushOkFor !== AC.me.id + p.id) {   // mai sovrascrivere sul server i dati di un'altra persona
-        const srv = await AC.pullMine(), d = srv && srv.data;
         if (d && d.name && p.name && d.birth && p.birth && String(d.name).trim().toLowerCase() !== String(p.name).trim().toLowerCase() && d.birth !== p.birth) { ui.syncErr = 'Il profilo su questo dispositivo non è quello del tuo account: non sincronizzato'; return; }
         ui.pushOkFor = AC.me.id + p.id;
       }
-      await AC.pushMine(p); ui.syncAt = Date.now();
-    } catch (e) { ui.syncErr = e.message; } }
+      let merged = false;
+      if (srv && d && d.name && srv.version != null && String(srv.version) !== lsGet(vkey())) {   // un altro dispositivo ha scritto: unione, senza perdere nulla
+        const sn = F.normalizeProfile(Object.assign({}, d, { id: p.id })), m = F.mergeProfiles(sn, p);
+        Object.assign(p, sn, p, { sessions: m.sessions, painLog: m.painLog, weights: m.weights, measures: m.measures, plans: m.plans, pain: m.pain }); merged = true;
+        try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { }
+      }
+      const r = await AC.pushMine(p); const v = r && r[0] && r[0].version; if (v != null) lsSet(vkey(), String(v));
+      ui.syncAt = Date.now(); ui.syncErr = null;
+      if (+lsGet(dkey()) <= t0) { try { localStorage.removeItem(dkey()); } catch (e) { } }
+      if (merged && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render();
+    } catch (e) { ui.syncErr = e.message; }
+    finally { syncBusy = false; updSync(); if (syncAgain) { syncAgain = false; setTimeout(syncUp, 500); } }
+  }
+  window.addEventListener('online', () => { updSync(); if (isDirty() || AC.me) syncUp(); });
+  window.addEventListener('offline', updSync);
+  setInterval(() => { if (isDirty() && navigator.onLine !== false) syncUp(); else updSync(); }, 30000);
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const planOf = p => p && p.plans.find(x => x.id === p.activePlan) || null;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -139,7 +172,7 @@
   /* ---------- VISTE ---------- */
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const brand = `<div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span><span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>`;
+    const brand = `<div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span><span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
     if (!p) return `<header class="top">${brand}${AC.enabled && AC.me ? '<div style="position:absolute;right:var(--gutter);top:calc(env(safe-area-inset-top) + 22px)">' + X.menuBtn() + '</div>' : ''}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}

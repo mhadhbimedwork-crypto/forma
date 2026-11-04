@@ -1,9 +1,9 @@
 {
-  "version": "1.26.0",
-  "build": 69,
+  "version": "1.27.0",
+  "build": 70,
   "date": "2026-11-04",
   "notes": [
-    "Massimali (1RM): scheda dedicata per l'atleta, l'allenatore e l'amministratore, inclusa nei file Excel e nei backup. I minorenni li hanno spenti finché non li attiva l'allenatore o l'amministratore; finché sono spenti vedono la stima e la spiegazione del calcolo.",
-    "Confronto utenti senza limite, con ricerca per nome, allenatore, palestra, obiettivo ed età, e massimali per esercizio anche rapportati al peso corporeo."
+    "Funziona anche senza rete: i dati restano sul telefono e partono da soli appena torna la connessione. Se hai usato due dispositivi, le copie si uniscono senza perdere nulla. In alto vedi sempre lo stato: Offline, Da inviare, Sincronizzato.",
+    "Amministratore e allenatori: i dati dei clienti si aggiornano da soli ogni pochi minuti e il backup parte in automatico (copia nel browser e, se collegata, cartella del PC). Senza rete vedi gli ultimi dati scaricati."
   ]
 }

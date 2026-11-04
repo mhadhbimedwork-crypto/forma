@@ -22,7 +22,8 @@
   const store = () => { if (imp) { try { imp.tok = tok; sessionStorage.setItem(IMP, JSON.stringify(imp)); } catch (e) { } return; } try { tok ? localStorage.setItem(KEY, JSON.stringify(tok)) : localStorage.removeItem(KEY); } catch (e) { } };
   A.imp = () => imp ? { write: !!imp.write, name: imp.name, uid: imp.uid, own: !!imp.own, from: imp.from || null } : null;
   async function raw(path, o) {
-    const r = await fetch(cfg.url + path, o); let b = null; try { b = await r.json(); } catch (e) { }
+    let r; try { r = await fetch(cfg.url + path, o); } catch (e) { const er = new Error('Sei offline o la rete non risponde: questa azione richiede la connessione'); er.offline = true; throw er; }
+    let b = null; try { b = await r.json(); } catch (e) { }
     if (!r.ok) { const m = (b && (b.error_description || b.msg || b.message || b.error)) || ('errore ' + r.status); const err = new Error(String(m)); err.status = r.status; throw err; } return b;
   }
   const hdr = (extra) => Object.assign({ apikey: cfg.anonKey, 'Content-Type': 'application/json', Authorization: 'Bearer ' + (tok ? tok.access_token : cfg.anonKey) }, extra || {});
@@ -46,11 +47,27 @@
     if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
     A.me = rows[0]; A.gym = null;
     if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
-    A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2';
+    A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2'; A.offlineBoot = false; cacheMe();
     return A.me;
   }
   /** Ripristina una sessione già aperta (all'avvio). */
-  A.restore = async function () { if (!A.enabled || !tok) return null; for (let k = 0; k < 4; k++) { try { return await loadMe(); } catch (e) { if (e.status === 401 || e.status === 400 && /refresh/i.test(e.message) || /scaduta|attivo/.test(e.message)) { tok = null; store(); return null; } if (e.status) return null; await new Promise(r => setTimeout(r, 1500)); } } return null; };
+  const meKey = 'forgia.mecache';
+  const cacheMe = () => { try { localStorage.setItem(meKey, JSON.stringify({ uid: A.me.id, me: A.me, gym: A.gym })); } catch (e) { } };
+  A.restore = async function () {
+    if (!A.enabled || !tok) return null;
+    for (let k = 0; k < 4; k++) {
+      try { return await loadMe(); }
+      catch (e) {
+        if (e.status === 401 || e.status === 400 && /refresh/i.test(e.message) || /scaduta|attivo/.test(e.message)) { tok = null; store(); return null; }
+        if (e.offline && (navigator.onLine === false || k === 3)) {   // senza rete si apre con l'ultimo profilo noto: si lavora in locale
+          try { const c = JSON.parse(localStorage.getItem(meKey) || 'null'); if (c && tok.user && c.uid === tok.user.id && c.me && c.me.active) { A.me = c.me; A.gym = c.gym || null; A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2'; A.offlineBoot = true; return A.me; } } catch (e2) { }
+          return null;
+        }
+        if (e.status) return null; await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+    return null;
+  };
   A.signIn = async function (name, surname, password) {
     const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) }).catch(e => { throw new Error(e.status === 400 ? 'Nome, cognome o password non corretti' : e.message); });
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }; store(); return loadMe();
@@ -91,7 +108,7 @@
     return { ok: true };
   };
   A.leave = function () { A.stashCurrent(); tok = null; A.me = null; store(); };   // lascia la sessione senza dimenticare il profilo (passaggio ad altro profilo)
-  A.signOut = function () { if (imp) { imp = null; try { sessionStorage.removeItem(IMP); } catch (e) { } } if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
+  A.signOut = function () { try { if (A.me && F.kvDel) F.kvDel('cache.cl.' + A.me.id); localStorage.removeItem('forgia.mecache'); } catch (e) { } if (imp) { imp = null; try { sessionStorage.removeItem(IMP); } catch (e) { } } if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
   /* ---- accessi rapidi (solo amministratore) ---- */
   A.listOwn = () => admin({ action: 'list_own' }).then(r => r.ids || []);
   A.createOwn = gymId => admin({ action: 'create_own', gym_id: gymId || undefined });
@@ -125,7 +142,7 @@
   F.shareable = p => { const o = {}; SHARE.forEach(k => { if (p && p[k] !== undefined) o[k] = p[k]; }); return o; };
   A.pushMine = async function (profile, device) {
     profile = F.shareable(profile);
-    return rest('client_data?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: A.me.id, data: profile, device: device || navigator.userAgent.slice(0, 80) }) });
+    return rest('client_data?on_conflict=user_id&select=version', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify({ user_id: A.me.id, data: profile, device: device || navigator.userAgent.slice(0, 80) }) });
   };
   /** Unione di due copie dello stesso profilo senza perdere nulla (sedute, dolori, peso, misure). */
   F.mergeProfiles = function (a, b) {

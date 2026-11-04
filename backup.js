@@ -107,6 +107,7 @@
   async function idbSet(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; } catch (e) { return false; } }
   async function idbDel(k) { try { const db = await idb(); await new Promise(res => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').delete(k); t.oncomplete = res; t.onerror = res; }); } catch (e) { } }
 
+  F.kvGet = idbGet; F.kvSet = idbSet; F.kvDel = idbDel;
   F.fsSupported = () => typeof window.showDirectoryPicker === 'function';
   F.isNative = () => !!(window.Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform());
 

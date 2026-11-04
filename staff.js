@@ -182,7 +182,20 @@
     };
 
     /* ---------- area allenatore ---------- */
-    async function loadClients() { try { ui.cl = await A.listClients(); ui.clErr = null; } catch (e) { ui.clErr = e.message; } try { ui.own = await A.listOwn(); } catch (e) { ui.own = ui.own || []; } ui.clLoaded = true; }
+    const lsg = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lss = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
+    async function loadClients() {
+      try {
+        ui.cl = await A.listClients(); ui.clErr = null; ui.clStale = null;
+        try { ui.own = await A.listOwn(); } catch (e) { ui.own = ui.own || []; }
+        if (F.kvSet && A.me) F.kvSet('cache.cl.' + A.me.id, { at: Date.now(), cl: ui.cl, own: ui.own || [] });
+      } catch (e) {
+        ui.clErr = e.message;
+        if (!(ui.cl && ui.cl.length) && F.kvGet && A.me) { const k = await F.kvGet('cache.cl.' + A.me.id); if (k && k.cl) { ui.cl = k.cl; ui.own = k.own || []; ui.clStale = k.at; ui.clErr = null; } }
+        else if (e.offline && ui.cl && ui.cl.length) ui.clStale = ui.clStale || Date.now();
+      }
+      ui.clLoaded = true;
+      setTimeout(() => autoBackup(), 800);
+    }
     X.clients = () => A.enabled ? (ui.cl || []) : S().profiles;
     const uidOf = p => p._uid || p.id;
     const find = id => X.clients().find(p => uidOf(p) === id);
@@ -399,7 +412,13 @@
     acts.cmpClear = () => { ui.cmpSel = []; c.render(); };
     acts.cmpAddAll = () => { const a = new Set(ui.cmpSel || []); (ui.cmpRes || []).forEach(id => a.add(id)); ui.cmpSel = Array.from(a); c.render(); };
     function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
-    function bkBanner() { if (!A.enabled) return ''; const d = bkDue(); if (!d) return ''; return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup da fare</b><p class="small" style="margin:4px 0">${d.h === null ? 'Non risulta ancora nessun backup su questo dispositivo.' : 'Ultimo backup di tutti gli utenti: oltre ' + d.h + ' ore fa.'} Fallo 1–2 volte al giorno: salva la copia ordinata di tutti sul PC.</p><button class="primary sm" data-act="bkUpdate">Backup ordinato adesso</button></div>`; }
+    function bkBanner() {
+      if (!A.enabled) return '';
+      const d = bkDue(), ab = +lsg('tlz.abts') || 0, hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      if (!d) return `<p class="mute small" style="margin:6px 2px">Backup automatico attivo: ultima copia sul PC alle ${hm(+lsg('tlz.orgts') || 0)}${ab ? ', nel browser alle ' + hm(ab) : ''}. Lo storico di ogni utente resta anche sul server.</p>`;
+      const linked = F.fsSupported() && ui.bkDir !== undefined;
+      return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup automatico</b><p class="small" style="margin:4px 0">${ab ? 'Copia automatica nel browser alle ' + hm(ab) + ' e storico sul server attivi.' : 'Sto preparando la prima copia automatica.'} ${d.h === null ? 'Sul PC non risulta ancora nessuna copia.' : 'L\'ultima copia sul PC è di oltre ' + d.h + ' ore fa.'} Per salvare da solo anche sul PC collega una cartella una volta sola: dopo si aggiorna in automatico a ogni apertura.</p><div class="row wrap" style="gap:6px">${F.fsSupported() ? '<button class="primary sm" data-act="bkOrgPick">Collega cartella del PC</button>' : ''}<button class="sm ${F.fsSupported() ? '' : 'primary'}" data-act="bkUpdate">Backup ordinato adesso</button>${ab ? '<button class="sm" data-act="bkLocalDl">Scarica ultima copia automatica</button>' : ''}</div></div>`;
+    }
     function rstCard() {
       const r = ui.rst, adm = A.isAdmin();
       if (!r) return `<div class="card"><h2>Ripristina da backup</h2><p class="small mute">Se serve recuperare i dati di uno o più utenti, carica il file di backup (lo ZIP con le cartelle, oppure i file .json). L'app riconosce a chi appartiene ogni profilo e te lo fa controllare prima di ripristinare.${adm ? ' Per scrivere sui dati degli utenti serve il lucchetto sbloccato (Profilo → Console).' : ''}</p>
@@ -432,7 +451,7 @@
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
       if (A.isAdmin() && ui.clLoaded && all.length) setTimeout(dailyOrg, 400);
-      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${coachBoard(list, X.clients().filter(p => inLens(p._acct || {})))}${bkBanner()}<details class="card" ${ui.rst || needBk ? 'open' : ''} style="padding:10px 14px"><summary><b>Backup, ripristino e importazione</b></summary>${A.enabled ? rstCard() : ''}
+      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${staleBanner()}${coachBoard(list, X.clients().filter(p => inLens(p._acct || {})))}${bkBanner()}<details class="card" ${ui.rst || needBk ? 'open' : ''} style="padding:10px 14px"><summary><b>Backup, ripristino e importazione</b></summary>${A.enabled ? rstCard() : ''}
         ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Salva subito la copia di tutti, ordinata per palestra, allenatore e utente (un Excel per ciascuno). Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup ordinato adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
@@ -560,6 +579,37 @@
     acts.bkOrgPick = async () => { try { await F.pickDir(); ui.bkDir = (await F.getDir()).name; await acts.bkUpdate(); } catch (e) { if (e && e.name !== 'AbortError') toast('Cartella non collegata: ' + e.message); } };
     /* ogni giorno, alla prima apertura, se una cartella del PC è collegata e il permesso c'è ancora: backup silenzioso */
     async function dailyOrg() { if (!A.enabled || !F.fsSupported() || ui.orgAuto) return; ui.orgAuto = true; let seen = null; try { seen = localStorage.getItem('tlz.orgday'); } catch (e) { } if (seen === dayStr()) return; try { const r = await orgBackup(false); if (r.ok) { localStorage.setItem('tlz.orgday', dayStr()); localStorage.setItem('tlz.orgts', String(Date.now())); toast('Backup giornaliero salvato sul PC'); } } catch (e) { } }
+    /* backup automatico: copia nel browser (ultime 10) + cartella del PC se collegata + storico per utente già sul server. Parte da solo a ogni aggiornamento dati. */
+    const clSig = () => (ui.cl || []).map(p => uidOf(p) + ':' + (p._updated || '') + ':' + (p.rmOn ? 1 : 0)).sort().join('|');
+    async function autoBackup(force) {
+      if (!A.enabled || !ui.clLoaded || !(ui.cl || []).length || ui.abBusy || ui.clStale || !A.me) return;
+      const last = +lsg('tlz.abts') || 0, sig = clSig(), same = sig === lsg('tlz.absig');
+      if (!force && (Date.now() - last < 10 * 60e3 || (same && Date.now() - last < 6 * 36e5))) return;
+      ui.abBusy = true;
+      try {
+        let local = false, pc = false;
+        if (F.kvSet) {
+          const at = Date.now(), snap = { at, n: ui.cl.length, by: A.me.id, cl: JSON.parse(JSON.stringify(ui.cl)) };
+          if (await F.kvSet('snap.' + at, snap)) { local = true; const idx = (await F.kvGet('snap.idx') || []).concat(at); while (idx.length > 10) await F.kvDel('snap.' + idx.shift()); await F.kvSet('snap.idx', idx); }
+        }
+        if (F.fsSupported()) { try { const r = await orgBackup(false); if (r.ok) { pc = true; lss('tlz.orgday', dayStr()); lss('tlz.orgts', String(Date.now())); } } catch (e) { } }
+        if (local || pc) { lss('tlz.abts', String(Date.now())); lss('tlz.absig', sig); lss('tlz.abpc', pc ? '1' : '0'); }
+      } catch (e) { } finally { ui.abBusy = false; }
+    }
+    X.autoBackup = autoBackup;
+    acts.bkLocalDl = async () => {
+      const idx = F.kvGet ? await F.kvGet('snap.idx') : null; const k = idx && idx.length ? await F.kvGet('snap.' + idx[idx.length - 1]) : null;
+      if (!k) { toast('Nessuna copia automatica nel browser'); return; }
+      F.saveBlob(new Blob([JSON.stringify(k.cl)], { type: 'application/json' }), 'COPIA_AUTOMATICA_' + new Date(k.at).toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json');
+    };
+    /* ogni 5 minuti, con l'app aperta e la rete presente: aggiorna i dati dei clienti da solo e rifà il backup se è cambiato qualcosa */
+    setInterval(async () => {
+      if (!A.enabled || !A.me || !staffMode() || navigator.onLine === false || document.hidden || ui.clBusy || !ui.clLoaded) return;
+      const before = clSig(); ui.clBusy = true; await loadClients(); ui.clBusy = false;
+      if (clSig() !== before && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) && !ui.sub) c.render();
+    }, 5 * 60e3);
+    window.addEventListener('online', async () => { if (A.enabled && A.me && staffMode() && ui.clLoaded && !ui.clBusy) { ui.clBusy = true; await loadClients(); ui.clBusy = false; c.render(); } });
+    function staleBanner() { return ui.clStale ? `<div class="msg warn small"><b>Sei offline.</b> Vedi i dati dell'ultimo aggiornamento (${new Date(ui.clStale).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}). Appena torna la rete si aggiornano da soli. Le azioni che cambiano i dati (nuovo cliente, schede, password) richiedono la connessione.</div>` : ''; }
     X.dailyOrg = dailyOrg;
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));

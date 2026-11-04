@@ -167,3 +167,5 @@ button.danger{border-color:var(--danger);color:var(--danger)}
 main.multi>details.card{break-inside:avoid}
 table.cmp th{white-space:nowrap}
 table.cmp td{vertical-align:middle}
+
+.syncline{font-size:.72rem;opacity:.75;padding:2px 0 0;line-height:1.3}
