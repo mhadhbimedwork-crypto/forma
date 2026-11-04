@@ -137,3 +137,27 @@ button.danger{border-color:var(--danger);color:var(--danger)}
 .dslide .kpi{padding:8px 4px}.dslide .kpi b{font-size:1.25rem}
 
 .acctmenu{margin:12px var(--gutter) 0}.acctbtn{border-radius:50%;clip-path:none!important;font-size:1rem!important}
+
+/* --- schermi larghi: tablet e PC --- */
+@media (min-width:768px){
+  #app{max-width:1040px}
+  :root{--gutter:22px}
+  main.multi{column-count:2;column-gap:16px}
+  main.multi>*{break-inside:avoid;min-width:0}
+  main.multi>:not(.card){column-span:all}
+  .bodies{max-width:520px}
+  #toast{max-width:60vw}
+}
+@media (min-width:1100px){
+  body{padding-bottom:24px}
+  nav.tabs{top:0;bottom:auto;right:auto;width:210px;height:100vh;flex-direction:column;justify-content:flex-start;padding:90px 10px 16px;border-top:0;border-right:1px solid var(--line2);gap:4px}
+  nav.tabs button{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;font-size:.9rem;min-height:48px;padding:0 14px;border-radius:4px}
+  nav.tabs button:hover{background:#ffffff0d}
+  nav.tabs button.on{background:#ffffff12}
+  nav.tabs button.on::before{top:20%;bottom:20%;left:0;right:auto;width:3px;height:auto;background:linear-gradient(var(--accent),var(--accent2))}
+  #app{margin:0;max-width:none;padding-left:210px;box-sizing:border-box}
+  header.top{margin-left:-210px;padding-left:calc(210px + var(--gutter))}
+  main{max-width:1400px}
+  main.multi{column-count:3}
+  #toast{bottom:28px;left:calc(50% + 105px)}
+}

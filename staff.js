@@ -290,7 +290,7 @@
       });
       return items;
     }
-    acts.rstLoad = async fl => { ui.rst = { busy: true, items: [], mode: ui.rstMode || 'merge' }; c.render(); try { const items = await rstMatch(fl); ui.rst = { busy: false, items, mode: ui.rstMode || 'merge', file: fl.map(f => f.name).join(', ') }; } catch (e) { ui.rst = null; toast('Lettura non riuscita: ' + e.message); } c.render(); };
+    acts.rstLoad = async (fl, only) => { ui.rst = { busy: true, items: [], mode: ui.rstMode || 'merge' }; c.render(); try { let items = await rstMatch(fl); if (only) { const mine = items.filter(x => x.uid === only); items = mine.length ? mine : [{ name: 'Il file', src: fl[0].name, target: null, why: 'non contiene dati di questo cliente (nome o data di nascita diversi)' }]; } ui.rst = { busy: false, items, mode: ui.rstMode || 'merge', file: fl.map(f => f.name).join(', ') }; } catch (e) { ui.rst = null; toast('Lettura non riuscita: ' + e.message); } c.render(); };
     acts.rstMode = t => { ui.rstMode = t.dataset.m; if (ui.rst) ui.rst.mode = t.dataset.m; c.render(); };
     acts.rstTick = t => { const it = ui.rst.items.find(x => x.uid === t.dataset.u); if (it) it.on = !it.on; c.render(); };
     acts.rstClose = () => { ui.rst = null; c.render(); };
@@ -386,7 +386,8 @@
       return `<div class="row"><button class="ghost" data-act="clientBack">← Clienti</button></div><h1>${esc(p.name)}</h1>
         <div class="card"><div class="mute small">${F.ageOf(p.birth)} anni · ${p.height} cm · ${fmt(st.weight, 1)} kg${st.weightDelta ? ` (${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} dall'inizio)` : ''}${F.isMinor(p) ? ' · minorenne' : ''}${acct ? ` · accesso: ${esc(acct.username)}` : ''}${p._updated ? ` · sincronizzato ${tr(String(p._updated).slice(0, 10))}` : ''}</div>
           <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions}</b><span>sedute</span></div><div class="kpi"><b>${st.adherence}%</b><span>aderenza 4 sett.</span></div><div class="kpi"><b>${fmt(st.volume28)}</b><span>kg volume 4 sett.</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div></div>
-          <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button></div></div>
+          <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button>${can && acct.role === 'client' ? `<label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica backup di ${esc(String(p.name).split(' ')[0])}<input type="file" id="rstOne" data-u="${esc(uidOf(p))}" accept=".zip,.json" multiple hidden></label>` : ''}</div></div>
+        ${can ? rstCard() : ''}
         <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
         ${X.bodyCard(p)}
         ${st.alerts.length ? `<div class="msg danger small"><b>Attenzione:</b> ${st.alerts.map(h => `${esc(h.label)} ${h.level}/10 (${esc(h.statusLabel.toLowerCase())})`).join(', ')}.</div>` : ''}
@@ -658,6 +659,7 @@
     X.onChange = function (t) {
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
+      if (t.id === 'rstOne' && t.files.length) { const fl = Array.from(t.files), uid = t.dataset.u; t.value = ''; acts.rstLoad(fl, uid); return true; }
       if (t.id === 'rstBk' && t.files.length) { const fl = Array.from(t.files); t.value = ''; acts.rstLoad(fl); return true; }
       if (t.id === 'rstFile' && t.files[0]) { const f = t.files[0], id = t.dataset.id; t.value = ''; f.text().then(async tx => { let d; try { d = JSON.parse(tx.replace(/^\ufeff/, '')); d = d.profile || d; } catch (e) { return toast('File non valido'); } const why = prompt('Motivo del ripristino (resta nel registro accessi):'); if (!why) return; try { await A.restoreData(id, d, why); toast('Dati ripristinati'); await loadClients(); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); } }); return true; }
       if (t.id === 'imp_file' && t.files[0]) { const f = t.files[0]; t.value = ''; toast('Leggo il file…'); F.fileToPlanText(f).then(tx => { const r = F.parseScheda(tx); r.days = r.days.filter(d => d.exercises.length); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non trovo esercizi nel file: controlla che ci siano colonne esercizio, serie e ripetizioni'); ui.sub.state = { parsed: r, title: f.name.replace(/\.[^.]+$/, '') }; c.render(); window.scrollTo(0, 0); }).catch(e => toast('Lettura non riuscita: ' + e.message)); return true; }
