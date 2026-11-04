@@ -1,9 +1,9 @@
 {
-  "version": "1.27.0",
-  "build": 70,
+  "version": "1.27.1",
+  "build": 71,
   "date": "2026-11-04",
   "notes": [
-    "Funziona anche senza rete: i dati restano sul telefono e partono da soli appena torna la connessione. Se hai usato due dispositivi, le copie si uniscono senza perdere nulla. In alto vedi sempre lo stato: Offline, Da inviare, Sincronizzato.",
-    "Amministratore e allenatori: i dati dei clienti si aggiornano da soli ogni pochi minuti e il backup parte in automatico (copia nel browser e, se collegata, cartella del PC). Senza rete vedi gli ultimi dati scaricati."
+    "THE LIFTING ZONE: ora c'è anche lo sblocco con impronta o volto (Profilo → Sblocco con impronta).",
+    "Backup: dal telefono puoi salvarlo su Drive o inviarlo con il tasto «Condividi»."
   ]
 }

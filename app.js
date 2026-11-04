@@ -149,14 +149,14 @@
       ${fs ? `<p class="small">${dir || `Collega una cartella del PC (es. Desktop/Allenamento/Backup): da lì in poi il backup si scrive da solo ogni giorno, alla prima apertura dell'app.`}</p>
       <div class="row wrap"><button class="sm primary" data-act="bkPick">${ui.bkDir ? 'Cambia cartella' : 'Scegli cartella del PC'}</button>${ui.bkDir ? '<button class="sm" data-act="bkForget">Scollega</button>' : ''}</div>` : ''}
       ${nat ? `<p class="small">Sul telefono il backup viene salvato in <b>Documenti/FORGIA-Backup</b> ogni giorno, alla prima apertura dell'app.</p>` : ''}
-      <div class="row wrap" style="margin-top:8px"><button class="sm ${fs ? '' : 'primary'}" data-act="bkNow">Fai il backup adesso</button>${nat ? '<button class="sm" data-act="bkShare">Condividi / invia ai file</button>' : ''}</div>
+      <div class="row wrap" style="margin-top:8px"><button class="sm ${fs ? '' : 'primary'}" data-act="bkNow">Fai il backup adesso</button>${nat || F.canWebShare() ? '<button class="sm" data-act="bkShare">Salva su Drive / invia (Condividi)</button>' : ''}</div>
       ${!fs && !nat ? '<p class="mute small">Questo browser non può scrivere nelle cartelle del PC: usa Chrome o Edge sul computer, oppure i file vengono scaricati in Download.</p>' : ''}
       <p class="mute small">I dati del telefono e quelli del PC sono separati: per spostare un profilo da un dispositivo all\'altro importa il suo file .json.</p>`;
   }
   function backupBanner() {
     const b = F.backupInfo(S); if (!b.due || ui.bkHide) return '';
     return `<div class="card" style="border-color:var(--warn)"><b>Backup da fare</b><div class="small">${b.last ? 'Oggi il backup non è ancora stato fatto.' : 'Non hai ancora fatto nessun backup dei tuoi dati.'}</div>
-      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button>${F.isNative() ? '<button class="sm" data-act="bkShare">Invia su Drive / WhatsApp</button>' : ''}<button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
+      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="bkNow">Backup adesso</button>${F.isNative() || F.canWebShare() ? '<button class="sm" data-act="bkShare">Invia su Drive / WhatsApp</button>' : ''}<button class="sm" data-act="bkLater">Più tardi</button></div></div>`;
   }
   async function refreshDir() { if (!F.fsSupported()) return; const h = await F.getDir(); ui.bkDir = h ? h.name : null; }
   async function autoBackup() {
@@ -189,7 +189,7 @@
     ok: false,
     key() { return KEY + '.bio.' + ((AC.me && AC.me.id) || ''); },
     get id() { try { return localStorage.getItem(bio.key()); } catch (e) { return null; } },
-    async check() { try { bio.ok = !GYM && !!(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { bio.ok = false; } },
+    async check() { try { bio.ok = !!(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { bio.ok = false; } },
     b64: u => btoa(String.fromCharCode.apply(null, u)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
     un: s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
     async enable() {
@@ -200,7 +200,7 @@
     off() { try { localStorage.removeItem(bio.key()); } catch (e) { } }
   };
   function bioCard() {
-    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp()) || GYM) return '';
+    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp())) return '';
     if (!bio.ok) return `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Su questo dispositivo non è disponibile. Succede se usi l'app installata dal file APK o un browser senza impronta. Apri FORGIA dal browser del telefono (Chrome o Safari) e scegli «Aggiungi a schermata Home»: lì l'impronta funziona.</p></div>`;
     return bio.id ? `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Attivo su questo dispositivo: ogni volta che apri l'app ti chiede l'impronta (o il volto) invece della password.</p><button class="sm" data-act="bioOff">Disattiva su questo dispositivo</button></div>`
       : `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Apri l'app con l'impronta o il volto, senza riscrivere nome e password. Vale solo su questo telefono; la password resta valida come alternativa.</p><button class="sm primary" data-act="bioOn">Attiva l'impronta</button>${ui.bioErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.bioErr)}</div>` : ''}</div>`;
@@ -1046,7 +1046,7 @@
     async bkPick() { try { const h = await F.pickDir(); ui.bkDir = h.name; const r = await F.runBackup(S, { interactive: true }); save(); render(); toast(r.ok ? 'Cartella collegata. Backup fatto: ' + r.where : 'Cartella collegata'); } catch (e) { if (!e || e.name !== 'AbortError') toast('Cartella non accessibile'); } },
     async bkForget() { await F.forgetDir(); ui.bkDir = null; render(); toast('Cartella scollegata'); },
     async bkNow() { const r = await F.runBackup(S, { interactive: true, manual: true }); if (r.ok) { save(); ui.bkHide = true; render(); toast(`Backup di ${r.profiles} profil${r.profiles === 1 ? 'o' : 'i'} salvato: ${r.where}`); } else toast('Backup non riuscito (' + r.reason + ')'); },
-    async bkShare() { try { await F.nativeShare(F.allFiles(S)); } catch (e) { toast('Condivisione annullata'); } },
+    async bkShare() { try { if (F.isNative()) await F.nativeShare(F.allFiles(S)); else await F.webShareZip(F.allFiles(S), 'FORGIA_backup_' + F.todayISO() + '.zip', 'FORGIA backup'); } catch (e) { toast(e && e.name === 'AbortError' ? 'Condivisione annullata' : 'Condivisione non disponibile su questo browser'); } },
     bkLater() { ui.bkHide = true; render(); },
     export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo_' + F.todayISO() + '.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
     profUse(t) { S.active = t.dataset.id; save(); ui.sub = null; ui.zone = null; render(); window.scrollTo(0, 0); },

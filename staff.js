@@ -417,7 +417,7 @@
       const d = bkDue(), ab = +lsg('tlz.abts') || 0, hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
       if (!d) return `<p class="mute small" style="margin:6px 2px">Backup automatico attivo: ultima copia sul PC alle ${hm(+lsg('tlz.orgts') || 0)}${ab ? ', nel browser alle ' + hm(ab) : ''}. Lo storico di ogni utente resta anche sul server.</p>`;
       const linked = F.fsSupported() && ui.bkDir !== undefined;
-      return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup automatico</b><p class="small" style="margin:4px 0">${ab ? 'Copia automatica nel browser alle ' + hm(ab) + ' e storico sul server attivi.' : 'Sto preparando la prima copia automatica.'} ${d.h === null ? 'Sul PC non risulta ancora nessuna copia.' : 'L\'ultima copia sul PC è di oltre ' + d.h + ' ore fa.'} Per salvare da solo anche sul PC collega una cartella una volta sola: dopo si aggiorna in automatico a ogni apertura.</p><div class="row wrap" style="gap:6px">${F.fsSupported() ? '<button class="primary sm" data-act="bkOrgPick">Collega cartella del PC</button>' : ''}<button class="sm ${F.fsSupported() ? '' : 'primary'}" data-act="bkUpdate">Backup ordinato adesso</button>${ab ? '<button class="sm" data-act="bkLocalDl">Scarica ultima copia automatica</button>' : ''}</div></div>`;
+      return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup automatico</b><p class="small" style="margin:4px 0">${ab ? 'Copia automatica nel browser alle ' + hm(ab) + ' e storico sul server attivi.' : 'Sto preparando la prima copia automatica.'} ${d.h === null ? 'Sul PC non risulta ancora nessuna copia.' : 'L\'ultima copia sul PC è di oltre ' + d.h + ' ore fa.'} Per salvare da solo anche sul PC collega una cartella una volta sola: dopo si aggiorna in automatico a ogni apertura.</p><div class="row wrap" style="gap:6px">${F.fsSupported() ? '<button class="primary sm" data-act="bkOrgPick">Collega cartella del PC</button>' : ''}${F.canWebShare() ? '<button class="sm primary" data-act="bkShareOrg">Salva su Drive / telefono (Condividi)</button>' : ''}<button class="sm ${F.fsSupported() ? '' : 'primary'}" data-act="bkUpdate">Backup ordinato adesso</button>${ab ? '<button class="sm" data-act="bkLocalDl">Scarica ultima copia automatica</button>' : ''}</div></div>`;
     }
     function rstCard() {
       const r = ui.rst, adm = A.isAdmin();
@@ -597,6 +597,7 @@
       } catch (e) { } finally { ui.abBusy = false; }
     }
     X.autoBackup = autoBackup;
+    acts.bkShareOrg = async () => { try { const files = await orgFiles(); if (!files.length) { toast('Nessun utente'); return; } await F.webShareZip(files, 'BACKUP_TLZ_' + dayStr() + '.zip', 'Backup utenti'); lss('tlz.orgts', String(Date.now())); lss('tlz.orgday', dayStr()); toast('Backup condiviso'); c.render(); } catch (e) { if (!e || e.name !== 'AbortError') toast('Condivisione non disponibile: uso il download'); if (e && e.name !== 'AbortError') acts.bkUpdate(); } };
     acts.bkLocalDl = async () => {
       const idx = F.kvGet ? await F.kvGet('snap.idx') : null; const k = idx && idx.length ? await F.kvGet('snap.' + idx[idx.length - 1]) : null;
       if (!k) { toast('Nessuna copia automatica nel browser'); return; }

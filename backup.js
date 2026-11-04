@@ -142,6 +142,12 @@
     return where;
   }
   /** Condivisione nativa (Android): scrive in cache e apre il menu Condividi (Drive, Files, WhatsApp, email…). */
+  /* dal telefono (Chrome/Safari): apre il menu «Condividi» con un unico file ZIP, da lì si sceglie Drive, File, WhatsApp… */
+  F.canWebShare = () => { try { return !F.isNative() && !!navigator.share && !!navigator.canShare && navigator.canShare({ files: [new File(['x'], 'a.zip', { type: 'application/zip' })] }); } catch (e) { return false; } };
+  F.webShareZip = async function (files, filename, title) {
+    const zf = []; for (const f of files) zf.push({ path: f.path, data: f.blob ? new Uint8Array(await f.blob.arrayBuffer()) : new TextEncoder().encode(f.text) });
+    await navigator.share({ files: [new File([F.zipBuild(zf)], filename, { type: 'application/zip' })], title: title || filename });
+  };
   F.nativeShare = async function (files, title) {
     const FS = Capacitor.Plugins.Filesystem, SH = Capacitor.Plugins.Share, uris = [];
     for (const f of files) {
