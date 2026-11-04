@@ -1,9 +1,9 @@
 {
-  "version": "1.22.0",
-  "build": 60,
+  "version": "1.23.0",
+  "build": 61,
   "date": "2026-11-04",
   "notes": [
-    "Schermo adattivo: su tablet schede su due colonne, su PC menu laterale e tre colonne.",
-    "Scheda cliente: «Carica backup» per ripristinare i dati di quella persona dal tuo PC."
+    "Nuovo (FORGIA): sblocco con impronta o volto. Profilo → «Attiva l'impronta»; vale solo sul tuo telefono, la password resta come alternativa.",
+    "Password dimenticata: l'allenatore o l'amministratore genera una password temporanea da dettare; la persona ne sceglie una sua al primo accesso."
   ]
 }

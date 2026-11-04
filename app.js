@@ -150,11 +150,35 @@
     const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
+  /* --- sblocco con impronta / Face ID (WebAuthn): vale solo su questo dispositivo --- */
+  const bio = {
+    ok: false,
+    key() { return KEY + '.bio.' + ((AC.me && AC.me.id) || ''); },
+    get id() { try { return localStorage.getItem(bio.key()); } catch (e) { return null; } },
+    async check() { try { bio.ok = !GYM && !!(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { bio.ok = false; } },
+    b64: u => btoa(String.fromCharCode.apply(null, u)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+    un: s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+    async enable() {
+      const cred = await navigator.credentials.create({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: BRAND }, user: { id: new TextEncoder().encode(AC.me.id), name: AC.me.username || AC.me.id, displayName: AC.me.full_name || BRAND }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' }, timeout: 60000 } });
+      localStorage.setItem(bio.key(), bio.b64(new Uint8Array(cred.rawId)));
+    },
+    async verify() { await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: 'public-key', id: bio.un(bio.id) }], userVerification: 'required', timeout: 60000 } }); },
+    off() { try { localStorage.removeItem(bio.key()); } catch (e) { } }
+  };
+  function bioCard() {
+    if (!(AC.enabled && AC.me) || (AC.imp && AC.imp()) || !bio.ok || AC.me.role === 'admin') return '';
+    return bio.id ? `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Attivo su questo dispositivo: ogni volta che apri l'app ti chiede l'impronta (o il volto) invece della password.</p><button class="sm" data-act="bioOff">Disattiva su questo dispositivo</button></div>`
+      : `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Apri l'app con l'impronta o il volto, senza riscrivere nome e password. Vale solo su questo telefono; la password resta valida come alternativa.</p><button class="sm primary" data-act="bioOn">Attiva l'impronta</button>${ui.bioErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.bioErr)}</div>` : ''}</div>`;
+  }
+  function lockView() {
+    return `<div class="card" style="text-align:center;margin-top:40px"><h2>App bloccata</h2><p class="small mute">Ciao ${esc(String((AC.me && AC.me.full_name) || '').split(' ')[0])}, tocca per sbloccare con impronta o volto.</p><button class="primary" style="width:100%;margin-top:8px" data-act="bioUnlock">Sblocca</button>${ui.bioErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.bioErr)}</div>` : ''}<button class="ghost" style="width:100%;margin-top:10px" data-act="bioOut">Entra con nome e password</button></div>`;
+  }
   function gate() {
     if (!AC.enabled) return null;
     if (!AC.me) return X.views.login();
     if (AC.needMfa) return X.views.mfa();
     const imp = AC.imp && AC.imp();
+    if (ui.locked && !imp) return lockView();
     if (AC.me.must_change_password && !imp) return X.views.newPassword();
     if (ui.consent === false && !imp) return X.views.consent();
     return null;
@@ -714,7 +738,7 @@
       <div class="row wrap" style="gap:6px;margin-top:8px"><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica un file di backup<input type="file" id="recFile" accept=".zip,.json" multiple hidden></label><button class="ghost sm" data-act="recClose">Chiudi</button></div></div>`;
   }
   function viewMe() {
-    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${recoverCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
+    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${bioCard()}${recoverCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
     const c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
@@ -745,7 +769,7 @@
       <div class="card"><h2>Dati</h2><div class="row wrap"><button class="sm" data-act="export">Esporta backup</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa file (profilo o backup)<input type="file" id="impBk" accept="application/json,.json" hidden></label></div>
 </div>
       ${X.dataCard(p)}
-      ${X.advancedCard()}${recoverCard()}
+      ${X.advancedCard()}${bioCard()}${recoverCard()}
       ${AC.enabled ? '' : `<div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
         <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>`}
@@ -868,6 +892,10 @@
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
     legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { const mine = l.profiles.filter(isMine); S.profiles = mine.length ? mine : l.profiles; l.active = mine.length ? mine[0].id : l.active; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
     legacyMerge() { const l = legacyRead(), m = l && l.profiles && l.profiles.find(isMine), p = P(); if (m && p) { Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, m, { id: p.id })))); save(); syncUp(); toast('Allenamenti uniti al tuo profilo'); } ui.legacyMine = null; render(); },
+    bioOn() { ui.bioErr = ''; bio.enable().then(() => { toast('Impronta attivata su questo dispositivo'); render(); }).catch(e => { ui.bioErr = 'Non riuscito: ' + (e && e.name === 'NotAllowedError' ? 'operazione annullata o non consentita' : (e && e.message) || e); render(); }); },
+    bioOff() { bio.off(); toast('Sblocco con impronta disattivato'); render(); },
+    bioUnlock() { ui.bioErr = ''; bio.verify().then(() => { ui.locked = false; ui.bioErr = ''; render(); }).catch(e => { ui.bioErr = 'Impronta non riconosciuta o annullata. Riprova.'; render(); }); },
+    bioOut() { bio.off(); ui.locked = false; AC.signOut(); onSignOut(); },
     recScan() { ui.rec = { list: scanLocal() }; render(); },
     recClose() { ui.rec = null; render(); },
     recAdd(t) {
@@ -1141,10 +1169,11 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
   if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && (AC.me.role === 'admin' || (AC.imp && AC.imp()))) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
+  { let hid = 0; document.addEventListener('visibilitychange', () => { if (document.hidden) hid = Date.now(); else if (hid && Date.now() - hid > 120000 && AC.enabled && AC.me && bio.ok && bio.id && !(AC.imp && AC.imp()) && !ui.locked) { ui.locked = true; render(); } }); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();
-  if (AC.enabled) AC.restore().then(me => me ? onSignIn() : render());
+  if (AC.enabled) bio.check().then(() => AC.restore()).then(me => { if (me && bio.ok && bio.id) ui.locked = true; return me ? onSignIn() : render(); });
   else autoBackup();
   checkVersion().then(r => {
     if (r === 'new' && !updTried() && !(P() && P().draft) && !(ui.sub && ui.sub.type === 'session')) return applyUpdateNow(true);   // aggiornamento automatico all'apertura, mai durante una seduta
