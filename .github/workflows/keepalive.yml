@@ -12,3 +12,8 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: forma-firma-v1
+      - name: Riattiva anche la chiave di THE LIFTING ZONE
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: tlz-firma-v1

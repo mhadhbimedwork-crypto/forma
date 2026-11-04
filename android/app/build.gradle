@@ -4,7 +4,7 @@ android {
     namespace = "it.forma.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "it.forma.app"
+        applicationId System.getenv("APP_ID") ?: "it.forma.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
