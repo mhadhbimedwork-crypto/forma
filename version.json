@@ -1,8 +1,11 @@
 {
-  "version": "1.20.2",
-  "build": 58,
-  "date": "2026-11-03",
+  "version": "1.21.0",
+  "build": 59,
+  "date": "2026-11-04",
   "notes": [
-    "Nuovo: Profilo → «Recupera i miei allenamenti». Cerca tutte le copie salvate sul telefono e le aggiunge al tuo profilo senza cancellare nulla."
+    "Clienti: barra di ricerca (nome, cognome, allenatore, palestra, obiettivo).",
+    "Ripristino da backup per amministratore e allenatori: carichi lo ZIP o i file e l'app riconosce a chi appartiene ogni profilo.",
+    "Profilo: «Carica un file di backup» per recuperare i propri dati da un file.",
+    "Avviso di backup giornaliero (1–2 volte al giorno) e storico versioni sul server."
   ]
 }

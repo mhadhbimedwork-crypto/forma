@@ -272,6 +272,49 @@
         ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : ''}
         <div style="margin-top:8px">${X.dashStrip(p)}</div>`;
     }
+    /* ---- ripristino da file di backup (amministratore per tutti, allenatore per i suoi utenti) ---- */
+    const nTok = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/)[0] || '';
+    async function rstMatch(files) {
+      X.ensureAdmin(); if (!ui.admLoaded) { try { ui.accts = await A.listAccounts(); } catch (e) { } }
+      const found = await F.readBackupFiles(files), targets = (ui.accts || []).filter(a => a.role === 'client'), cur = new Map(X.clients().map(p => [p._uid, p]));
+      const groups = new Map(), items = [];
+      for (const f of found) {
+        const cand = targets.filter(a => nTok(a.full_name) === nTok(f.profile.name) && (!a.birth || !f.profile.birth || a.birth === f.profile.birth));
+        if (cand.length !== 1) { items.push({ name: f.profile.name, src: f.src, target: null, why: cand.length ? 'più utenti con questo nome: serve la data di nascita nel backup' : 'nessun utente corrispondente tra quelli che puoi gestire' }); continue; }
+        const g = groups.get(cand[0].id); if (g) { g.bk = F.mergeProfiles(g.bk, f.profile); g.srcs.push(f.src); } else groups.set(cand[0].id, { acct: cand[0], bk: f.profile, srcs: [f.src] });
+      }
+      groups.forEach((g, uid) => {
+        const c = cur.get(uid) || null, base = c ? F.shareable(c) : null, merged = base ? F.mergeProfiles(base, F.shareable(g.bk)) : F.shareable(g.bk);
+        const add = (k, a, b2) => ((b2 && b2[k]) || []).length - ((a && a[k]) || []).length;
+        items.push({ name: g.acct.full_name, uid, src: g.srcs[0], n: g.srcs.length, target: uid, bk: F.shareable(g.bk), merged, curN: c ? (c.sessions || []).length : 0, bkN: (g.bk.sessions || []).length, addS: add('sessions', c, merged), addP: add('plans', c, merged), addW: add('weights', c, merged), has: !!c, on: true });
+      });
+      return items;
+    }
+    acts.rstLoad = async fl => { ui.rst = { busy: true, items: [], mode: ui.rstMode || 'merge' }; c.render(); try { const items = await rstMatch(fl); ui.rst = { busy: false, items, mode: ui.rstMode || 'merge', file: fl.map(f => f.name).join(', ') }; } catch (e) { ui.rst = null; toast('Lettura non riuscita: ' + e.message); } c.render(); };
+    acts.rstMode = t => { ui.rstMode = t.dataset.m; if (ui.rst) ui.rst.mode = t.dataset.m; c.render(); };
+    acts.rstTick = t => { const it = ui.rst.items.find(x => x.uid === t.dataset.u); if (it) it.on = !it.on; c.render(); };
+    acts.rstClose = () => { ui.rst = null; c.render(); };
+    acts.rstGo = async () => {
+      const r = ui.rst; if (!r || r.busy) return; const todo = r.items.filter(x => x.target && x.on); if (!todo.length) return toast('Nessun utente selezionato');
+      const names = todo.map(x => x.name).join(', '); if (!confirm(`${r.mode === 'replace' ? 'SOSTITUIRE' : 'Unire'} i dati di: ${names}?`)) return;
+      r.busy = true; c.render(); let ok = 0, err = '';
+      for (const it of todo) { try { await A.restoreData(it.uid, r.mode === 'replace' ? it.bk : it.merged, 'Ripristino da backup ' + (r.file || it.src)); ok++; } catch (e) { err = e.message; } }
+      ui.clLoaded = false; ui.clBusy = false; await loadClients(); ui.rst = null; c.render(); toast(err ? `Ripristinati ${ok}. Errore: ${err}` : `Ripristino completato: ${ok} utent${ok === 1 ? 'e' : 'i'}`);
+    };
+    function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
+    function bkBanner() { if (!A.enabled) return ''; const d = bkDue(); if (!d) return ''; return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup da fare</b><p class="small" style="margin:4px 0">${d.h === null ? 'Non risulta ancora nessun backup su questo dispositivo.' : 'Ultimo backup di tutti gli utenti: oltre ' + d.h + ' ore fa.'} Fallo 1–2 volte al giorno: salva la copia ordinata di tutti sul PC.</p><button class="primary sm" data-act="bkUpdate">Backup ordinato adesso</button></div>`; }
+    function rstCard() {
+      const r = ui.rst, adm = A.isAdmin();
+      if (!r) return `<div class="card"><h2>Ripristina da backup</h2><p class="small mute">Se serve recuperare i dati di uno o più utenti, carica il file di backup (lo ZIP con le cartelle, oppure i file .json). L'app riconosce a chi appartiene ogni profilo e te lo fa controllare prima di ripristinare.${adm ? ' Per scrivere sui dati degli utenti serve il lucchetto sbloccato (Profilo → Console).' : ''}</p>
+        <label class="btn sm primary" style="margin:0;display:inline-flex;align-items:center">Scegli file di backup<input type="file" id="rstBk" accept=".zip,.json" multiple hidden></label></div>`;
+      if (r.busy) return `<div class="card"><h2>Ripristina da backup</h2><p class="mute">Un momento…</p></div>`;
+      return `<div class="card"><h2>Ripristina da backup</h2><p class="mute small">File: ${esc(r.file || '')}</p>
+        ${r.items.length ? '' : '<p>Nel file non ho trovato profili di utenti.</p>'}
+        ${r.items.map(it => it.target ? `<label class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0;align-items:flex-start"><input type="checkbox" style="width:auto;margin-top:4px" data-act="rstTick" data-u="${esc(it.uid)}" ${it.on ? 'checked' : ''}><span><b>${esc(it.name)}</b><div class="mute small">Backup: ${it.bkN} allenament${it.bkN === 1 ? 'o' : 'i'} · Ora sul server: ${it.has ? it.curN : 'nessun dato'}${it.addS || it.addP || it.addW ? `<br>Verrebbero aggiunti: ${it.addS} allenamenti, ${it.addP} schede, ${it.addW} pesate` : '<br>Niente di nuovo da aggiungere'}</div></span></label>` : `<div style="border-top:1px solid var(--line);padding:8px 0"><b>${esc(it.name)}</b> <span class="chip warn">non ripristinabile</span><div class="mute small">${esc(it.why)}</div></div>`).join('')}
+        <div class="row wrap" style="gap:6px;margin:10px 0"><button class="sm ${r.mode === 'merge' ? 'primary' : ''}" data-act="rstMode" data-m="merge">Unisci (consigliato)</button><button class="sm ${r.mode === 'replace' ? 'primary' : ''}" data-act="rstMode" data-m="replace">Sostituisci con il backup</button></div>
+        <p class="mute small" style="margin:0 0 8px">${r.mode === 'merge' ? 'Unisci: aggiunge ciò che manca senza cancellare niente.' : 'Sostituisci: i dati sul server diventano identici al backup. Una copia di quelli attuali resta nello storico.'}</p>
+        <div class="row wrap" style="gap:6px"><button class="primary sm" data-act="rstGo" ${r.items.some(x => x.target && x.on) ? '' : 'disabled'}>Ripristina selezionati</button><button class="ghost sm" data-act="rstClose">Annulla</button></div></div>`;
+    }
     /* Vista palestra (solo amministratore): vedi ciò che vede l'allenatore di una palestra, o tutte insieme */
     const lensBar = () => { if (!(A.enabled && A.me && A.me.role === 'admin')) return ''; X.ensureAdmin(); const g = ui.gyms || [];
       return `<div class="card"><div class="mute small" style="margin-bottom:6px">Vista palestra</div><div class="row wrap" style="gap:6px"><button class="sm ${!ui.lens ? 'primary' : ''}" data-act="lensSet" data-id="">Tutte (${g.length})</button>${g.map(x => `<button class="sm ${ui.lens === x.id ? 'primary' : ''}" data-act="lensSet" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`; };
@@ -280,13 +323,19 @@
     const inLens = a => !ui.lens || a.gym_id === ui.lens;
     views.clients = function () {
       X.ensureClients();
-      const q = (ui.clQ || '').toLowerCase(), list = X.clients().filter(p => inLens(p._acct || {}) && (!q || p.name.toLowerCase().includes(q)))
+      X.ensureAdmin();
+      const GL = { recomp: 'ricomposizione', cut: 'definizione dimagrire', mass: 'massa', strength: 'forza' };
+      const plain = v => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const hay = p => { const a = p._acct || {}, co = (ui.accts || []).find(x => x.id === a.coach_id), g = (ui.gyms || []).find(x => x.id === a.gym_id);
+        return plain([p.name, a.full_name, a.username, co && co.full_name, g && g.name, p.birth, GL[p.goal], p.sex === 'F' ? 'donna femmina' : 'uomo maschio', (p.plans || []).map(x => x.title).join(' '), a.active === false ? 'disattivato' : ''].join(' ')); };
+      const toks = plain(ui.clQ || '').split(/\s+/).filter(Boolean);
+      const list = X.clients().filter(p => inLens(p._acct || {}) && (!toks.length || (h => toks.every(t => h.includes(t)))(hay(p))))
         .sort((a, b) => (F.clientStats(b).alerts.length - F.clientStats(a).alerts.length) || a.name.localeCompare(b.name));
       const all = X.clients().filter(p => inLens(p._acct || {}));
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
       const needBk = A.enabled && ui.clLoaded && all.length && seen !== ver;
       if (A.isAdmin() && ui.clLoaded && all.length) setTimeout(dailyOrg, 400);
-      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}
+      return `<h1>Clienti${ui.lens ? ' · ' + esc(((ui.gyms || []).find(g => g.id === ui.lens) || {}).name || '') : ''}</h1>${lensBar()}${bkBanner()}${A.enabled ? rstCard() : ''}
         ${needBk ? `<div class="card" style="border-color:var(--warn)"><b>Aggiornamento ${esc(F.VERSION.version)} installato: backup di tutti gli utenti</b><div class="small mute">Salva subito la copia di tutti, ordinata per palestra, allenatore e utente (un Excel per ciascuno). Dopo un aggiornamento è la copia di sicurezza che ti salva in caso di problemi.</div><button class="sm primary" data-act="bkUpdate" style="margin-top:8px">Backup ordinato adesso</button></div>` : ''}
         ${A.enabled ? '' : '<div class="msg tip small">Modalità locale: i clienti sono i profili di questo dispositivo. Con il server collegato qui compaiono tutti i clienti della palestra, ognuno col proprio accesso.</div>'}
         ${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}
@@ -294,7 +343,7 @@
           <label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Importa Excel/CSV<input type="file" id="impTabAll" accept=".xlsx,.csv" hidden></label>
           ${A.enabled ? '<button class="sm" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button>' : ''}</div>
           <p class="mute small" style="margin-bottom:0">${all.length} client${all.length === 1 ? 'e' : 'i'}. L'Excel ha un foglio per tipo di dato con la colonna Cliente; l'importazione riconosce i clienti dal nome.</p></div>
-        ${all.length > 3 ? `<input id="clQ" placeholder="Cerca cliente…" value="${esc(ui.clQ || '')}" aria-label="Cerca cliente">` : ''}
+        <input id="clQ" type="search" placeholder="Cerca per nome, cognome, allenatore, palestra, obiettivo…" value="${esc(ui.clQ || '')}" aria-label="Cerca utente" autocomplete="off">${toks.length ? `<p class="mute small" style="margin:4px 2px">${list.length} risultat${list.length === 1 ? 'o' : 'i'} su ${all.length}</p>` : ''}
         ${A.enabled && !ui.clLoaded ? '<p class="mute">Caricamento…</p>' : ''}
         ${list.map(clientCard).join('') || (ui.clLoaded || !A.enabled ? '<p class="mute">Nessun cliente.</p>' : '')}`;
     };
@@ -397,10 +446,10 @@
       const zf = []; for (const f of files) zf.push({ path: f.path, data: f.blob ? new Uint8Array(await f.blob.arrayBuffer()) : new TextEncoder().encode(f.text) });
       await deliver(F.zipBuild(zf), 'BACKUP_TLZ_' + dayStr() + '.zip'); return { ok: true, where: 'file ZIP con le cartelle ordinate', n: files.length };
     }
-    acts.bkUpdate = async () => { try { const r = await orgBackup(true); if (r.ok) { localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); localStorage.setItem('tlz.orgday', dayStr()); toast('Backup ordinato salvato: ' + r.where); c.render(); } else toast('Backup non riuscito: ' + (r.reason || '')); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
+    acts.bkUpdate = async () => { try { const r = await orgBackup(true); if (r.ok) { localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); localStorage.setItem('tlz.orgday', dayStr()); localStorage.setItem('tlz.orgts', String(Date.now())); toast('Backup ordinato salvato: ' + r.where); c.render(); } else toast('Backup non riuscito: ' + (r.reason || '')); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
     acts.bkOrgPick = async () => { try { await F.pickDir(); ui.bkDir = (await F.getDir()).name; await acts.bkUpdate(); } catch (e) { if (e && e.name !== 'AbortError') toast('Cartella non collegata: ' + e.message); } };
     /* ogni giorno, alla prima apertura, se una cartella del PC è collegata e il permesso c'è ancora: backup silenzioso */
-    async function dailyOrg() { if (!A.enabled || !F.fsSupported() || ui.orgAuto) return; ui.orgAuto = true; let seen = null; try { seen = localStorage.getItem('tlz.orgday'); } catch (e) { } if (seen === dayStr()) return; try { const r = await orgBackup(false); if (r.ok) { localStorage.setItem('tlz.orgday', dayStr()); toast('Backup giornaliero salvato sul PC'); } } catch (e) { } }
+    async function dailyOrg() { if (!A.enabled || !F.fsSupported() || ui.orgAuto) return; ui.orgAuto = true; let seen = null; try { seen = localStorage.getItem('tlz.orgday'); } catch (e) { } if (seen === dayStr()) return; try { const r = await orgBackup(false); if (r.ok) { localStorage.setItem('tlz.orgday', dayStr()); localStorage.setItem('tlz.orgts', String(Date.now())); toast('Backup giornaliero salvato sul PC'); } } catch (e) { } }
     X.dailyOrg = dailyOrg;
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
@@ -609,6 +658,7 @@
     X.onChange = function (t) {
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
+      if (t.id === 'rstBk' && t.files.length) { const fl = Array.from(t.files); t.value = ''; acts.rstLoad(fl); return true; }
       if (t.id === 'rstFile' && t.files[0]) { const f = t.files[0], id = t.dataset.id; t.value = ''; f.text().then(async tx => { let d; try { d = JSON.parse(tx.replace(/^\ufeff/, '')); d = d.profile || d; } catch (e) { return toast('File non valido'); } const why = prompt('Motivo del ripristino (resta nel registro accessi):'); if (!why) return; try { await A.restoreData(id, d, why); toast('Dati ripristinati'); await loadClients(); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); } }); return true; }
       if (t.id === 'imp_file' && t.files[0]) { const f = t.files[0]; t.value = ''; toast('Leggo il file…'); F.fileToPlanText(f).then(tx => { const r = F.parseScheda(tx); r.days = r.days.filter(d => d.exercises.length); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non trovo esercizi nel file: controlla che ci siano colonne esercizio, serie e ripetizioni'); ui.sub.state = { parsed: r, title: f.name.replace(/\.[^.]+$/, '') }; c.render(); window.scrollTo(0, 0); }).catch(e => toast('Lettura non riuscita: ' + e.message)); return true; }
       if (t.dataset.adv) { ui.advOpen = true; S().settings[t.dataset.adv] = t.checked; c.save(); c.render(); return true; }

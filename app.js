@@ -707,11 +707,11 @@
   /* --- profilo / impostazioni --- */
   function recoverCard() {
     if (!(AC.enabled && AC.me) || (AC.imp && AC.imp())) return '';
-    if (!ui.rec) return `<div class="card"><h2>Recupera i miei allenamenti</h2><p class="small mute">Se i tuoi allenamenti non si vedono, qui cerco le copie salvate su questo telefono.</p><button class="sm" data-act="recScan">Cerca su questo telefono</button></div>`;
+    if (!ui.rec) return `<div class="card"><h2>Recupera i miei allenamenti</h2><p class="small mute">Se i tuoi allenamenti non si vedono, qui cerco le copie salvate su questo telefono.</p><div class="row wrap" style="gap:6px"><button class="sm" data-act="recScan">Cerca su questo telefono</button><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica un file di backup<input type="file" id="recFile" accept=".zip,.json" multiple hidden></label></div><p class="mute small" style="margin-top:6px">Hai un file di backup (dal tuo telefono, dal PC o dal tuo allenatore)? Caricalo: riconosco il tuo profilo e lo unisco ai dati che hai.</p></div>`;
     const l = ui.rec.list;
     return `<div class="card"><h2>Recupera i miei allenamenti</h2>${l.length ? '<p class="small mute">Ho trovato queste copie su questo telefono. Tocca «Aggiungi» sul tuo profilo: i dati si uniscono a quelli che hai già, senza cancellare nulla.</p>' : '<p class="small">Non ho trovato allenamenti salvati su questo telefono.</p>'}
-      ${l.map(x => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0"><div class="grow"><b>${esc(x.name)}</b> ${x.birth ? '<span class="mute small">' + esc(x.birth) + '</span>' : ''}<div class="mute small">${x.n} allenament${x.n === 1 ? 'o' : 'i'} · ultimo ${esc(x.last)}</div></div><button class="sm primary" data-act="recAdd" data-k="${esc(x.k)}" data-j="${x.j}">Aggiungi</button></div>`).join('')}
-      <button class="ghost sm" data-act="recClose">Chiudi</button></div>`;
+      ${l.map(x => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0"><div class="grow"><b>${esc(x.name)}</b> ${x.birth ? '<span class="mute small">' + esc(x.birth) + '</span>' : ''}<div class="mute small">${x.n} allenament${x.n === 1 ? 'o' : 'i'} · ultimo ${esc(x.last)}</div></div><button class="sm primary" data-act="recAdd" data-k="${esc(x.k || '')}" data-j="${x.j}" ${x.f ? 'data-f="1"' : ''}>Aggiungi</button></div>`).join('')}
+      <div class="row wrap" style="gap:6px;margin-top:8px"><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica un file di backup<input type="file" id="recFile" accept=".zip,.json" multiple hidden></label><button class="ghost sm" data-act="recClose">Chiudi</button></div></div>`;
   }
   function viewMe() {
     const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${recoverCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
@@ -872,10 +872,10 @@
     recClose() { ui.rec = null; render(); },
     recAdd(t) {
       const p = P(); if (!p) return toast('Crea prima il profilo');
-      try { const o = JSON.parse(localStorage.getItem(t.dataset.k)); const src = Array.isArray(o.profiles) ? o.profiles[+t.dataset.j] : o;
+      try { let src; if (t.dataset.f) src = ui.rec.files[+t.dataset.j]; else { const o = JSON.parse(localStorage.getItem(t.dataset.k)); src = Array.isArray(o.profiles) ? o.profiles[+t.dataset.j] : o; }
         if (!isMine(src) && !confirm('Questo profilo si chiama «' + src.name + '» e non sembra il tuo. Aggiungerlo comunque?')) return;
         const keep = JSON.stringify(S); try { localStorage.setItem(KEY + '.prerecupero.' + Date.now(), keep); } catch (e) { }
-        Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, src, { id: p.id })))); save(); syncUp(); ui.rec = { list: scanLocal() }; toast('Allenamenti aggiunti: ora ne hai ' + (p.sessions || []).length); render();
+        Object.assign(p, F.mergeProfiles(p, F.normalizeProfile(Object.assign({}, src, { id: p.id })))); save(); syncUp(); ui.rec = t.dataset.f ? ui.rec : { list: scanLocal() }; toast('Allenamenti aggiunti: ora ne hai ' + (p.sessions || []).length); render();
       } catch (e) { toast('Non riuscito: ' + e.message); }
     },
     legacyNo() { ui.legacyMine = null; ui.legacy = 0; render(); },
@@ -1059,6 +1059,7 @@
   }
   document.addEventListener('change', e => {
     const t = e.target, p = P(); if (X && X.onChange(t)) return;
+    if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }

@@ -49,7 +49,7 @@
 
   /* ---------- lettura ---------- */
   async function inflate(u8) { const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); }
-  async function unzip(buf) {
+  async function unzip(buf, only) {
     const u = new Uint8Array(buf), dv = new DataView(buf); let e = u.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
     if (e < 0) throw new Error('file Excel non valido');
     const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const out = {};
@@ -57,10 +57,12 @@
       const method = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
       const name = dec.decode(u.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
       const ln = dv.getUint16(lo + 26, true), lx = dv.getUint16(lo + 28, true), start = lo + 30 + ln + lx, raw = u.subarray(start, start + csz);
-      if (/\.(xml|rels)$/.test(name)) out[name] = dec.decode(method === 0 ? raw : await inflate(raw));
+      if ((only || /\.(xml|rels)$/).test(name)) out[name] = dec.decode(method === 0 ? raw : await inflate(raw));
     }
     return out;
   }
+  /** legge i file .json di uno zip → { percorso: testo } */
+  F.zipRead = buf => unzip(buf, /\.json$/i);
   const colIdx = ref => { const m = /^([A-Z]+)/.exec(ref); let n = 0; for (const ch of m[1]) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
   /** → { 'Nome foglio': [[celle...], ...] } */
   F.xlsxParse = async function (buf) {

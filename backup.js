@@ -78,6 +78,22 @@
     return o;
   };
   /** Legge un file FORGIA: profilo singolo o backup completo. */
+  /** Legge file di backup scelti dall'utente (.json di un profilo, .zip con più cartelle) → [{ profile, src }] */
+  F.readBackupFiles = async function (files) {
+    const out = [], take = (o, src) => {
+      if (!o || typeof o !== 'object') return;
+      if (Array.isArray(o.profiles)) { o.profiles.forEach(p => take(p, src)); return; }
+      const p = o.profile && typeof o.profile === 'object' ? o.profile : o;
+      if (p && p.name && Array.isArray(p.sessions)) { try { out.push({ profile: F.normalizeProfile(JSON.parse(JSON.stringify(p))), src }); } catch (e) { } }
+    };
+    for (const f of Array.from(files)) {
+      try {
+        if (/\.zip$/i.test(f.name)) { const z = await F.zipRead(await f.arrayBuffer()); Object.keys(z).forEach(k => { try { take(JSON.parse(z[k].replace(/^\ufeff/, '')), k); } catch (e) { } }); }
+        else take(JSON.parse((await f.text()).replace(/^\ufeff/, '')), f.name);
+      } catch (e) { }
+    }
+    return out;
+  };
   F.parseImport = function (text) {
     let d; try { d = JSON.parse(text.replace(/^﻿/, '')); } catch (e) { throw new Error('il file non è un JSON valido'); }
     if (d && d.format === 'forma-profile' && d.profile) return { kind: 'profile', profile: F.normalizeProfile(d.profile) };

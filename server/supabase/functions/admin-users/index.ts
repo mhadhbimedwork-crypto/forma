@@ -97,9 +97,11 @@ Deno.serve(async (req) => {
     await admin.from('profiles').update({ coach_id: c.id }).eq('id', target); await log('assign_coach', target, { coach_id: c.id }); return json({ ok: true });
   }
   if (b.action === 'restore_data') { // unica scrittura dell'admin sui dati: su richiesta della palestra, con motivo, sempre registrata
-    if (me.role !== 'admin') return json({ error: 'solo l\'amministratore' }, 403);
-    const { data: lk } = await admin.from('admin_lock').select('open').eq('id', true).single();
-    if (!lk?.open) return json({ error: 'blocco in scrittura attivo: sbloccalo dalla console' }, 403);
+    if (me.role === 'admin') {   // l'amministratore scrive sui dati altrui solo col lucchetto sbloccato; allenatori e principali solo sui propri utenti (già verificato sopra)
+      const { data: lk } = await admin.from('admin_lock').select('open').eq('id', true).single();
+      if (!lk?.open) return json({ error: 'blocco in scrittura attivo: sbloccalo dalla console' }, 403);
+    }
+    if (t.role !== 'client') return json({ error: 'si ripristinano solo i dati dei clienti' }, 403);
     if (!String(b.reason ?? '').trim() || typeof b.data !== 'object') return json({ error: 'servono motivo e dati da ripristinare' }, 400);
     await admin.from('client_data').upsert({ user_id: target, data: b.data, device: 'ripristino' }); await log('restore_data', target, { reason: String(b.reason).slice(0, 300) }); return json({ ok: true });
   }
@@ -121,6 +123,8 @@ Deno.serve(async (req) => {
   }
   if (b.action === 'delete') { // diritto alla cancellazione: account e tutti i dati collegati
     if (RANK[me.role] < 2) return json({ error: 'solo allenatore principale o amministratore' }, 403);
+    const { data: cd } = await admin.from('client_data').select('data, updated_at').eq('user_id', target).maybeSingle(); // copia di sicurezza prima di eliminare: resta nello storico
+    if (cd) await admin.from('client_data_history').insert({ user_id: target, data: cd.data, device: 'eliminazione account', saved_at: cd.updated_at });
     await log('delete_user', target, { role: t.role }); const { error } = await admin.auth.admin.deleteUser(target); return error ? json({ error: error.message }, 400) : json({ ok: true });
   }
   return json({ error: 'azione sconosciuta' }, 400);
