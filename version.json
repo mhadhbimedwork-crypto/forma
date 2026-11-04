@@ -1,10 +1,8 @@
 {
-  "version": "1.25.1",
-  "build": 64,
+  "version": "1.25.2",
+  "build": 65,
   "date": "2026-11-04",
   "notes": [
-    "Niente più uscita per inattività: resti dentro finché non esci tu.",
-    "Schermata di accesso: «Password dimenticata?» spiega come farsela reimpostare.",
-    "Profilo: la scheda «Sblocco con impronta» compare sempre, anche per l'amministratore; se il dispositivo non la supporta lo dice e spiega cosa fare."
+    "THE LIFTING ZONE: l'amministrazione totale resta solo su FORGIA; nell'app della palestra non si entra come amministratore."
   ]
 }
