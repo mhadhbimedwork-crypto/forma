@@ -1,8 +1,8 @@
 {
-  "version": "1.25.4",
-  "build": 67,
+  "version": "1.25.5",
+  "build": 68,
   "date": "2026-11-04",
   "notes": [
-    "THE LIFTING ZONE: tolto ogni «Torna amministratore». Il tuo profilo è un profilo come gli altri; l'amministrazione resta solo su FORGIA."
+    "Vista cliente (amministratore e allenatore): ora c'è il recupero completo come nell'app dell'atleta, con tutti i muscoli e «Quanto è pronto per ogni giorno»."
   ]
 }
