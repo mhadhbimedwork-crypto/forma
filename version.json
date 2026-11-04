@@ -1,9 +1,9 @@
 {
-  "version": "1.24.0",
-  "build": 62,
+  "version": "1.25.0",
+  "build": 63,
   "date": "2026-11-04",
   "notes": [
-    "Clienti: cruscotto dell'allenatore con avvisi (dolori, fermi, RPE alto, peso), tabella di confronto ordinabile e confronto allenamento tra 2-3 clienti.",
-    "Elenco clienti più compatto e a più colonne su PC; strumenti di backup raccolti in un riquadro."
+    "Allenatori e allenatori principali: «Il mio profilo atleta» nel menu. Crea con un tocco un profilo personale con il tuo nome, dati separati dai clienti; passi da allenatore ad atleta e torni senza altra password.",
+    "Nell'elenco clienti il tuo profilo atleta è segnato «personale»."
   ]
 }

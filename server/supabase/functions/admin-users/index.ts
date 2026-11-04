@@ -65,9 +65,22 @@ Deno.serve(async (req) => {
     if (b.consent) await admin.from('consents').insert((['privacy', 'dati_salute', 'termini'] as const).map((kind) => ({ user_id: r.id, kind, version: String(b.consent.version ?? '1'), is_minor: !!b.consent.is_minor, guardian_name: b.consent.guardian_name ?? null, guardian_contact: b.consent.guardian_contact ?? null, recorded_by: me.id })));
     await log('create_user', r.id, { role, username: r.username }); return json({ ok: true, ...r });
   }
-  if (b.action === 'list_own') { // profili "miei" dell'amministratore (es. il suo account da atleta)
-    if (me.role !== 'admin') return json({ error: 'solo l\'amministratore' }, 403);
+  if (b.action === 'list_own') { // profili "miei" (es. il mio account da atleta): amministratore, allenatore principale e allenatori
     const { data: o } = await admin.from('admin_own').select('user_id').eq('owner_id', me.id); return json({ ok: true, ids: (o ?? []).map((x: { user_id: string }) => x.user_id) });
+  }
+  if (b.action === 'create_own') { // crea il mio profilo atleta personale, collegato a me (stesso nome e cognome), senza password da ricordare
+    const { data: mine } = await admin.from('profiles').select('full_name, birth').eq('id', me.id).single();
+    const gym_id = me.role === 'admin' ? (b.gym_id ?? null) : me.gym_id; if (!gym_id) return json({ error: 'manca la palestra' }, 400);
+    const { data: have } = await admin.from('admin_own').select('user_id').eq('owner_id', me.id);
+    if (have && have.length) { const { data: ex } = await admin.from('profiles').select('id').in('id', have.map((x: { user_id: string }) => x.user_id)).eq('gym_id', gym_id).eq('role', 'client'); if (ex && ex.length) return json({ error: 'hai già un profilo atleta in questa palestra', id: ex[0].id }, 409); }
+    let coach_id = me.id;
+    if (me.role === 'admin') { const { data: h } = await admin.from('profiles').select('id').eq('gym_id', gym_id).eq('role', 'head').eq('active', true).limit(1).maybeSingle(); if (!h) return json({ error: 'la palestra non ha un allenatore principale' }, 400); coach_id = h.id; }
+    const parts = String(mine?.full_name ?? '').trim().split(/\s+/); const name = parts.shift() ?? ''; const surname = parts.join(' ') || name;
+    const al = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; const pw = Array.from(crypto.getRandomValues(new Uint8Array(18))).map((n) => al[n % al.length]).join('');
+    const r = await makeUser(name, surname, pw, 'client', gym_id, { birth: mine?.birth ?? null, coach_id, can_see_all: false });
+    if ('error' in r) return json({ error: r.error }, 400);
+    await admin.from('admin_own').upsert({ user_id: r.id, owner_id: me.id });
+    await log('create_own', r.id, { username: r.username }); return json({ ok: true, ...r });
   }
   const target = String(b.user_id ?? '');
   const { data: t } = await admin.from('profiles').select('id, role, gym_id, coach_id').eq('id', target).single();
@@ -111,7 +124,8 @@ Deno.serve(async (req) => {
     await log('set_own', target, { own: !!b.own }); return json({ ok: true });
   }
   if (b.action === 'impersonate') { // entra come un altro utente senza password: sessione vera per l'utente scelto (registrata nel registro)
-    if (me.role !== 'admin' || t.role === 'admin') return json({ error: 'non consentito' }, 403);
+    if (t.role === 'admin') return json({ error: 'non consentito' }, 403);
+    if (me.role !== 'admin') { const { data: mio } = await admin.from('admin_own').select('user_id').eq('user_id', target).eq('owner_id', me.id).maybeSingle(); if (!mio) return json({ error: 'puoi entrare solo nel tuo profilo atleta' }, 403); }
     const { data: tp } = await admin.from('profiles').select('username, active').eq('id', target).single();
     if (!tp) return json({ error: 'utente non trovato' }, 404);
     const { data: own } = await admin.from('admin_own').select('user_id').eq('user_id', target).eq('owner_id', me.id).maybeSingle();

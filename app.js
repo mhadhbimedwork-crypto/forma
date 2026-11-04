@@ -1168,7 +1168,7 @@
   Object.assign(act, X.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
-  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && (AC.me.role === 'admin' || (AC.imp && AC.imp()))) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
+  if (AC.mode === 'admin' || AC.enabled) { let idle = null; const arm = () => { clearTimeout(idle); idle = setTimeout(() => { if (AC.me && (AC.me.role === 'admin' || (AC.imp && AC.imp() && (!AC.imp().own || (AC.imp().from && AC.imp().from.role === 'admin'))))) { AC.signOut(); onSignOut(); toast('Disconnesso per inattività'); } }, 15 * 60 * 1000); }; ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, { passive: true })); arm(); }
   { let hid = 0; document.addEventListener('visibilitychange', () => { if (document.hidden) hid = Date.now(); else if (hid && Date.now() - hid > 120000 && AC.enabled && AC.me && bio.ok && bio.id && !(AC.imp && AC.imp()) && !ui.locked) { ui.locked = true; render(); } }); }
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });

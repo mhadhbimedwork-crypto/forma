@@ -180,7 +180,7 @@
     };
 
     /* ---------- area allenatore ---------- */
-    async function loadClients() { try { ui.cl = await A.listClients(); ui.clErr = null; } catch (e) { ui.clErr = e.message; } ui.clLoaded = true; }
+    async function loadClients() { try { ui.cl = await A.listClients(); ui.clErr = null; } catch (e) { ui.clErr = e.message; } try { ui.own = await A.listOwn(); } catch (e) { ui.own = ui.own || []; } ui.clLoaded = true; }
     X.clients = () => A.enabled ? (ui.cl || []) : S().profiles;
     const uidOf = p => p._uid || p.id;
     const find = id => X.clients().find(p => uidOf(p) === id);
@@ -266,7 +266,7 @@
     acts.cBody = t => { ui.cBody = t.dataset.m; c.render(); };
     function clientCard(p) {
       const st = F.clientStats(p), alert = st.alerts.length, late = st.daysSince != null && st.daysSince > 10;
-      return `<div class="card" style="${alert ? 'border-color:var(--danger)' : ''}"><div class="row" style="gap:8px"><div class="grow"><b>${esc(p.name)}</b>${F.isMinor(p) ? ' <span class="chip warn">minorenne</span>' : ''}${p._acct && !p._acct.active ? ' <span class="chip">disattivato</span>' : ''}
+      return `<div class="card" style="${alert ? 'border-color:var(--danger)' : ''}"><div class="row" style="gap:8px"><div class="grow"><b>${esc(p.name)}</b>${(ui.own || []).includes(uidOf(p)) ? ' <span class="chip ok">personale</span>' : ''}${F.isMinor(p) ? ' <span class="chip warn">minorenne</span>' : ''}${p._acct && !p._acct.active ? ' <span class="chip">disattivato</span>' : ''}
         <div class="mute small">${F.ageOf(p.birth)} anni · ${fmt(st.weight, 1)} kg · ${st.sessions} sedute${st.last ? ` · ultima ${tr(st.last)} (${st.daysSince === 0 ? 'oggi' : st.daysSince + ' g fa'})` : ' · nessuna seduta'}</div></div>
         <button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(p))}">Apri</button></div>
         ${st.pain.length ? `<div style="margin-top:8px">${st.pain.map(h => `<span class="chip ${chipCls(h.status)}">${arrow(h.status)} ${esc(h.label)} ${h.level}/10</span>`).join(' ')}</div>` : ''}
@@ -552,7 +552,7 @@
     }
     X.impBanner = function () {
       const i = A.imp && A.imp(); if (!i) return '';
-      return `<div class="msg" role="status" style="margin:8px var(--gutter);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="small grow"><b>${esc(A.me.full_name)}</b> · ${esc(roleName(A.me.role))} — ${i.write ? 'puoi modificare' : 'sola visione'}</span><button class="sm primary" data-act="impBack">Torna amministratore</button></div>`;
+      return `<div class="msg" role="status" style="margin:8px var(--gutter);display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="small grow"><b>${esc(A.me.full_name)}</b> · ${esc(roleName(A.me.role))} — ${i.write ? 'puoi modificare' : 'sola visione'}</span><button class="sm primary" data-act="impBack">Torna ${esc(i.from ? roleName(i.from.role).toLowerCase() : 'indietro')}</button></div>`;
     };
     acts.impGo = async t => {
       if (ui.impBusy) return; ui.impBusy = true; const a = (ui.accts || []).find(x => x.id === t.dataset.id);
@@ -675,10 +675,22 @@
 
     /* ---------- menù profili in alto (account, profili collegati, creazione profili) ---------- */
     const roleName = r => (A.roles && A.roles[r]) || r;
+    function ownSection() {
+      const me = A.me; if (!me || !['admin', 'head', 'coach'].includes(me.role)) return '';
+      const own = (ui.own || []).map(id => (ui.accts || []).find(a => a.id === id) || (ui.cl || []).map(p => ({ id: uidOf(p), full_name: p.name, role: 'client' })).find(a => a.id === id)).filter(Boolean);
+      if (me.role === 'admin') return '';
+      return `<h3 style="margin:12px 0 6px">Il mio profilo atleta</h3>${own.length ? own.map(a => `<button class="sm primary" style="width:100%;margin-bottom:6px" data-act="ownGo" data-id="${esc(a.id)}">Passa al mio profilo atleta · ${esc(a.full_name)}</button>`).join('') : (ui.own || []).length ? `<button class="sm primary" style="width:100%" data-act="ownGo" data-id="${esc(ui.own[0])}">Passa al mio profilo atleta</button>` : `<p class="mute small" style="margin:0 0 6px">Ti serve un profilo personale per allenarti: stesso nome e cognome, dati separati dai tuoi clienti. Entri e torni con un tocco, senza altra password.</p><button class="sm" style="width:100%" data-act="ownCreate" ${ui.ownBusy ? 'disabled' : ''}>${ui.ownBusy ? 'Creo…' : 'Crea il mio profilo atleta'}</button>`}${ui.ownErr ? `<div class="msg danger small" style="margin-top:6px">${esc(ui.ownErr)}</div>` : ''}`;
+    }
+    acts.ownGo = t => { acts.impGo(t); };
+    acts.ownCreate = async () => {
+      if (ui.ownBusy) return; ui.ownBusy = true; ui.ownErr = ''; c.render();
+      try { const r = await A.createOwn(); ui.own = (ui.own || []).concat(r.id); ui.cl = null; ui.clLoaded = false; ui.accts = null; ui.admLoaded = false; ui.ownBusy = false; toast('Profilo atleta creato'); await A.impersonate(r.id, A.me.full_name); ui.menu = false; await c.onSignIn(); }
+      catch (e) { ui.ownBusy = false; ui.ownErr = e.message; c.render(); }
+    };
     X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
     X.menu = function () {
       const me = A.me, r = me.role, links = A.links();
-      if (A.imp && A.imp()) return `<section class="card acctmenu" aria-label="Profili"><div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div><button class="sm primary" style="margin-top:10px" data-act="impBack">Torna amministratore</button></section>`;
+      if (A.imp && A.imp()) return `<section class="card acctmenu" aria-label="Profili"><div class="row" style="justify-content:space-between;align-items:center"><div><b>${esc(me.full_name)}</b><div class="mute small">${esc(roleName(r))}${A.gym ? ' · ' + esc(A.gym.name) : ''}</div></div><button class="ghost sm" data-act="menuToggle" aria-label="Chiudi">✕</button></div><button class="sm primary" style="margin-top:10px" data-act="impBack">Torna ${esc((A.imp().from && roleName(A.imp().from.role).toLowerCase()) || 'indietro')}</button></section>`;
       const mk = [];
       if (r === 'admin') { mk.push(['gymNew', '+ Nuova palestra con allenatore principale']); mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente / atleta']); }
       if (r === 'head') { mk.push(['coachNew', '+ Nuovo allenatore']); mk.push(['clientNew', '+ Nuovo cliente']); }
@@ -690,10 +702,11 @@
           <label for="lk_n">Nome</label><input id="lk_n" name="name" required><label for="lk_s">Cognome</label><input id="lk_s" name="surname" required><label for="lk_p">Password</label><input id="lk_p" name="password" type="password" required autocomplete="current-password">
           ${ui.linkErr ? `<div class="msg danger small" style="margin-top:6px">${esc(ui.linkErr)}</div>` : ''}<div class="row" style="gap:6px;margin-top:8px"><button class="primary sm">Collega</button><button type="button" class="ghost sm" data-act="linkClose">Annulla</button></div></form>`
           : '<button class="sm" style="margin-top:6px" data-act="linkOpen">+ Aggiungi un altro mio profilo</button>'}
+        ${ownSection()}
         ${mk.length ? `<h3 style="margin:12px 0 6px">Crea profili</h3><div class="row wrap" style="gap:6px">${mk.map(([a, l]) => `<button class="sm" data-act="menuDo" data-do="${a}">${l}</button>`).join('')}</div>` : ''}
         <div class="row wrap" style="gap:6px;margin-top:12px"><button class="sm" data-act="pwChange">Cambia password</button><button class="sm" data-act="logout">Esci</button></div></section>`;
     };
-    acts.menuToggle = () => { ui.menu = !ui.menu; ui.linkOpen = false; ui.linkErr = ''; c.render(); };
+    acts.menuToggle = () => { ui.menu = !ui.menu; ui.linkOpen = false; ui.linkErr = ''; if (ui.menu && A.enabled && A.me && ['head', 'coach'].includes(A.me.role) && !ui.ownLoaded) { ui.ownLoaded = true; A.listOwn().then(l => { ui.own = l; c.render(); }).catch(() => { }); } c.render(); };
     acts.menuDo = t => { ui.menu = false; const f = acts[t.dataset.do]; if (f) f(t); else c.render(); };
     acts.linkOpen = () => { ui.linkOpen = true; ui.linkErr = ''; c.render(); };
     acts.linkClose = () => { ui.linkOpen = false; ui.linkErr = ''; c.render(); };
@@ -709,7 +722,7 @@
     /* ---------- profilo: interruttori della modalità locale ---------- */
     X.advancedCard = function () {
       const st = S();
-      if (A.enabled && A.imp && A.imp()) return `<div class="card"><h2>Account</h2><p class="small">Stai usando il profilo di <b>${esc(A.me.full_name)}</b> come amministratore.</p><button class="sm primary" data-act="impBack">Torna amministratore</button></div>`;
+      if (A.enabled && A.imp && A.imp()) return `<div class="card"><h2>Account</h2><p class="small">Stai usando il profilo di <b>${esc(A.me.full_name)}</b>${A.imp().from ? ' come ' + esc(roleName(A.imp().from.role).toLowerCase()) : ''}.</p><button class="sm primary" data-act="impBack">Torna ${esc((A.imp().from && roleName(A.imp().from.role).toLowerCase()) || 'indietro')}</button></div>`;
       if (A.enabled) return `<div class="card"><h2>Account</h2><p class="small">Connesso come <b>${esc(A.me.full_name)}</b> (${esc(A.roles[A.me.role])}).</p>
         <div class="row wrap"><button class="sm" data-act="pwChange">Cambia password</button>${devMode() ? '<button class="sm" data-act="devOpen">Area sviluppatore</button>' : ''}<button class="sm" data-act="logout">Esci</button></div></div>`;
       if (window.FORMA_GYM) return '';   /* app palestra: il ruolo dell'account decide cosa si vede, niente interruttori manuali */

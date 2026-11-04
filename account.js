@@ -20,7 +20,7 @@
   const IMP = 'tlz.imp'; let imp = null; try { imp = JSON.parse(sessionStorage.getItem(IMP) || 'null'); } catch (e) { }
   if (imp && imp.tok) tok = imp.tok; else imp = null;
   const store = () => { if (imp) { try { imp.tok = tok; sessionStorage.setItem(IMP, JSON.stringify(imp)); } catch (e) { } return; } try { tok ? localStorage.setItem(KEY, JSON.stringify(tok)) : localStorage.removeItem(KEY); } catch (e) { } };
-  A.imp = () => imp ? { write: !!imp.write, name: imp.name, uid: imp.uid } : null;
+  A.imp = () => imp ? { write: !!imp.write, name: imp.name, uid: imp.uid, own: !!imp.own, from: imp.from || null } : null;
   async function raw(path, o) {
     const r = await fetch(cfg.url + path, o); let b = null; try { b = await r.json(); } catch (e) { }
     if (!r.ok) { const m = (b && (b.error_description || b.msg || b.message || b.error)) || ('errore ' + r.status); const err = new Error(String(m)); err.status = r.status; throw err; } return b;
@@ -94,13 +94,14 @@
   A.signOut = function () { if (imp) { imp = null; try { sessionStorage.removeItem(IMP); } catch (e) { } } if (A.me) { const l = lkGet(); const e = l.find(x => x.id === A.me.id); if (e) { e.tok = null; lkSet(l); } } tok = null; A.me = null; store(); };
   /* ---- accessi rapidi (solo amministratore) ---- */
   A.listOwn = () => admin({ action: 'list_own' }).then(r => r.ids || []);
+  A.createOwn = gymId => admin({ action: 'create_own', gym_id: gymId || undefined });
   A.setOwn = (uid, own) => admin({ action: 'set_own', user_id: uid, own: !!own });
   A.impersonate = async function (uid, name) {
-    if (!A.isAdmin() || imp) throw new Error('Non disponibile');
+    if (!(A.me && ['admin', 'head', 'coach'].includes(A.me.role)) || imp) throw new Error('Non disponibile');
     const r = await admin({ action: 'impersonate', user_id: uid });
     const b = await raw('/auth/v1/verify', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'magiclink', token_hash: r.token_hash }) });
     const prev = tok, prevMe = A.me;
-    imp = { tok: { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }, write: !!r.write, name: name || '', uid }; tok = imp.tok;
+    imp = { tok: { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }, write: !!r.write, own: !!r.own, from: prevMe ? { role: prevMe.role, name: prevMe.full_name } : null, name: name || '', uid }; tok = imp.tok;
     try { sessionStorage.setItem(IMP, JSON.stringify(imp)); await loadMe(); }
     catch (e) { imp = null; tok = prev; A.me = prevMe; try { sessionStorage.removeItem(IMP); } catch (e2) { } throw e; }
     return { write: imp.write };
