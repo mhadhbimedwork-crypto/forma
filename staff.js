@@ -413,7 +413,7 @@
     acts.cmpAddAll = () => { const a = new Set(ui.cmpSel || []); (ui.cmpRes || []).forEach(id => a.add(id)); ui.cmpSel = Array.from(a); c.render(); };
     function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
     function bkBanner() {
-      if (!A.enabled) return '';
+      if (!A.enabled || !A.isAdmin()) return '';   // lo stato dei backup/server lo vede solo l'amministratore
       const d = bkDue(), ab = +lsg('tlz.abts') || 0, hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
       if (!d) return `<p class="mute small" style="margin:6px 2px">Backup automatico attivo: ultima copia sul PC alle ${hm(+lsg('tlz.orgts') || 0)}${ab ? ', nel browser alle ' + hm(ab) : ''}. Lo storico di ogni utente resta anche sul server.</p>`;
       const linked = F.fsSupported() && ui.bkDir !== undefined;

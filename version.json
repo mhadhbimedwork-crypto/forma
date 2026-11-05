@@ -1,8 +1,8 @@
 {
-  "version": "1.27.3",
-  "build": 73,
-  "date": "2026-11-04",
+  "version": "1.27.4",
+  "build": 74,
+  "date": "2026-11-05",
   "notes": [
-    "THE LIFTING ZONE: icona della Home rifatta anche per iPhone. Su Android e PC l'icona nuova arriva da sola in pochi giorni; su iPhone togli l'app dalla Home e aggiungila di nuovo."
+    "Clienti e allenatori non vedono più messaggi su server, sincronizzazione o backup: restano visibili solo all'amministratore."
   ]
 }

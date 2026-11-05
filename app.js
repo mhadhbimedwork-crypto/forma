@@ -43,6 +43,7 @@
   let syncBusy = false, syncAgain = false;
   function syncText() {
     if (!(AC.enabled && AC.me)) return '';
+    if (!AC.isAdmin()) return navigator.onLine === false ? 'Offline · puoi continuare a usare l\'app' : '';   // clienti e allenatori non vedono stato server/sincronizzazione: solo l'amministratore
     const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
     if (navigator.onLine === false) return isDirty() ? 'Offline · dati salvati sul telefono, si inviano da soli appena torna la rete' : 'Offline · puoi continuare, i dati restano sul telefono';
     if (syncBusy) return 'Sincronizzo…';
@@ -264,7 +265,7 @@
       <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.'}</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
       ${AC.enabled && ui.legacyMine ? `<div class="card"><b>Trovato il tuo profilo con i tuoi allenamenti</b><p class="mute small">Su questo telefono c'è il profilo «${esc(ui.legacyMine.name)}» con ${ui.legacyMine.n} allenament${ui.legacyMine.n === 1 ? 'o' : 'i'} salvat${ui.legacyMine.n === 1 ? 'o' : 'i'} prima di entrare con un account. Lo unisco al tuo account senza perdere nulla.</p><button class="primary" data-act="legacyMerge">Sì, unisci i miei allenamenti</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}${AC.enabled && ui.legacy ? `<div class="card"><b>Dati trovati su questo dispositivo</b><p class="mute small">Ci sono ${ui.legacy} profil${ui.legacy === 1 ? 'o' : 'i'} salvat${ui.legacy === 1 ? 'o' : 'i'} prima di entrare con un account. Vuoi portarli nel tuo account? Restano comunque sul telefono.</p><button class="primary" data-act="legacyYes">Sì, importa i miei dati</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}
-      <p class="mute small">${AC.enabled ? 'I tuoi dati sono salvati sul tuo dispositivo, con una copia protetta sul server: li vedono solo tu e il tuo allenatore.' : 'I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).'}</p>`;
+      <p class="mute small">${AC.enabled ? 'I tuoi dati sono salvati sul tuo dispositivo, li vedono solo tu e il tuo allenatore.' : 'I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).'}</p>`;
   }
 
   /* --- profilo (form) --- */
