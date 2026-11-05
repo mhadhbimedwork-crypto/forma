@@ -131,12 +131,15 @@
     const newDay = n => { cur = { name: n, exercises: [] }; days.push(cur); defRest = null; };
     let gseq = 0;
     /* alternative: "A / B - 3x8-10 / EMOM 6'" (stesso numero di parti) oppure "A / B - 3x8" con entrambi gli esercizi riconosciuti */
-    const splitAlt = line => {
+    const splitAlt = line0 => {
+      let line = line0;
+      // "A / B: 3x8" (due punti al posto del trattino)
+      if (!/\s[-–—]\s/.test(line)) { const cm = line.match(/^([^:]*\/[^:]*):\s*(.*\d.*)$/); if (cm) line = cm[1].trim() + ' - ' + cm[2].trim(); }
       const sp = line.split(/\s+[-–—]\s+/); if (sp.length < 2) return null;
-      const names = sp[0].split(/\s+\/\s+/), schemes = sp.slice(1).join(' - ').split(/\s+\/\s+/);
-      if (names.length < 2 || names.some(n => !n.trim())) return null;
+      const names = sp[0].split(/\s*\/\s*/), schemes = sp.slice(1).join(' - ').split(/\s+\/\s+/);
+      if (names.length < 2 || names.some(n => !n.trim() || /\d/.test(n.replace(/\([^)]*\)/g, '')) || n.replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3)) return null;
       if (schemes.length === names.length) return names.map((n, k) => n.trim() + ' - ' + schemes[k].trim());
-      if (schemes.length === 1 && names.every(n => { const m = F.matchExercise(n.trim()); return m && m.score >= 0.75; })) return names.map(n => n.trim() + ' - ' + schemes[0].trim());
+      if (schemes.length === 1) return names.map(n => n.trim() + ' - ' + schemes[0].trim());
       return null;
     };
     const addLine = (line, rawLine, grp) => {

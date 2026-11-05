@@ -356,9 +356,17 @@
     const day = plan.days[d.dayIdx], early = early0(p, plan);
     const lastBW = (p.weights || []).slice(-1)[0];
     const prevS = (p.sessions || []).filter(q => q.planId === plan.id && q.dayName === day.name).slice(-1)[0];
+    const grpIdx = {}; day.exercises.forEach((x, i) => { if (x.altGroup) (grpIdx[x.altGroup] = grpIdx[x.altGroup] || []).push(i); });
+    const chooser = (x, i) => {
+      const g = grpIdx[x.altGroup]; if (!g || g[0] !== i || g.length < 2) return '';
+      const onN = g.filter(j => exOn(d, day.exercises[j], j));
+      const opt = (val, label, chk) => `<label style="display:flex;gap:10px;align-items:center;margin:6px 0;cursor:pointer"><input type="radio" name="altp_${x.altGroup}" data-altpick="${x.altGroup}|${val}" ${chk ? 'checked' : ''} style="width:auto"> <span><b>${label}</b></span></label>`;
+      return `<div class="card" style="border:1px solid var(--accent)"><b>Scegli quale fare oggi</b><p class="mute small" style="margin:4px 0 6px">L'allenatore ti ha indicato due esercizi alternativi (nella scheda sono separati da «/»). Ne basta uno: scegli quello che preferisci o che hai a disposizione, mettendo la spunta. L'altro resta chiuso e puoi cambiare idea quando vuoi.</p>${g.map(j => opt(j, esc(day.exercises[j].name), onN.length === 1 && onN[0] === j)).join('')}${opt('both', 'Li faccio entrambi', onN.length === g.length)}</div>`;
+    };
     const blocks = day.exercises.map((x, i) => {
-      const on = exOn(d, x, i), altBar = x.altGroup ? `<label class="small" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;cursor:pointer"><input type="checkbox" data-altuse="${i}" ${on ? 'checked' : ''}> <b>${x.alt ? 'Alternativa' : 'Esercizio principale'}</b> · lo faccio oggi <span class="mute">(puoi sceglierne uno o entrambi)</span></label>` : '';
-      if (!on) return `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b> <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
+      const on = exOn(d, x, i), altBar = '';
+      const ch = chooser(x, i);
+if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b> <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = setCount(d, i, x, early);
       const pe0 = prevS && prevS.ex.find(q => q.exId === x.exId);
@@ -373,7 +381,7 @@
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>`);
       }
-      return `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
+      return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct && pt && pt.off ? '<div class="msg warn small">Percentuale del massimale non attiva per ora: usa i kg o lo sforzo indicati dall\'allenatore.</div>' : x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
         ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Dati della volta scorsa (${prevS.date}) in ogni serie · solo lettura</div>` : ''}
@@ -1144,6 +1152,7 @@
     if (t.id === 'rc_name' || t.id === 'rc_note') { readRecipe(); return; }
     if (t.id === 'rc_por') { readRecipe(); render(); return; }
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
+    if (t.dataset.altpick != null) { const [gid, v] = t.dataset.altpick.split('|'), plan = planOf(p), dd = p.draft, ex = plan.days[dd.dayIdx].exercises; dd.use = dd.use || {}; ex.forEach((x, j) => { if (x.altGroup === gid) dd.use[j] = v === 'both' || +v === j; }); save(); render(); return; }
     if (t.dataset.altuse != null) { const d = p.draft, i = +t.dataset.altuse; d.use = d.use || {}; d.use[i] = t.checked; save(); render(); return; }
     if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
