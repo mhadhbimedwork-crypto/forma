@@ -173,7 +173,7 @@
   /* ---------- VISTE ---------- */
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const brand = `<div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span><span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
+    const brand = `<div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}<span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
     if (!p) return `<header class="top">${brand}${AC.enabled && AC.me ? '<div style="position:absolute;right:var(--gutter);top:calc(env(safe-area-inset-top) + 22px)">' + X.menuBtn() + '</div>' : ''}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}
@@ -223,7 +223,7 @@
     const p = P(), g = gate(), staff = !!(X && X.showClients());
     if (p && AC.enabled && AC.me && AC.me.role === 'client' && !p._acct) p.rmOn = !!AC.me.rm_enabled;
     let body;
-    if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow"><img src="${GYM ? 'icons/gym/mark.png' : 'icons/mark.png'}" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span></div></header><main>${g}</main>`; return; }
+    if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}</div></header><main>${g}</main>`; return; }
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team'].includes(ui.tab)) ui.tab = X.homeTab();
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();

@@ -1,8 +1,8 @@
 {
-  "version": "1.27.5",
-  "build": 75,
+  "version": "1.27.6",
+  "build": 76,
   "date": "2026-11-05",
   "notes": [
-    "Allenatore e amministratore: «Schede inviate» è ora in alto nel profilo di ogni cliente, con data di invio, stato (in attesa / ricevuta / in uso) e differenze tra le versioni."
+    "THE LIFTING ZONE: nuovo logo ufficiale (scritta rossa e bianca) nell'app, nell'icona e nella schermata iniziale."
   ]
 }

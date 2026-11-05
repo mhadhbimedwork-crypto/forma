@@ -18,7 +18,7 @@ for d,s in leg.items():
 for p in glob.glob(f'{R}/drawable*/splash.png'):
     w,h=Image.open(p).size
     im=Image.new('RGBA',(w,h),bg+(255,))
-    m=int(min(w,h)*0.42); mk=mark.resize((m,int(m*mark.size[1]/mark.size[0])),Image.LANCZOS)
+    m=int(min(w,h)*0.72); mk=mark.resize((m,int(m*mark.size[1]/mark.size[0])),Image.LANCZOS)
     im.alpha_composite(mk,((w-mk.size[0])//2,(h-mk.size[1])//2))
     save(im,p.replace(R,O))
 print('ok',bg, mark.size)
