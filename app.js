@@ -308,8 +308,8 @@
         <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    const upd = ui.update ? `<div class="card" style="border-color:var(--accent)"><b>Aggiornamento disponibile · v${esc(ui.update.version)}</b>${(ui.update.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}${ui.updStuck ? '<div class="msg warn small">L\'aggiornamento non è ancora arrivato su questo telefono. Chiudi del tutto l\'app, riaprila e tocca di nuovo Aggiorna. I tuoi dati non si perdono.</div>' : ''}<div class="row" style="margin-top:8px"><button class="primary sm" data-act="applyUpdate">Aggiorna ora</button></div></div>` : '';
-    const news = ui.whatsNew ? `<div class="card" style="border-color:var(--accent)"><b>Novità · versione ${esc(ui.whatsNew.version)}</b>${(ui.whatsNew.notes || []).map(n => `<div class="small">• ${esc(n)}</div>`).join('')}<div class="row" style="margin-top:8px"><button class="sm" data-act="dismissNews">Ok, ho letto</button></div></div>` : '';
+    const upd = '';   // nessun avviso di aggiornamento: si aggiorna in silenzio; lo stato si chiede dal Profilo
+    const news = '';
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
     return `${upd}${news}${backupBanner()}${inbox}${symCard}${next}
@@ -803,9 +803,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${c.minor ? '<div class="msg warn">Per i minorenni: niente integratori e niente bruciagrassi. Le proteine si coprono con il cibo.</div>' : '<div class="msg">Integratori con evidenza: creatina monoidrato 3-5 g/giorno, proteine in polvere solo se non arrivi col cibo. Maltodestrine, destrosio e BCAA non servono per questo obiettivo.</div>'}</div>
       ${intolCard(p)}
 `}
-      <div class="card"><h2>Aggiornamenti e richieste</h2>
-      <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${ui.update ? ` · <span class="chip warn">disponibile v${esc(ui.update.version)}</span>` : ''}</p>
-      ${GYM ? '<p class="mute small" style="margin:4px 0">L\'icona sulla Home dopo un cambio di logo si aggiorna da sola su Android (Chrome) e PC: basta aprire l\'app, ci vogliono da uno a qualche giorno. Su iPhone va tolta dalla Home e aggiunta di nuovo (i dati restano sul tuo account).</p>' : ''}<div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}</div>
+      ${GYM ? '<div hidden>' : '<div class="card">'}<h2>Aggiornamenti e richieste</h2>
+      <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${NATIVE ? ' · app Android' + (APKB ? ' ' + APKB : '') : ''}</p>
+      <p class="small" role="status">${esc(ui.updMsg || '')}</p>${ui.updStuck ? '<div class="msg warn small">L\'aggiornamento non è ancora arrivato su questo telefono. Chiudi del tutto l\'app, riaprila e tocca di nuovo Aggiorna. I tuoi dati non si perdono.</div>' : ''}
+      <div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}${ui.apkNew ? '<button class="sm primary" data-act="apkInstall">Scarica il nuovo APK</button>' : ''}</div>
       ${GYM ? '</div>' : `
       <h3>Chiedi una modifica o una funzione nuova</h3>
       <textarea id="reqText" style="min-height:90px;font-family:inherit;font-size:.95rem" placeholder="Es. aggiungi un esercizio, cambia i colori, correggi un errore…" aria-label="Richiesta di modifica"></textarea>
@@ -1045,7 +1046,13 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       if (!confirm('Ultima conferma: l\'eliminazione è definitiva e non si può annullare. Eliminare davvero questa seduta?')) return;
       p.sessions = p.sessions.filter(x => x.id !== s.id); save(); render(); toast('Seduta eliminata');
     },
-    async checkUpdate() { toast('Controllo in corso…'); const r = await checkVersion(true); if (r === 'new') toast('Aggiornamento disponibile'); else if (r === 'same') toast('Sei già alla versione più recente'); else toast('Impossibile controllare: sei offline?'); render(); },
+    async checkUpdate() {
+      ui.updMsg = 'Controllo in corso…'; render();
+      const r = await checkVersion(true), a = await checkApk();
+      ui.updMsg = r === 'err' ? 'Non riesco a controllare: verifica la connessione.' : r === 'new' ? 'C\'è un aggiornamento: tocca «Aggiorna ora». I tuoi dati restano.' : a ? 'L\'app è aggiornata, ma c\'è una nuova versione dell\'app Android: tocca «Scarica il nuovo APK», aprilo e conferma. Non serve disinstallare: i tuoi dati restano.' : 'L\'app è già aggiornata all\'ultima versione.';
+      toast(ui.updMsg); render();
+    },
+    apkInstall() { if (ui.apkNew && ui.apkNew.url) { toast('Scarico il nuovo APK: aprilo e conferma l\'installazione sopra a quello attuale.'); window.open(ui.apkNew.url, '_blank'); } },
     async applyUpdate() { applyUpdateNow(false); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
     sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
@@ -1090,7 +1097,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   function logReq(text, how) { S.requests = S.requests || []; S.requests.push({ id: uid(), date: F.todayISO(), text, how }); save(); const el = $('#reqText'); if (el) el.value = ''; render(); }
   /* Aggiornamento in app: salva e copia i dati, svuota la copia locale del programma (mai i dati), ricarica dall'indirizzo più recente. */
   async function applyUpdateNow(auto) {
-    toast(auto ? 'Aggiornamento in corso… i tuoi dati restano salvati' : 'Aggiorno… i tuoi dati restano salvati');
+    if (!auto) toast('Aggiorno… i tuoi dati restano salvati');
     try { save(); const raw = localStorage.getItem(keyNow()); if (raw && raw.length < 3e6) localStorage.setItem(keyNow() + '.pre', raw); } catch (e) { }
     try { if (AC.enabled && AC.me) await Promise.race([syncUp(), new Promise(r => setTimeout(r, 3000))]); } catch (e) { }
     try { localStorage.setItem('forma.updTry', JSON.stringify({ b: ui.update ? ui.update.build : 0, t: Date.now() })); } catch (e) { }
@@ -1099,13 +1106,24 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   /* dopo un tentativo: se la versione è ancora quella vecchia, lo diciamo con parole semplici */
   function updTried() { try { const t = JSON.parse(localStorage.getItem('forma.updTry') || 'null'); return t && Date.now() - t.t < 120000 ? t : null; } catch (e) { return null; } }
+  /* app Android (APK): il numero di build è nello user agent; l'ultima versione dell'APK è nelle note della release */
+  const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const APKB = (/(?:TLZ|FORGIA)APK\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';
+  async function checkApk() {
+    ui.apkNew = null; if (!NATIVE) return null;
+    try {
+      const r = await fetch('https://api.github.com/repos/mhadhbimedwork-crypto/forma/releases/tags/' + (GYM ? 'tlz-apk' : 'apk'), { cache: 'no-store' }); if (!r.ok) return null; const j = await r.json();
+      const n = +((/build\s*(\d+)/i.exec(j.body || '') || [])[1] || 0), as = (j.assets || [])[0];
+      if (as && n > (+APKB || 0)) ui.apkNew = { build: n, url: as.browser_download_url };
+    } catch (e) { }
+    return ui.apkNew;
+  }
   async function checkVersion(manual) {
     try {
       const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw 0; const v = await r.json();
       if (v.build > F.VERSION.build) { ui.update = v; return 'new'; }
       ui.update = null;
-      if (v.build === F.VERSION.build && S.settings.seenBuild !== v.build && S.profiles.length) ui.whatsNew = v;
-      else if (v.build === F.VERSION.build && !S.profiles.length) { S.settings.seenBuild = v.build; save(); }
+      if (v.build === F.VERSION.build && S.settings.seenBuild !== v.build) { S.settings.seenBuild = v.build; save(); }
       return 'same';
     } catch (e) { return 'err'; }
   }

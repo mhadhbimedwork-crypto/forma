@@ -1,8 +1,8 @@
 {
-  "version": "1.27.8",
-  "build": 78,
+  "version": "1.28.0",
+  "build": 79,
   "date": "2026-11-05",
   "notes": [
-    "Schede: quando l'allenatore scrive due esercizi separati da «/» (anche con i due punti, es. «Squat / Leg press: 3x8»), l'app li riconosce come alternativi e nella seduta l'utente sceglie quale fare oggi, con una breve spiegazione."
+    "Aggiornamenti silenziosi: nessun avviso nell'app. Lo stato si chiede dal Profilo; l'APK Android si aggiorna direttamente da lì."
   ]
 }

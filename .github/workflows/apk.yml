@@ -16,7 +16,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-      - run: node scripts/build-www.js www && npx cap sync android
+      - run: |
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));c.android.appendUserAgent='FORGIAAPK/${{ github.run_number }}';fs.writeFileSync('capacitor.config.json',JSON.stringify(c,null,2));"
+          node scripts/build-www.js www && npx cap sync android
       - name: Chiave di firma (conservata nella cache di GitHub, mai nel codice)
         uses: actions/cache@v4
         with:
@@ -36,4 +38,5 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk FORGIA.apk
           gh release view apk >/dev/null 2>&1 || gh release create apk --title "FORGIA (APK Android)" --notes "Scarica FORGIA.apk e installalo sul telefono." --latest
           gh release upload apk FORGIA.apk --clobber
+          gh release edit apk --notes "build ${{ github.run_number }}"
           gh release delete-asset apk FORMA.apk -y || true
