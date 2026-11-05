@@ -1,8 +1,8 @@
 {
-  "version": "1.27.4",
-  "build": 74,
+  "version": "1.27.5",
+  "build": 75,
   "date": "2026-11-05",
   "notes": [
-    "Clienti e allenatori non vedono più messaggi su server, sincronizzazione o backup: restano visibili solo all'amministratore."
+    "Allenatore e amministratore: «Schede inviate» è ora in alto nel profilo di ogni cliente, con data di invio, stato (in attesa / ricevuta / in uso) e differenze tra le versioni."
   ]
 }

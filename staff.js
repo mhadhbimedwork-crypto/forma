@@ -481,20 +481,24 @@
     X.planHistoryCard = function (p) {
       const uid = uidOf(p); ui.ph = ui.ph || {};
       if (!A.enabled) ui.ph[uid] = (p.plans || []).filter(x => x.assignedLocal).map(x => ({ id: x.id, title: x.baseTitle || x.title, body: x.body || '', created_at: x.createdAt, imported_at: x.offer === false ? x.createdAt : null, coach: { full_name: 'Allenatore' } }));
-      else if (ui.ph[uid] === undefined && !ui.phBusy) { ui.phBusy = true; A.clientPlans(uid).then(r => { ui.ph[uid] = r; ui.phBusy = false; c.render(); }).catch(() => { ui.ph[uid] = []; ui.phBusy = false; }); }
+      else if (ui.ph[uid] === undefined && !ui.phBusy) { ui.phBusy = true; A.clientPlans(uid).then(r => { ui.ph[uid] = r; ui.phBusy = false; c.render(); }).catch(() => { ui.ph[uid] = null; ui.phBusy = false; c.render(); }); }
+      if (ui.ph[uid] === null) return `<div class="card" id="schedeInviate"><h2>Schede inviate</h2><p class="mute small">Non riesco a caricare l'elenco (controlla la connessione).</p><button class="sm" data-act="planHistRetry" data-u="${esc(uid)}">Riprova</button></div>`;
       const list = planVersions(ui.ph[uid] || []);
-      if (!list.length) return `<div class="card"><h2>Schede inviate</h2><p class="mute small">${ui.ph[uid] === undefined ? 'Carico…' : 'Nessuna scheda inviata a questo cliente.'}</p></div>`;
+      if (!list.length) return `<div class="card" id="schedeInviate"><h2>Schede inviate</h2><p class="mute small">${ui.ph[uid] === undefined ? 'Carico…' : 'Nessuna scheda inviata a questo cliente.'}</p></div>`;
+      const cplans = p.plans || [], tkey = x => keyT(x.baseTitle || x.title), inUse = m => { const a = cplans.find(x => x.id === p.activePlan); return !!(a && (tkey(a) === keyT(m.title) || String(a.title || '').toLowerCase().indexOf(keyT(m.title)) === 0)); };
+      const stat = (m, isLast) => m.imported_at ? (isLast && inUse(m) ? '<span class="chip ok">in uso dal cliente</span>' : '<span class="chip">ricevuta dal cliente</span>') : '<span class="chip warn">in attesa: il cliente non l\'ha ancora aperta</span>';
       const last = {};
       const rows = list.map(m => {
-        const k = keyT(m.title), prev = last[k]; last[k] = m;
+        const k = keyT(m.title), prev = last[k]; last[k] = m; const isLast = m === list[list.length - 1];
         const d = prev ? lineDiff(prev.body, m.body) : null;
-        return `<details style="border-top:1px solid var(--line);padding:6px 0"><summary><b>${esc(m.title)}</b> <span class="chip">v${m.ver}</span> <span class="mute small">${tr(String(m.created_at).slice(0, 10))}${m.coach && m.coach.full_name ? ' · ' + esc(m.coach.full_name) : ''} · ${m.imported_at ? 'ricevuta dal cliente' : 'in attesa'}</span></summary>
+        return `<details style="border-top:1px solid var(--line);padding:6px 0"><summary><b>${esc(m.title)}</b> <span class="chip">v${m.ver}</span> <span class="mute small">inviata ${tr(String(m.created_at).slice(0, 10))}${m.coach && m.coach.full_name ? ' da ' + esc(m.coach.full_name) : ''}${m.imported_at ? ' · vista dal cliente il ' + tr(String(m.imported_at).slice(0, 10)) : ''}</span> ${stat(m, isLast)}</summary>
           ${d ? `<p class="small" style="margin:6px 0 2px"><b>Modifiche rispetto alla v${prev.ver}:</b> ${d.add.length} righe nuove o cambiate, ${d.del.length} tolte o cambiate.</p>${d.add.length ? '<div class="small" style="color:var(--ok)">' + d.add.map(x => '+ ' + esc(x)).join('<br>') + '</div>' : ''}${d.del.length ? '<div class="small" style="color:var(--danger)">' + d.del.map(x => '− ' + esc(x)).join('<br>') + '</div>' : ''}` : '<p class="small mute" style="margin:6px 0 2px">Prima versione.</p>'}
           <pre class="small" style="white-space:pre-wrap;font-family:inherit;margin:6px 0;max-height:220px;overflow:auto">${esc(m.body)}</pre>
           ${A.me && A.me.role !== 'admin' ? `<button class="sm" data-act="planReuse" data-id="${m.id}" data-u="${esc(uid)}">Modifica e rinvia</button>` : ''}</details>`;
       }).reverse().join('');
-      return `<div class="card"><h2>Schede inviate (${list.length})</h2><p class="mute small" style="margin-top:0">Ogni invio resta registrato: se rinvii una scheda con lo stesso titolo diventa una nuova versione.</p>${rows}</div>`;
+      return `<div class="card" id="schedeInviate"><h2>Schede inviate (${list.length})</h2><p class="mute small" style="margin-top:0">Ogni invio resta registrato: se rinvii una scheda con lo stesso titolo diventa una nuova versione.</p>${rows}</div>`;
     };
+    acts.planHistRetry = t => { if (ui.ph) delete ui.ph[t.dataset.u]; c.render(); };
     acts.planReuse = t => { const m = ((ui.ph || {})[t.dataset.u] || []).find(x => String(x.id) === t.dataset.id); if (!m) return; ui.asgDraft = { uid: t.dataset.u, title: m.title, body: m.body }; c.render(); setTimeout(() => { const el = document.getElementById('assignForm'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 50); toast('Modifica il testo e invia: sarà una nuova versione'); };
 
     views.client = function () {
@@ -505,6 +509,7 @@
         <div class="card"><div class="mute small">${F.ageOf(p.birth)} anni · ${p.height} cm · ${fmt(st.weight, 1)} kg${st.weightDelta ? ` (${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} dall'inizio)` : ''}${F.isMinor(p) ? ' · minorenne' : ''}${acct ? ` · accesso: ${esc(acct.username)}` : ''}${p._updated ? ` · sincronizzato ${tr(String(p._updated).slice(0, 10))}` : ''}</div>
           <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions}</b><span>sedute</span></div><div class="kpi"><b>${st.adherence}%</b><span>aderenza 4 sett.</span></div><div class="kpi"><b>${fmt(st.volume28)}</b><span>kg volume 4 sett.</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div></div>
           <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button>${can && acct.role === 'client' ? `<label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica backup di ${esc(String(p.name).split(' ')[0])}<input type="file" id="rstOne" data-u="${esc(uidOf(p))}" accept=".zip,.json" multiple hidden></label>` : ''}</div></div>
+        ${X.planHistoryCard(p)}
         ${can ? rstCard() : ''}
         <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
         ${X.rmCard(p)}
@@ -514,7 +519,6 @@
         <div class="card"><h2>Ultime sedute</h2>${sessionsDetail(p)}</div>
         ${ex.length ? `<div class="card"><h2>Progressi per esercizio</h2><table class="sets" style="text-align:left"><thead><tr><th style="text-align:left">Esercizio</th><th>Sedute</th><th>Miglior 1RM</th><th>Var.</th></tr></thead><tbody>${ex.map(o => `<tr><td style="text-align:left">${esc(o.name)}</td><td>${o.sessions}</td><td>${o.bestE1 || '–'}</td><td>${o.change == null ? '–' : (o.change > 0 ? '+' : '') + o.change + '%'}</td></tr>`).join('')}</tbody></table></div>` : ''}
         ${ws.length > 1 ? `<div class="card"><h2>Peso</h2>${c.lineChart(ws, 'kg')}</div>` : ''}
-        ${X.planHistoryCard(p)}
         ${(can && role !== 'admin') || !A.enabled ? `<div class="card"><h2>${A.enabled ? 'Invia una scheda' : 'Assegna una scheda a ' + esc(p.name)}</h2><form id="assignForm"><label for="as_t">Titolo</label><input id="as_t" name="title" value="${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.title : '') || '')}" placeholder="Es. Scheda forza novembre">
           <label for="as_b">Testo della scheda (come dal personal trainer)</label><textarea id="as_b" name="body" style="min-height:120px;font-family:inherit" placeholder="Giorno 1&#10;Panca piana 4x6-8 rec 120s&#10;…">${esc((ui.asgDraft && ui.asgDraft.uid === uidOf(p) ? ui.asgDraft.body : '') || '')}</textarea>
           <button class="primary" style="margin-top:8px">${A.enabled ? 'Invia al cliente' : 'Assegna al cliente'}</button></form><p class="mute small">${A.enabled ? '' : 'Modalità locale: la scheda va direttamente nel profilo di questo cliente su questo dispositivo, con la data di oggi; il cliente decide se attivarla subito. '}L'app del cliente la legge da sola (serie, recuperi, timer, alternative) e lo avvisa: sceglie lui se attivarla subito o continuare con la scheda attuale. Ogni invio resta nello storico.</p></div>` : ''}
@@ -543,7 +547,7 @@
       } catch (e) { toast('Non riesco a cambiare: ' + e.message); }
       c.render();
     };
-    acts.clientOpen = t => { ui.sub = { type: 'client', uid: t.dataset.id }; const p = find(t.dataset.id); if (A.enabled && p && p._acct) A.logAccess(p._uid, 'view_client'); c.render(); window.scrollTo(0, 0); };
+    acts.clientOpen = t => { ui.sub = { type: 'client', uid: t.dataset.id }; if (ui.ph) delete ui.ph[t.dataset.id]; const p = find(t.dataset.id); if (A.enabled && p && p._acct) A.logAccess(p._uid, 'view_client'); c.render(); window.scrollTo(0, 0); };
     acts.clientBack = () => { const b = ui.sub && ui.sub.back; ui.sub = null; ui.tab = b || 'clients'; c.render(); };
     acts.clientNew = () => { ui.sub = { type: 'newClient', role: 'client', back: A.me && A.me.role === 'admin' ? 'gyms' : 'clients' }; c.render(); window.scrollTo(0, 0); };
     acts.clientsReload = async () => { ui.clLoaded = false; ui.clBusy = false; await loadClients(); c.render(); toast('Elenco aggiornato'); };
