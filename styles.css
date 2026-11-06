@@ -171,3 +171,13 @@ table.cmp td{vertical-align:middle}
 .syncline{font-size:.72rem;opacity:.75;padding:2px 0 0;line-height:1.3}
 .syncline:empty{display:none}
 .brandrow img.gymlogo{height:60px;width:auto;border-radius:0}
+
+/* sezione allenamento: spazi ottimizzati */
+.exgrid{display:block}
+.exgrid>.card{margin-bottom:10px}
+.sets td,.sets th{padding:2px 2px}
+.sets input{min-height:38px;padding:4px 2px}
+.sets td:nth-child(2){text-align:left;line-height:1.25;max-width:34vw}
+.whyrow td{padding:2px 0 6px;text-align:left}
+@media (max-width:420px){.ex{padding:6px 0;gap:8px}.exgrid>.card{padding:10px}}
+@media (min-width:900px){.exgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:12px;align-items:start}.exgrid>.card{margin:0}.exgrid>*:not(.card){grid-column:1/-1}}

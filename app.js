@@ -134,8 +134,8 @@
     if (!x.pct || !x.exId) return '';
     if (!F.rmActive(p)) return '<div class="msg warn small">Per ora i carichi in percentuale del massimale non sono attivi per te: segui i kg o le sensazioni indicate dall\'allenatore. Li attiva lui quando sarà il momento.</div>';
     const t = F.pctTarget(p, x), cur = p.rm && p.rm[x.exId] || '';
-    const hint = t && !t.need ? `<span class="small">${t.lo === t.hi ? t.lo : t.lo + '-' + t.hi} kg · ${esc(F.pctLabel(x))} (1RM ${t.rm.kg} kg, ${t.rm.src})</span>` : '<span class="mute small">La scheda indica una percentuale: inserisci il tuo massimale (1RM) per avere i kg. Se non lo conosci, fai la prima seduta leggera e lo stimo io.</span>';
-    return `<div class="row wrap" style="margin:4px 0"><label style="margin:0">1RM kg</label><input inputmode="decimal" style="width:80px" data-rm="${x.exId}" value="${cur}" aria-label="Massimale ${esc(x.name)}">${hint}</div>`;
+    const hint = t && !t.need ? `<span class="mute small">${t.rm.src === 'manuale' ? 'tuo valore' : 'stimato dalle tue serie'}: modificalo se vuoi</span>` : '<span class="mute small">La scheda indica una percentuale: inserisci il tuo massimale (1RM) per avere i kg. Se non lo conosci, fai la prima seduta leggera e lo stimo io.</span>';
+    return `<div class="row wrap" style="margin:4px 0"><label style="margin:0">1RM kg</label><input inputmode="decimal" style="width:80px" data-rm="${x.exId}" value="${cur}" placeholder="${t && t.rm ? t.rm.kg : ''}" aria-label="Massimale ${esc(x.name)}">${hint}</div>`;
   }
 
   /* ---------- backup ---------- */
@@ -316,7 +316,7 @@
       ${GYM ? '' : `      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>`}
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
-      ${pains.length ? `<h3>Zone con dolore</h3>${pains.map(([z, v]) => `<span class="chip ${v >= 7 ? 'danger' : v >= 4 ? 'warn' : ''}">${esc(F.ZONES[z])} ${v}/10</span>`).join(' ')}` : ''}
+      ${pains.length ? `<h3>Dolori segnalati <span class="mute small">· tocca per modificare, ✕ per togliere</span></h3><div class="row" style="flex-wrap:wrap;gap:6px">${painChips(p)}</div>` : ''}
       <div class="row wrap" style="margin-top:10px">${GYM ? '' : '<button class="sm" data-act="askAI">Chiedi all\'analista IA</button>'}<span class="mute small">${done} sedute registrate</span></div><div id="aiOut"></div></div>`;
   }
 
@@ -394,7 +394,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s], si = setInfo(x, s, d.data[i]);
         const ps = pe0 && pe0.sets[s];
         const timed = x.unit === 'sec' || (e && e.unit === 'sec');
-        rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}${ps ? `<br><span class="small prevline" title="Dati della volta scorsa (solo lettura)">Scorsa: ${ps.kg ? fmt(ps.kg, 1) + ' kg × ' : ''}${ps.reps}${ps.rpe ? ' · RPE ' + ps.rpe : ''}</span>` : ''}</td>
+        rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}${ps ? `<br><span class="small prevline" title="Dati della volta scorsa (${pe0.date}), solo lettura">Scorsa ${pe0.date.slice(8, 10)}/${pe0.date.slice(5, 7)}: ${ps.kg ? fmt(ps.kg, 1) + ' kg × ' : ''}${ps.reps}${ps.rpe ? ' · RPE ' + ps.rpe : ''}</span>` : ''}</td>
           <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : '')))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
           <td class="repcell"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="-1" aria-label="Meno ripetizioni">−</button><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : (repDefault(x, si) || 'rip')}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="1" aria-label="Più ripetizioni">+</button></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
@@ -403,27 +403,24 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct && pt && pt.off ? '<div class="msg warn small">Percentuale del massimale non attiva per ora: usa i kg o lo sforzo indicati dall\'allenatore.</div>' : x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
-        ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Volta scorsa (${pe0.date}): la trovi sotto, serie per serie, per il confronto diretto</div>` : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}
         ${x.pct ? rmInput(p, x) : ''}
         <div class="msg ${sug.kind === 'up' ? 'ok' : sug.kind === 'warn' ? 'warn' : ''} small">${esc(sug.text)}</div>
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
       </div></div>
-      <table class="sets"><thead><tr><th>#</th><th>Obiettivo</th><th>${x.unit === 'sec' ? '' : 'Peso'}</th><th>${x.unit === 'sec' ? 'Sec' : 'Rip'}</th><th>RPE</th><th>Fatta</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+      <table class="sets"><thead><tr><th>#</th><th>Obiettivo · volta scorsa</th><th>${x.unit === 'sec' ? '' : 'Peso'}</th><th>${x.unit === 'sec' ? 'Sec' : 'Rip'}</th><th>RPE</th><th>Fatta</th></tr></thead><tbody>${rows.join('')}</tbody></table>
       <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="addSet" data-i="${i}">+ serie</button><button class="ghost sm" data-act="delSet" data-i="${i}">− serie</button>${emomN(x) ? `<button class="${x.tech && x.tech.emom ? 'primary ' : ''}sm" data-act="emomGo" data-i="${i}">▶ Avvia EMOM ${emomN(x)}'${x.tech && x.tech.emom ? '' : ' (alternativa)'}</button>` : ''}${x.tech && x.tech.myo ? `<button class="sm" data-act="myoGo" data-i="${i}">Pausa myo 15 s</button>` : ''}${x.tech && x.tech.pause ? `<span class="chip">Fermo ${x.tech.pause.sec} s${x.tech.pause.every > 1 ? ' ogni ' + x.tech.pause.every + ' rip' : ' a ogni rip'}</span>` : ''}</div></div>`;
     }).join('');
     return `<div class="row"><button class="ghost" data-act="pauseSession">← Esci (salva bozza)</button></div>
       <h1>${esc(day.name)}</h1>
-      <div class="card"><b>Peso corporeo oggi</b><div class="row" style="margin-top:6px"><input id="bw" inputmode="decimal" placeholder="kg" value="" style="max-width:120px" aria-label="Peso corporeo"><span class="mute small">ultimo: ${lastBW ? lastBW.kg + ' kg' : '—'}</span></div></div>
-      ${ui.sick ? sickCard() : ''}
+      <div class="card row wrap" style="padding:8px 12px;gap:8px"><b>Peso oggi</b><input id="bw" inputmode="decimal" placeholder="kg" value="" style="max-width:90px" aria-label="Peso corporeo"><span class="mute small grow">ultimo: ${lastBW ? lastBW.kg + ' kg' : '—'}</span></div>
       <details class="card"><summary><b>Prima di iniziare</b> <span class="mute small">(1 minuto)</span></summary>
         <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho mangiato carboidrati e proteine 2-3 ore fa</label>
         <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho bevuto circa mezzo litro d'acqua</label>
         <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho dormito bene e sto bene oggi</label>
         <p class="mute small">Durante le serie espira e non trattenere il fiato. Se senti formicolio, testa leggera o confusione, fermati subito. Alla fine non fermarti di colpo: 5 minuti di camminata lenta. Niente intervalli a tutta nelle prime 4-6 settimane.</p></details>
-      <button class="danger" style="width:100%;margin:0 0 12px" data-act="sick">Mi sento male</button>
-      <p class="mute small">RPE = sforzo da 1 a 10 (10 = al limite). Per le piramidi "carico crescente" aumenta il peso a ogni serie.</p>
-      ${blocks}<button class="primary" style="width:100%" data-act="finishSession">Termina e salva</button>`;
+      <p class="mute small" style="margin:4px 0 8px">RPE = sforzo 1-10 (10 = al limite). Nelle piramidi aumenta il peso a ogni serie.</p>
+      <div class="exgrid">${blocks}</div><button class="primary" style="width:100%" data-act="finishSession">Termina e salva</button>`;
   }
 
   /* --- schede --- */
@@ -712,6 +709,15 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return seg + (F.PX && F.PX.on() ? bodyPainX(p, z) : bodyPain(p, pain, z));
   }
   /* dolore per struttura e lato (prova su FORGIA) */
+  function painChips(p) {
+    const seen = new Set(), out = [];
+    F.pxCur(p).sort((x, y) => y.l - x.l).forEach(e => {
+      const k = e.legacy ? e.s : e.s + '|' + e.sd; if (seen.has(k)) return; seen.add(k);
+      const lbl = e.legacy ? esc(F.PX.by[e.s].name) : esc(F.pxLabel(e));
+      out.push(`<span class="chip ${e.l >= 7 ? 'danger' : e.l >= 4 ? 'warn' : ''}" style="display:inline-flex;align-items:center;gap:6px;padding-right:4px"><button class="ghost sm" style="padding:2px 4px;min-height:0" data-act="pxHome" data-id="${e.s}" data-sd="${e.legacy ? 'B' : e.sd}">${lbl} ${e.l}/10</button><button class="ghost sm" style="padding:2px 8px;min-height:0" data-act="pxHomeDel" data-id="${e.s}" data-sd="${e.legacy ? 'B' : e.sd}" aria-label="Togli ${lbl}">✕</button></span>`);
+    });
+    return out.join('');
+  }
   function pxEditor(p) {
     const o = F.PX.by[ui.pxSel]; if (!o) return '';
     const cur = F.pxCur(p).filter(e => e.s === o.id), lv = sd => (cur.find(e => e.sd === sd) || { l: 0 }).l;
@@ -1092,6 +1098,12 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       const id = t.dataset.id; const o = F.PX.by[id]; if (!o) return; const p = P(), cur = F.pxCur(p).filter(e => e.s === id);
       ui.pxSel = id; ui.zone = o.zone; ui.msgs = []; ui.pxQ = ''; ui.pxSide = o.c ? 'C' : (t.dataset.sd === 'L' || t.dataset.sd === 'R') ? t.dataset.sd : (cur.length && cur.every(e => e.sd === 'L') ? 'L' : cur.length && cur.every(e => e.sd === 'R') ? 'R' : 'B');
       ui.pxTmp = { ty: (cur[0] && cur[0].ty) || '', wh: (cur[0] && cur[0].wh) || '' }; render(); const c = document.querySelector('#pxEd'); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    },
+    pxHome(t) { ui.tab = 'body'; ui.bodyMode = 'pain'; ui.sub = null; act.pxPick(t); window.scrollTo(0, 0); },
+    pxHomeDel(t) {
+      const p = P(), id = t.dataset.id, sd = t.dataset.sd, o = F.PX.by[id]; if (!o) return;
+      (sd === 'B' || o.c ? ['L', 'R', 'C'] : [sd]).forEach(x => { if (F.pxCur(p).some(e => e.s === id && e.sd === x)) F.pxSet(p, id, x, 0); });
+      save(); render(); toast('Dolore tolto');
     },
     pxSide(t) { ui.pxSide = t.dataset.sd; render(); },
     pxClose() { ui.pxSel = null; ui.zone = null; ui.msgs = []; render(); },

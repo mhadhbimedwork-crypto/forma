@@ -155,6 +155,7 @@
     o.plans = uniq(a.plans || [], (b && b.plans) || [], x => x.id);
     const cur = {}; o.painLog.forEach(e => { cur[e.zone] = e.level; }); o.pain = Object.assign({}, a.pain || {});
     Object.keys(cur).forEach(z => { if (cur[z] > 0) o.pain[z] = cur[z]; else delete o.pain[z]; });
+    if (o.painX.length && F.pxCur) { const zs = new Set(o.painX.filter(e => F.PX.by[e.s]).map(e => F.PX.by[e.s].zone)); const lv = {}; F.pxCur(o).forEach(e => { lv[e.zone] = Math.max(lv[e.zone] || 0, e.l); }); zs.forEach(z => { if (lv[z] > 0) o.pain[z] = lv[z]; else delete o.pain[z]; }); }
     return o;
   };
 
