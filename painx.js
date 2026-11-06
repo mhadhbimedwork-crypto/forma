@@ -108,7 +108,7 @@
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
   S.forEach(o => { o.n = norm(o.name + ' ' + (F.ZONES && F.ZONES[o.zone] || '') + ' ' + o.kind); });
   F.PX = { list: S, by: BY, KIND: KIND_LBL, SIDE, ZONE_G, TYPES: ['Acuto', 'Sordo', 'Bruciore', 'Formicolio', 'Rigidità', 'Scatto / schiocco'], WHEN: ['Durante lo sforzo', 'Dopo l\'allenamento', 'A riposo', 'Di notte'] };
-  F.PX.on = () => !window.FORMA_GYM;   // prova su FORGIA
+  F.PX.on = () => true;
 
   const today = () => F.todayISO();
   /* stato attuale: ultima voce per struttura+lato (>0), più i dolori "vecchi" per zona senza dettaglio (valgono per entrambi i lati) */

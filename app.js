@@ -342,7 +342,7 @@
   function whyCell(key) { const p = P(), d = p.draft; if (!d) return null; const [i, k] = key.split(':').map(Number); d.data[i] = d.data[i] || []; while (d.data[i].length <= k) d.data[i].push({}); return d.data[i][k]; }
   const WHY = ['Dolore', 'Stanchezza', 'Troppo pesante', 'Tecnica', 'Poco tempo', 'Altro'];
   function setDiff(x, si, c, ptKg) {
-    if (!c || window.FORMA_GYM) return '';
+    if (!c) return '';
     const out = [], lo = /^\s*(\d+)/.exec(String(si.target || '')), timed = x.unit === 'sec';
     if (c.reps != null && lo && !timed && !si.max && c.reps < +lo[1]) out.push('meno ripetizioni del previsto');
     const plan = si.kgHint != null ? si.kgHint : ptKg;
@@ -388,7 +388,7 @@
 if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b> <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = setCount(d, i, x, early);
-      const pe0 = prevS && prevS.ex.find(q => q.exId === x.exId);
+      const pe0 = last ? { sets: last.sets, date: last.date } : null;
       const pt = F.pctTarget(p, x), ptKg = pt && !pt.need ? pt.hi : null;
       const rows = []; for (let s = 0; s < n; s++) {
         const cur = (d.data[i] || [])[s] || {}, prev = last && last.sets[s], si = setInfo(x, s, d.data[i]);
@@ -403,8 +403,9 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct && pt && pt.off ? '<div class="msg warn small">Percentuale del massimale non attiva per ora: usa i kg o lo sforzo indicati dall\'allenatore.</div>' : x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
-        ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Dati della volta scorsa (${prevS.date}) in ogni serie · solo lettura</div>` : ''}
+        ${pe0 ? `<div class="small mute" style="border-left:3px solid var(--ion);padding-left:8px">Volta scorsa (${pe0.date}): la trovi sotto, serie per serie, per il confronto diretto</div>` : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}
+        ${x.pct ? rmInput(p, x) : ''}
         <div class="msg ${sug.kind === 'up' ? 'ok' : sug.kind === 'warn' ? 'warn' : ''} small">${esc(sug.text)}</div>
         ${e ? `<details><summary>Come si esegue</summary><p class="small">${esc(e.cue)}</p><p class="mute small">Muscoli: ${e.prim.map(m => F.MUSCLE_LABEL[m]).join(', ')}${e.sec.length ? ' (aiuto: ' + e.sec.map(m => F.MUSCLE_LABEL[m]).join(', ') + ')' : ''}</p></details>` : ''}
       </div></div>
@@ -1262,7 +1263,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
     if (t.dataset.altpick != null) { const [gid, v] = t.dataset.altpick.split('|'), plan = planOf(p), dd = p.draft, ex = plan.days[dd.dayIdx].exercises; dd.use = dd.use || {}; ex.forEach((x, j) => { if (x.altGroup === gid) dd.use[j] = v === 'both' || +v === j; }); save(); render(); return; }
     if (t.dataset.altuse != null) { const d = p.draft, i = +t.dataset.altuse; d.use = d.use || {}; d.use[i] = t.checked; save(); render(); return; }
-    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (!t.checked) whyLive(+i, +s); if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
+    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (!t.checked) whyLive(+i, +s); if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; if ((x.pct || (x.tech && x.tech.top && s === 0)) && c.kg > 0 && c.reps > 0 && c.reps <= 12) { const ev = F.e1rm(c.kg, c.reps); if (ev) toast('Massimale stimato ' + Math.round(ev) + ' kg: salvato nella tabella Massimali'); } save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
   });
