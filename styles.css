@@ -181,3 +181,5 @@ table.cmp td{vertical-align:middle}
 .whyrow td{padding:2px 0 6px;text-align:left}
 @media (max-width:420px){.ex{padding:6px 0;gap:8px}.exgrid>.card{padding:10px}}
 @media (min-width:900px){.exgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:12px;align-items:start}.exgrid>.card{margin:0}.exgrid>*:not(.card){grid-column:1/-1}}
+
+.dlg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}.dlgbox{background:var(--card);border:1px solid var(--line2);border-radius:var(--radius);padding:16px;max-width:420px;width:100%}.dlgbox h2{margin:0 0 6px}.dlgr{display:block;width:100%;margin:6px 0;text-align:left}

@@ -139,6 +139,21 @@
     if ((before[zone] || 0) !== lv || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: today(), zone, level: lv });
     return F.painReaction(before, p.pain).filter(m => m.startsWith(F.ZONES[zone]));
   };
+  /* elimina del tutto un dolore inserito per sbaglio (non resta nello storico né nei backup) */
+  F.pxPurge = function (p, s, sd) {
+    const o = BY[s]; if (!o) return; const zone = o.zone; p.painX = p.painX || []; p.painDel = p.painDel || []; p.painLog = p.painLog || []; p.pain = p.pain || {};
+    const key = e => [e.date, e.s, e.sd, e.l, e.at || ''].join('|');
+    const hasDetail = p.painX.some(e => BY[e.s] && BY[e.s].zone === zone);
+    if (!hasDetail) { const old = p.pain[zone]; delete p.pain[zone]; for (let i = p.painLog.length - 1; i >= 0; i--) if (p.painLog[i].zone === zone) { if (p.painLog[i].level === old) p.painLog.splice(i, 1); break; } return; }
+    const idx = []; p.painX.forEach((e, i) => { if (e.s === s && e.sd === sd) idx.push(i); });
+    const rm = []; for (let k = idx.length - 1; k >= 0; k--) { if (p.painX[idx[k]].l === 0) break; rm.push(idx[k]); }
+    const gone = rm.map(i => p.painX[i]); gone.forEach(e => p.painDel.push(key(e))); p.painDel = p.painDel.slice(-300);
+    p.painX = p.painX.filter((e, i) => !rm.includes(i));
+    const lv = F.pxCur(p).filter(e => e.zone === zone).reduce((m, e) => Math.max(m, e.l), 0);
+    if (lv > 0) p.pain[zone] = lv; else delete p.pain[zone];
+    const minDate = gone.reduce((m, e) => !m || e.date < m ? e.date : m, ''), lvls = new Set(gone.map(e => e.l));
+    for (let i = p.painLog.length - 1; i >= 0; i--) { const e = p.painLog[i]; if (e.zone === zone && e.date >= minDate && lvls.has(e.level) && e.level !== lv) p.painLog.splice(i, 1); }
+  };
   F.pxMeta = function (p, s, sd, extra) {   // aggiorna tipo / momento senza creare una nuova voce di livello
     const e = (p.painX || []).slice().reverse().find(x => x.s === s && x.sd === sd); if (e) Object.assign(e, extra);
   };

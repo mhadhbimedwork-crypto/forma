@@ -395,7 +395,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         const ps = pe0 && pe0.sets[s];
         const timed = x.unit === 'sec' || (e && e.unit === 'sec');
         rows.push(`<tr><td>${s + 1}</td><td class="mute">${si.role ? `<b style="color:var(--accent)">${esc(si.role)}</b><br>` : ''}${esc(si.target)}${si.rest ? `<br><span class="small">rec ${si.rest}s</span>` : ''}${ps ? `<br><span class="small prevline" title="Dati della volta scorsa (${pe0.date}), solo lettura">Scorsa ${pe0.date.slice(8, 10)}/${pe0.date.slice(5, 7)}: ${ps.kg ? fmt(ps.kg, 1) + ' kg × ' : ''}${ps.reps}${ps.rpe ? ' · RPE ' + ps.rpe : ''}</span>` : ''}</td>
-          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : '')))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
+          <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (prev && prev.kg != null ? prev.kg : (ptKg != null ? ptKg : '')))}" placeholder="${timed ? '—' : (ptKg != null ? ptKg : 'kg')}" aria-label="Peso serie ${s + 1}"></td>
           <td class="repcell"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="-1" aria-label="Meno ripetizioni">−</button><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : (repDefault(x, si) || 'rip')}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="1" aria-label="Più ripetizioni">+</button></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>${whyRow(p, i, s, x, si, cur, ptKg)}`);
@@ -709,6 +709,23 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return seg + (F.PX && F.PX.on() ? bodyPainX(p, z) : bodyPain(p, pain, z));
   }
   /* dolore per struttura e lato (prova su FORGIA) */
+  /* finestra di conferma per ogni eliminazione; con reasons chiede anche il motivo */
+  function ask(o) {
+    return new Promise(res => {
+      const d = document.createElement('div'); d.className = 'dlg'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+      d.innerHTML = `<div class="dlgbox"><h2>${esc(o.title)}</h2>${o.text ? `<p class="small">${esc(o.text)}</p>` : ''}${(o.reasons || []).map((t, i) => `<button class="dlgr" data-r="${i}">${esc(t)}</button>`).join('')}<div class="row" style="margin-top:10px"><button class="grow" data-x="0">Annulla</button>${o.reasons ? '' : `<button class="danger grow" data-x="1">${esc(o.ok || 'Elimina')}</button>`}</div></div>`;
+      d.onclick = e => { const b = e.target.closest('button'); if (!b) { if (e.target === d) { d.remove(); res(null); } return; } d.remove(); res(b.dataset.r != null ? { reason: o.reasons[+b.dataset.r] } : b.dataset.x === '1' ? { ok: true } : null); };
+      document.body.appendChild(d); const f = d.querySelector('button'); if (f) f.focus();
+    });
+  }
+  const PAIN_WHY = ['Il dolore è passato', 'L\'ho inserito per sbaglio'];
+  async function pxRemove(p, id, sides, label) {
+    const r = await ask({ title: 'Togliere questo dolore?', text: label + '. Perché lo togli?', reasons: PAIN_WHY }); if (!r) return false;
+    const mistake = r.reason === PAIN_WHY[1];
+    sides.forEach(x => { if (F.pxCur(p).some(e => e.s === id && e.sd === x)) mistake ? F.pxPurge(p, id, x) : F.pxSet(p, id, x, 0); });
+    if (mistake) F.pxPurge(p, id, 'C');
+    save(); toast(mistake ? 'Dolore eliminato: non resta nello storico' : 'Dolore segnato come passato'); return true;
+  }
   function painChips(p) {
     const seen = new Set(), out = [];
     F.pxCur(p).sort((x, y) => y.l - x.l).forEach(e => {
@@ -932,7 +949,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       else { const g = parseFloat(String($('#dg').value).replace(',', '.')); if (!(g > 0)) return toast('Inserisci i grammi'); day.meals[mi].push({ f: pk.f, g }); }
       D.pick = null; save(); render();
     },
-    dRm(t) { const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
+    async dRm(t) { if (!(await ask({ title: 'Togliere questo alimento dal pasto?' }))) return; const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
     dToggle(t) { const D = ui.diet; D.open = D.open || {}; const m = +t.dataset.m; D.open[m] = !D.open[m]; if (!D.open[m] && D.addTo === m) { D.addTo = null; D.pick = null; } render(); },
     dGuide(t) { const D = ui.diet; D.guide = D.guide || {}; D.guide[t.dataset.k] = !D.guide[t.dataset.k]; render(); },
     async scan() {
@@ -1040,7 +1057,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     delPlan(t) { const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!confirm(`Eliminare "${pl.title}"? Le sedute già registrate restano.`)) return; p.plans = p.plans.filter(x => x.id !== pl.id); if (p.activePlan === pl.id) { p.activePlan = p.plans.length ? p.plans[p.plans.length - 1].id : null; p.draft = null; } save(); render(); },
     adapt(t) { const p = P(), pl = p.plans.find(x => x.id === t.dataset.id), n = adaptPlan(pl, p); p.plans.push(n); p.activePlan = n.id; save(); ui.sub = { type: 'plan', id: n.id }; render(); toast('Versione adattata creata e attivata'); },
     swap(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), e = F.EXMAP[t.dataset.ex], x = pl.days[+t.dataset.d].exercises[+t.dataset.x]; Object.assign(x, { exId: e.id, name: e.name, unit: e.unit, repsInfo: undefined, reps: x.repsInfo ? '8-12' : x.reps, flags: [], note: '' }); save(); render(); },
-    rmEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); pl.days[+t.dataset.d].exercises.splice(+t.dataset.x, 1); save(); render(); },
+    async rmEx(t) { if (!(await ask({ title: 'Togliere questo esercizio dalla scheda?', text: 'Le sedute già registrate restano.' }))) return; const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); pl.days[+t.dataset.d].exercises.splice(+t.dataset.x, 1); save(); render(); },
     addEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), v = $('#add_' + t.dataset.d).value; if (!v) return; const e = F.EXMAP[v]; pl.days[+t.dataset.d].exercises.push({ exId: e.id, name: e.name, sets: 3, setsEarly: 2, reps: e.unit === 'sec' ? '20-40 s' : '8-12', unit: e.unit, rest: 90, note: '' }); save(); render(); },
     parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, title: 'Scheda importata ' + F.todayISO() }; render(); },
     async parsePhoto() {
@@ -1100,15 +1117,16 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ui.pxTmp = { ty: (cur[0] && cur[0].ty) || '', wh: (cur[0] && cur[0].wh) || '' }; render(); const c = document.querySelector('#pxEd'); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     },
     pxHome(t) { ui.tab = 'body'; ui.bodyMode = 'pain'; ui.sub = null; act.pxPick(t); window.scrollTo(0, 0); },
-    pxHomeDel(t) {
+    async pxHomeDel(t) {
       const p = P(), id = t.dataset.id, sd = t.dataset.sd, o = F.PX.by[id]; if (!o) return;
-      (sd === 'B' || o.c ? ['L', 'R', 'C'] : [sd]).forEach(x => { if (F.pxCur(p).some(e => e.s === id && e.sd === x)) F.pxSet(p, id, x, 0); });
-      save(); render(); toast('Dolore tolto');
+      if (await pxRemove(p, id, sd === 'B' || o.c ? ['L', 'R', 'C'] : [sd], o.name + (sd === 'L' ? ' sinistro' : sd === 'R' ? ' destro' : ''))) render();
     },
     pxSide(t) { ui.pxSide = t.dataset.sd; render(); },
     pxClose() { ui.pxSel = null; ui.zone = null; ui.msgs = []; render(); },
-    pxClear() {
-      const o = F.PX.by[ui.pxSel]; if (!o) return; const p = P(); (o.c ? ['C'] : ['L', 'R']).forEach(sd => { if (F.pxCur(p).some(e => e.s === o.id && e.sd === sd)) F.pxSet(p, o.id, sd, 0); }); save(); ui.msgs = []; render();
+    async pxClear() {
+      const o = F.PX.by[ui.pxSel]; if (!o) return; const p = P();
+      if (!F.pxCur(p).some(e => e.s === o.id)) { ui.pxSel = null; render(); return; }
+      if (await pxRemove(p, o.id, o.c ? ['C'] : ['L', 'R'], o.name)) { ui.msgs = []; render(); }
     },
     pxTag(t) {
       const k = t.dataset.k, v = t.dataset.v, p = P(), o = F.PX.by[ui.pxSel]; ui.pxTmp = ui.pxTmp || {}; ui.pxTmp[k] = ui.pxTmp[k] === v ? '' : v;
@@ -1154,7 +1172,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
     sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
     async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORGIA v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
-    delReq(t) { S.requests = (S.requests || []).filter(r => r.id !== t.dataset.id); save(); render(); },
+    async delReq(t) { if (!(await ask({ title: 'Eliminare questa richiesta?' }))) return; S.requests = (S.requests || []).filter(r => r.id !== t.dataset.id); save(); render(); },
     saveAI() { S.settings.aiUrl = $('#aiUrl').value.trim(); save(); toast('Salvato'); },
     async bkPick() { try { const h = await F.pickDir(); ui.bkDir = h.name; const r = await F.runBackup(S, { interactive: true }); save(); render(); toast(r.ok ? 'Cartella collegata. Backup fatto: ' + r.where : 'Cartella collegata'); } catch (e) { if (!e || e.name !== 'AbortError') toast('Cartella non accessibile'); } },
     async bkForget() { await F.forgetDir(); ui.bkDir = null; render(); toast('Cartella scollegata'); },
@@ -1287,7 +1305,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.classList && t.classList.contains('whyq')) { const r = document.querySelector('.whyres[data-k="' + t.dataset.k + '"]'); if (r) r.innerHTML = F.pxSearch(t.value, 6).map(o => `<button class="sm" style="display:block;width:100%;text-align:left;margin:3px 0" data-act="whyPainPick" data-k="${t.dataset.k}" data-id="${o.id}">${esc(o.name)}</button>`).join(''); return; }
     if (t.classList && t.classList.contains('whyl')) { const c = whyCell(t.dataset.k); if (c) { c.wl = +t.value; const sv = $('#whyV' + t.dataset.k.replace(':', '_')); if (sv) sv.textContent = t.value; save(); } return; }
     if (t.id === 'pxQ') { ui.pxQ = t.value; const r = $('#pxRes'); if (r) r.innerHTML = pxResHtml(t.value); return; }
-    if (t.classList && t.classList.contains('pxr')) { const v = +t.value, sd = t.dataset.sd, sv = $('#pxV' + sd); if (sv) sv.textContent = v; clearTimeout(t._d); t._d = setTimeout(() => { const tm = ui.pxTmp || {}, ex = {}; if (tm.ty) ex.ty = tm.ty; if (tm.wh) ex.wh = tm.wh; ui.msgs = F.pxSet(p, t.dataset.s, sd, v, ex); save(); render(); }, 350); return; }
+    if (t.classList && t.classList.contains('pxr')) { const v = +t.value, sd = t.dataset.sd, sv = $('#pxV' + sd); if (sv) sv.textContent = v; clearTimeout(t._d); t._d = setTimeout(async () => { if (v === 0 && F.pxCur(p).some(e => e.s === t.dataset.s && e.sd === sd)) { if (!(await pxRemove(p, t.dataset.s, [sd], F.pxLabel({ s: t.dataset.s, sd })))) { render(); return; } render(); return; } const tm = ui.pxTmp || {}, ex = {}; if (tm.ty) ex.ty = tm.ty; if (tm.wh) ex.wh = tm.wh; ui.msgs = F.pxSet(p, t.dataset.s, sd, v, ex); save(); render(); }, 350); return; }
     if (t.id === 'painR') { const v = +t.value; $('#painV').textContent = v; clearTimeout(t._d); t._d = setTimeout(() => setPain(t.dataset.zone, v), 350); return; }
     if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); whyLive(+i, +s); }
   });
