@@ -1,8 +1,8 @@
 {
-  "version": "1.28.0",
-  "build": 79,
-  "date": "2026-11-05",
+  "version": "1.29.0",
+  "build": 80,
+  "date": "2026-11-06",
   "notes": [
-    "Aggiornamenti silenziosi: nessun avviso nell'app. Lo stato si chiede dal Profilo; l'APK Android si aggiorna direttamente da lì."
+    "Dolore per struttura e lato (prova su FORGIA) e pulsante \"perché?\" quando una serie va diversa dalla scheda."
   ]
 }

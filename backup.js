@@ -68,6 +68,7 @@
     o.style = ['cali', 'gym', 'mix'].includes(p.style) ? p.style : 'mix';
     o.days = Math.min(5, Math.max(2, +p.days || 3)); o.level = Math.min(3, Math.max(1, +p.level || 1)); o.stopMonths = Math.max(0, +p.stopMonths || 0);
     o.pain = (p.pain && typeof p.pain === 'object') ? p.pain : {}; Object.keys(o.pain).forEach(z => { o.pain[z] = Math.min(10, Math.max(0, +o.pain[z] || 0)); if (!o.pain[z] || !F.ZONES[z]) delete o.pain[z]; });
+    o.painX = (Array.isArray(p.painX) ? p.painX : []).filter(e => e && e.date && e.s && ['L', 'R', 'C'].includes(e.sd)).map(e => ({ date: String(e.date), s: String(e.s), sd: e.sd, l: Math.min(10, Math.max(0, +e.l || 0)), ty: e.ty ? String(e.ty).slice(0, 40) : undefined, wh: e.wh ? String(e.wh).slice(0, 40) : undefined, at: +e.at || undefined, src: e.src || undefined }));
     ['painLog', 'weights', 'sessions', 'plans'].forEach(k => { o[k] = Array.isArray(p[k]) ? p[k] : []; });
     o.weights = o.weights.filter(w => w && w.date && +w.kg > 0).map(w => ({ date: String(w.date), kg: +w.kg }));
     o.measures = (Array.isArray(p.measures) ? p.measures : []).filter(m => m && m.date && m.v && typeof m.v === 'object').map(m => { const v = {}; (F.MEASURES || []).forEach(([k]) => { if (+m.v[k] > 0) v[k] = +m.v[k]; }); return { date: String(m.date), v }; });

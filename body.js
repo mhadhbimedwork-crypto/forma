@@ -69,8 +69,16 @@
       const hit = r.z && opts.pain && !opts.rec;
       const attr = hit ? ` data-zone="${r.z}"` : '';
       const sel = r.z && opts.sel === r.z ? ' sel' : '';
+      const sm = opts.sideMap && r.z && opts.sideMap[r.z], parts = sm && r.sh.match(/<(?:path|ellipse)[^>]*\/>/g);
+      if (sm && parts && parts.length === 2) {   // dolore per lato: colora solo il lato interessato
+        [sm.sl, sm.sr].forEach((lv, i) => {
+          const c2 = painColor(lv);
+          out += `<g class="reg hit${sel}" data-zone="${r.z}" fill="${c2 || '#000'}" fill-opacity="${c2 ? 0.92 : 0.01}" stroke="${sel ? '#fff' : 'none'}" stroke-width="2"${c2 ? ' style="mix-blend-mode:multiply"' : ''}>${parts[i]}</g>`;
+        });
+        continue;
+      }
       out += `<g class="reg${hit ? ' hit' : ''}${sel}"${attr} fill="${fill || '#000'}" fill-opacity="${fill ? op : (hit ? 0.01 : 0)}" stroke="${hit && sel ? '#fff' : 'none'}" stroke-width="2"${fill ? ' style="mix-blend-mode:multiply"' : ''}>${r.sh}</g>`;
     }
-    return out + '</svg>';
+    return out + (opts.extra || '') + '</svg>';
   };
 })(window.FORMA);

@@ -138,7 +138,7 @@
   /* ---- dati del cliente: il dispositivo resta la fonte principale (funziona offline), il server tiene la copia ---- */
   A.pullMine = async function () { const r = await rest('client_data?user_id=eq.' + A.me.id + '&select=data,version,updated_at'); return r[0] || null; };
   /** Sul server va SOLO l'allenamento: mai dieta, alimenti, intolleranze, bozze o altro. Il resto resta sul dispositivo. */
-  const SHARE = ['id', 'name', 'birth', 'sex', 'height', 'weight', 'goal', 'waist', 'bf', 'style', 'days', 'level', 'stopMonths', 'pain', 'painLog', 'weights', 'measures', 'plans', 'sessions', 'activePlan', 'rm', 'symptoms', 'createdAt'];
+  const SHARE = ['id', 'name', 'birth', 'sex', 'height', 'weight', 'goal', 'waist', 'bf', 'style', 'days', 'level', 'stopMonths', 'pain', 'painLog', 'painX', 'weights', 'measures', 'plans', 'sessions', 'activePlan', 'rm', 'symptoms', 'createdAt'];
   F.shareable = p => { const o = {}; SHARE.forEach(k => { if (p && p[k] !== undefined) o[k] = p[k]; }); return o; };
   A.pushMine = async function (profile, device) {
     profile = F.shareable(profile);
@@ -149,6 +149,7 @@
     const o = Object.assign({}, a), uniq = (x, y, key) => { const m = new Map(); x.concat(y).forEach(i => m.set(key(i), i)); return [...m.values()]; };
     o.sessions = uniq(a.sessions || [], (b && b.sessions) || [], s => s.id || s.date + '|' + s.dayName).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.at || 0) - (q.at || 0));
     o.painLog = uniq(a.painLog || [], (b && b.painLog) || [], e => e.date + '|' + e.zone + '|' + e.level).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : 0);
+    o.painX = uniq(a.painX || [], (b && b.painX) || [], e => [e.date, e.s, e.sd, e.l, e.at || ''].join('|')).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.at || 0) - (q.at || 0));
     o.weights = uniq(a.weights || [], (b && b.weights) || [], w => w.date).sort((p, q) => p.date < q.date ? -1 : 1);
     o.measures = uniq(a.measures || [], (b && b.measures) || [], m => m.date).sort((p, q) => p.date < q.date ? -1 : 1);
     o.plans = uniq(a.plans || [], (b && b.plans) || [], x => x.id);

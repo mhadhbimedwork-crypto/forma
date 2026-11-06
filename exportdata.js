@@ -5,7 +5,7 @@
   const r1 = x => Math.round(x * 10) / 10, yn = b => (b ? 'sì' : 'no');
   const MEAS = () => F.MEASURES || [];
   const KIND = { new: 'Nuovo dolore', up: 'Aumento', down: 'Calo', clear: 'Azzerato' };
-  F.SHEETS = { sum: 'Riepilogo', ses: 'Sedute', sesSum: 'Sedute_Riepilogo', ex: 'Esercizi', vol: 'Volume_Muscoli', painLog: 'Dolori_Registro', painTrend: 'Dolori_Andamento', weight: 'Peso', meas: 'Misure', plans: 'Schede', rm: 'Massimali' };
+  F.SHEETS = { sum: 'Riepilogo', ses: 'Sedute', sesSum: 'Sedute_Riepilogo', ex: 'Esercizi', vol: 'Volume_Muscoli', painLog: 'Dolori_Registro', painX: 'Dolori_Dettaglio', whySet: 'Serie_Diverse', painTrend: 'Dolori_Andamento', weight: 'Peso', meas: 'Misure', plans: 'Schede', rm: 'Massimali' };
 
   /** profiles: [profilo]; ritorna [{name, cols, rows}] */
   F.datasets = function (profiles, today) {
@@ -18,6 +18,8 @@
     add('vol', ['Cliente', 'Settimana dal', 'Muscolo', 'Serie ponderate']);
     add('painLog', ['Cliente', 'Data', 'Zona', 'Livello 0-10', 'Prima', 'Evento', 'Sedute di quel giorno']);
     add('painTrend', ['Cliente', 'Zona', 'Livello attuale', 'Stato', 'Picco', 'Primo inserimento', 'Ultima variazione', 'Azzerato il', 'Giorni di dolore', 'Variazione 7 gg']);
+    add('painX', ['Cliente', 'Data', 'Struttura', 'Tipo struttura', 'Lato', 'Livello 0-10', 'Tipo di dolore', 'Quando']);
+    add('whySet', ['Cliente', 'Data', 'Seduta', 'Esercizio', 'Serie', 'kg', 'Ripetizioni o secondi', 'Motivo', 'Struttura dolorosa', 'Lato', 'Intensità']);
     add('weight', ['Cliente', 'Data', 'kg']);
     add('rm', ['Cliente', 'Esercizio', 'Massimale inserito kg', 'Stima migliore kg', 'Stima ultima seduta kg', 'Valore usato kg', 'Valore usato / peso corporeo', 'Miglior carico kg', 'Data record', 'Ultima volta', 'Massimali attivi', 'Nota']);
     add('meas', ['Cliente', 'Data'].concat(MEAS().map(m => m[1] + ' ' + m[2])));
@@ -39,6 +41,8 @@
         h.changes.forEach(c => S.painLog.rows.push([n, c.date, h.label, c.to, c.from, KIND[c.kind], F.sessionsOn(p, c.date).map(s => s.dayName + ': ' + s.ex.map(e => e.name).join(', ')).join(' | ')]));
       });
       S.painLog.rows.sort((a, b) => (a[0] === b[0] ? 0 : a[0] < b[0] ? -1 : 1) || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+      (p.painX || []).slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0)).forEach(x => { const o = F.PX && F.PX.by[x.s]; if (o) S.painX.rows.push([n, x.date, o.name, F.PX.KIND[o.kind] || o.kind, x.sd === 'L' ? 'sinistro' : x.sd === 'R' ? 'destro' : 'centrale', x.l, x.ty || '', x.wh || '']); });
+      (p.sessions || []).forEach(s => s.ex.forEach(e => e.sets.forEach((t, i) => { if (!t.why) return; const o = t.wz && F.PX && F.PX.by[t.wz]; S.whySet.rows.push([n, s.date, s.dayName, e.name, i + 1, t.kg || 0, t.reps || 0, t.why, o ? o.name : '', o ? (t.ws === 'L' ? 'sinistro' : t.ws === 'R' ? 'destro' : t.ws === 'C' ? 'centrale' : 'entrambi') : '', t.wl || '']); })));
       (p.weights || []).slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach(w => S.weight.rows.push([n, w.date, w.kg]));
       (p.measures || []).slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach(m => S.meas.rows.push([n, m.date].concat(MEAS().map(x => m.v[x[0]] || ''))));
       (p.plans || []).forEach(x => x.days.forEach(d => d.exercises.forEach(e => S.plans.rows.push([n, x.title, yn(x.id === p.activePlan), d.name, e.name, e.sets, F.repsLabel(e), e.rest || '', e.note || '']))));

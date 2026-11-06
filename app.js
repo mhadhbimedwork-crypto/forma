@@ -338,6 +338,25 @@
     }
     return o;
   }
+  /* "perché?" (prova su FORGIA): compare solo quando la serie va diversa dalla scheda */
+  function whyCell(key) { const p = P(), d = p.draft; if (!d) return null; const [i, k] = key.split(':').map(Number); d.data[i] = d.data[i] || []; while (d.data[i].length <= k) d.data[i].push({}); return d.data[i][k]; }
+  const WHY = ['Dolore', 'Stanchezza', 'Troppo pesante', 'Tecnica', 'Poco tempo', 'Altro'];
+  function setDiff(x, si, c, ptKg) {
+    if (!c || window.FORMA_GYM) return '';
+    const out = [], lo = /^\s*(\d+)/.exec(String(si.target || '')), timed = x.unit === 'sec';
+    if (c.reps != null && lo && !timed && !si.max && c.reps < +lo[1]) out.push('meno ripetizioni del previsto');
+    const plan = si.kgHint != null ? si.kgHint : ptKg;
+    if (c.kg > 0 && plan > 0 && c.kg < plan * 0.95) out.push('peso più basso del previsto');
+    if (c.done === false && c.reps != null) out.push('serie non completata');
+    return out.join(' e ');
+  }
+  function whyRow(p, i, s, x, si, c, ptKg) {
+    const diff = setDiff(x, si, c, ptKg), key = i + ':' + s, open = ui.whyOpen === key || !!c.why;
+    const side = c.ws || 'B', o = c.wz && F.PX.by[c.wz];
+    const sideB = (m, t) => `<button class="sm ${side === m ? 'primary' : ''}" data-act="whySide" data-k="${key}" data-sd="${m}">${t}</button>`;
+    const pain = c.why === 'Dolore' ? `<div style="margin-top:6px">${o ? `<b>${esc(o.name)}</b> <button class="sm" data-act="whyPainReset" data-k="${key}">cambia</button><div class="row" style="margin:6px 0;gap:6px">${o.c ? '' : sideB('L', 'Sinistro') + sideB('R', 'Destro') + sideB('B', 'Entrambi')}</div><label class="small">Intensità: <b id="whyV${key.replace(':', '_')}">${c.wl || 0}</b>/10</label><input type="range" min="0" max="10" step="1" value="${c.wl || 0}" class="whyl" data-k="${key}"><button class="primary sm" data-act="whyApply" data-k="${key}">Registra questo dolore</button>` : `<input type="search" class="whyq" data-k="${key}" placeholder="Dove? es. spalla, ginocchio, bicipite…" autocomplete="off"><div class="whyres" data-k="${key}"></div>`}</div>` : '';
+    return `<tr class="whyrow" data-why="${key}"${diff ? '' : ' hidden'}><td colspan="6"><button class="ghost sm" data-act="whyOpen" data-k="${key}">${c.why ? 'Motivo: ' + esc(c.why) : 'Serie diversa dalla scheda: perché?'}</button><span class="mute small whydiff"> ${esc(diff)}</span>${open ? `<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${WHY.map(w => `<button class="sm ${c.why === w ? 'primary' : ''}" data-act="whyPick" data-k="${key}" data-v="${w}">${w}</button>`).join('')}</div>${pain}` : ''}</td></tr>`;
+  }
   /* minuti di EMOM: principale (tech.emom) oppure indicato come alternativa nella nota ("... in EMOM 6'") */
   function emomN(x) { if (x.tech && x.tech.emom) return x.tech.emom; const m = /EMOM\s*(\d+)/i.exec(x.note || ''); return m ? +m[1] : 0; }
   /* alternative: di base si fa l'esercizio principale; l'utente può spuntare l'alternativa, o entrambi */
@@ -379,7 +398,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
           <td><input inputmode="decimal" data-set="${i}:${s}:kg" value="${cur.kg != null ? cur.kg : (si.kgHint != null ? si.kgHint : (ptKg != null ? ptKg : (prev && prev.kg != null ? prev.kg : '')))}" placeholder="${timed ? '—' : 'kg'}" aria-label="Peso serie ${s + 1}"></td>
           <td class="repcell"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="-1" aria-label="Meno ripetizioni">−</button><input inputmode="numeric" data-set="${i}:${s}:reps" value="${cur.reps != null ? cur.reps : ''}" placeholder="${timed ? 'sec' : (repDefault(x, si) || 'rip')}" aria-label="${timed ? 'Secondi' : 'Ripetizioni'} serie ${s + 1}"><button class="ghost sm" data-act="rep" data-i="${i}" data-s="${s}" data-d="1" aria-label="Più ripetizioni">+</button></td>
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
-          <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>`);
+          <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>${whyRow(p, i, s, x, si, cur, ptKg)}`);
       }
       return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
@@ -689,7 +708,49 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const p = P(), pain = p.pain || {}, z = ui.zone, mode = ui.bodyMode || 'rec';
     const seg = `<div class="row" style="margin-bottom:10px" role="group" aria-label="Sezione corpo"><button class="${mode === 'rec' ? 'primary' : ''} grow" data-act="bodyMode" data-m="rec">Recupero</button><button class="${mode === 'pain' ? 'primary' : ''} grow" data-act="bodyMode" data-m="pain">Dolore</button></div>`;
     if (mode === 'rec') return seg + recoveryView(p);
-    return seg + bodyPain(p, pain, z);
+    return seg + (F.PX && F.PX.on() ? bodyPainX(p, z) : bodyPain(p, pain, z));
+  }
+  /* dolore per struttura e lato (prova su FORGIA) */
+  function pxEditor(p) {
+    const o = F.PX.by[ui.pxSel]; if (!o) return '';
+    const cur = F.pxCur(p).filter(e => e.s === o.id), lv = sd => (cur.find(e => e.sd === sd) || { l: 0 }).l;
+    const mode = o.c ? 'C' : (ui.pxSide || 'B'), sides = o.c ? ['C'] : mode === 'B' ? ['L', 'R'] : [mode];
+    const sideBtn = (m, t) => `<button class="${mode === m ? 'primary' : ''} grow" data-act="pxSide" data-sd="${m}">${t}</button>`;
+    const tmp = ui.pxTmp || {};
+    const chips = (k, arr) => arr.map(v => `<button class="sm ${tmp[k] === v ? 'primary' : ''}" data-act="pxTag" data-k="${k}" data-v="${esc(v)}">${esc(v)}</button>`).join(' ');
+    return `<div class="card" id="pxEd"><h2>${esc(o.name)}</h2><p class="mute small" style="margin:0 0 8px">${esc(F.PX.KIND[o.kind] || o.kind)} · ${esc(F.ZONES[o.zone])}. Il punto bianco sul corpo mostra dove si trova.</p>
+      ${o.c ? '' : `<div class="row" style="margin-bottom:8px" role="group" aria-label="Lato">${sideBtn('L', 'Sinistro')}${sideBtn('R', 'Destro')}${sideBtn('B', 'Entrambi')}</div>`}
+      ${sides.map(sd => `<label for="pxR${sd}">${o.c ? 'Intensità' : 'Lato ' + F.PX.SIDE[sd]}: <b id="pxV${sd}">${lv(sd)}</b>/10</label><input id="pxR${sd}" class="pxr" type="range" min="0" max="10" step="1" value="${lv(sd)}" data-s="${o.id}" data-sd="${sd}">`).join('')}
+      <div class="row small mute"><span class="grow">0 = nessun dolore</span><span>10 = insopportabile</span></div>
+      <h3 style="margin:10px 0 4px">Che tipo di dolore?</h3><div class="row" style="flex-wrap:wrap;gap:6px">${chips('ty', F.PX.TYPES)}</div>
+      <h3 style="margin:10px 0 4px">Quando lo senti?</h3><div class="row" style="flex-wrap:wrap;gap:6px">${chips('wh', F.PX.WHEN)}</div>
+      ${ui.msgs.length ? msgs(ui.msgs.map(t => ({ t, k: 'warn' }))) : ''}
+      <div class="row" style="margin-top:10px"><button class="primary grow" data-act="pxClose">Conferma</button><button class="sm" data-act="pxClear">Nessun dolore qui</button></div></div>`;
+  }
+  function bodyPainX(p, z) {
+    const PX = F.PX, cur = F.pxCur(p), plan = planOf(p), a = plan ? F.analyzePlan(plan, p) : null, bad = a ? a.flags.filter(f => f.k === 'danger') : [];
+    const fig = v => `<figure>${F.bodySVG(v, { pain: p.pain || {}, sideMap: F.pxSideMap(p, v), sel: z, extra: F.pxMarkers(v, p, { zone: z, sel: ui.pxSel }) })}<figcaption>${v === 'f' ? 'Fronte' : 'Retro'}</figcaption></figure>`;
+    const opt = o => `<option value="${o.id}">${esc(o.name)}</option>`;
+    const shortL = PX.list.filter(o => !o.full).map(opt).join('');
+    const fullL = Object.keys(F.ZONES).map(k => { const it = PX.list.filter(o => o.full && o.zone === k); return it.length ? `<optgroup label="${esc(F.ZONES[k])}">${it.map(opt).join('')}</optgroup>` : ''; }).join('');
+    const zs = z ? PX.list.filter(o => o.zone === z && o.full) : [];
+    const rows = cur.sort((x, y) => y.l - x.l);
+    return `<h1>Dove senti dolore?</h1><p class="mute small">Cerca la parte che ti fa male, scegli dall'elenco corto (gruppi comuni) o da quello completo (muscoli, tendini, articolazioni), oppure tocca il corpo. Poi indica il lato e l'intensità da 1 a 10. L'app adatta schede e allenamenti: 1-3 attenzione, 4-6 meno serie e meno esercizi stressanti, 7-10 esclude gli esercizi che la caricano.</p>
+      <div class="card"><input id="pxQ" type="search" placeholder="Cerca: es. spalla, achille, menisco, bicipite…" autocomplete="off" value="${esc(ui.pxQ || '')}" aria-label="Cerca struttura"><div id="pxRes">${pxResHtml(ui.pxQ || '')}</div>
+      <div class="row" style="margin-top:8px;gap:8px"><label class="grow small">Elenco corto<select id="pxShort"><option value="">Scegli…</option>${shortL}</select></label><label class="grow small">Elenco completo<select id="pxFull"><option value="">Scegli…</option>${fullL}</select></label></div></div>
+      <div class="bodies">${fig('f')}${fig('b')}</div>
+      <div class="legend"><span><i style="background:var(--body-fill)"></i>ok</span><span><i style="background:#facc15"></i>1-3</span><span><i style="background:#f97316"></i>4-6</span><span><i style="background:#ef4444"></i>7-10</span></div>
+      ${z && !ui.pxSel ? `<div class="card"><h2>${esc(F.ZONES[z])}</h2><p class="small">${esc(F.ZONE_TIPS[z] || '')}</p><p class="mute small" style="margin:0 0 6px">Tocca un punto sul corpo o scegli qui:</p><div class="row" style="flex-wrap:wrap;gap:6px">${zs.map(o => `<button class="sm" data-act="pxPick" data-id="${o.id}">${esc(o.name)}</button>`).join('')}<button class="sm" data-act="pxPick" data-id="${PX.ZONE_G[z]}">Tutta la zona</button></div><div style="margin-top:8px"><button class="sm" data-act="zoneClose">Chiudi</button></div></div>` : ''}
+      ${pxEditor(p)}
+      ${rows.length ? `<div class="card"><h2>Dolori segnalati</h2>${rows.map(e => `<div class="row" style="margin:4px 0"><span class="grow">${esc(F.pxLabel(e))}${e.ty || e.wh ? `<span class="mute small"> · ${esc([e.ty, e.wh].filter(Boolean).join(' · ').toLowerCase())}</span>` : ''}</span><span class="chip ${e.l >= 7 ? 'danger' : e.l >= 4 ? 'warn' : ''}">${e.l}/10</span><button class="sm" data-act="pxPick" data-id="${e.s}" data-sd="${e.sd}">Modifica</button></div>`).join('')}
+        ${bad.length ? `<h3>La scheda attiva contiene esercizi sconsigliati</h3>${msgs(bad)}<button class="primary sm" data-act="adapt" data-id="${plan.id}">Crea versione adattata</button>` : plan ? '<div class="msg ok">La scheda attiva è compatibile con le zone segnalate.</div>' : ''}
+        ${rows.some(e => e.l >= 7) ? '<div class="msg danger">Un dolore forte (7 o più), formicolio, gonfiore, dolore notturno o che dura da giorni va valutato da un medico o fisioterapista. L\'app non fa diagnosi.</div>' : ''}</div>` : '<div class="msg ok">Nessun dolore segnalato.</div>'}
+      ${X.painHistoryCard(p)}`;
+  }
+  function pxResHtml(q) {
+    if (!q || !q.trim()) return '';
+    const r = F.pxSearch(q, 8);
+    return r.length ? `<div class="pxlist">${r.map(o => `<button class="sm" style="display:block;width:100%;text-align:left;margin:4px 0" data-act="pxPick" data-id="${o.id}">${esc(o.name)} <span class="mute small">· ${esc(F.PX.KIND[o.kind] || o.kind)}</span></button>`).join('')}</div>` : '<p class="mute small">Nessun risultato: prova un altro nome o scegli dagli elenchi.</p>';
   }
   function bodyPain(p, pain, z) {
     const list = Object.entries(pain).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -1006,7 +1067,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     addSet(t) { const p = P(), d = p.draft, i = +t.dataset.i, plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], n = setCount(d, i, x, early0(p, plan)); d.data[i] = d.data[i] || []; d.count = d.count || {}; d.count[i] = n + 1; while (d.data[i].length < n + 1) d.data[i].push({}); save(); render(); },
     finishSession() {
       const p = P(), plan = planOf(p), d = p.draft, day = plan.days[d.dayIdx];
-      const ex = day.exercises.map((x, i) => ({ exId: x.exId, name: x.name, sets: (d.data[i] || []).filter(s => s.done || s.reps != null).map(s => ({ kg: s.kg || 0, reps: s.reps || 0, rpe: s.rpe || null })) })).filter(e => e.sets.length);
+      const ex = day.exercises.map((x, i) => ({ exId: x.exId, name: x.name, sets: (d.data[i] || []).filter(s => s.done || s.reps != null).map(s => Object.assign({ kg: s.kg || 0, reps: s.reps || 0, rpe: s.rpe || null }, s.why ? { why: s.why, wz: s.wz || undefined, ws: s.ws || undefined, wl: s.wl || undefined } : {})) })).filter(e => e.sets.length);
       if (!ex.length) return toast('Annota almeno una serie');
       const bw = parseFloat(($('#bw') || {}).value); if (bw > 20) { p.weights.push({ date: F.todayISO(), kg: bw }); p.weight = bw; }
       p.sessions.push({ id: 's' + uid(), date: F.todayISO(), at: Date.now(), planId: plan.id, dayName: day.name, ex }); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
@@ -1016,7 +1077,30 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     timerAdd() { if (ui.timer) { ui.timer.left += 30; const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
     timerStop() { clearInterval(ui.tick); ui.timer = null; const th = $('#timerHost'); if (th) th.innerHTML = ''; },
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
+    whyOpen(t) { ui.whyOpen = ui.whyOpen === t.dataset.k ? null : t.dataset.k; render(); },
+    whyPick(t) { const c = whyCell(t.dataset.k); if (!c) return; c.why = c.why === t.dataset.v ? undefined : t.dataset.v; if (c.why !== 'Dolore') { delete c.wz; delete c.ws; delete c.wl; } ui.whyOpen = t.dataset.k; save(); render(); },
+    whyPainPick(t) { const c = whyCell(t.dataset.k); if (!c) return; c.wz = t.dataset.id; c.ws = 'B'; c.wl = c.wl || 3; save(); render(); },
+    whyPainReset(t) { const c = whyCell(t.dataset.k); if (!c) return; delete c.wz; save(); render(); },
+    whySide(t) { const c = whyCell(t.dataset.k); if (!c) return; c.ws = t.dataset.sd; save(); render(); },
+    whyApply(t) {
+      const c = whyCell(t.dataset.k), p = P(); if (!c || !c.wz) return; const o = F.PX.by[c.wz], lv = c.wl || 0; if (!lv) return toast('Indica l\'intensità del dolore');
+      (o.c ? ['C'] : c.ws === 'L' ? ['L'] : c.ws === 'R' ? ['R'] : ['L', 'R']).forEach(sd => F.pxSet(p, c.wz, sd, lv, {})); save(); toast('Dolore registrato: l\'allenatore lo vede');
+    },
     zoneClose() { ui.zone = null; ui.msgs = []; render(); },
+    pxPick(t) {
+      const id = t.dataset.id; const o = F.PX.by[id]; if (!o) return; const p = P(), cur = F.pxCur(p).filter(e => e.s === id);
+      ui.pxSel = id; ui.zone = o.zone; ui.msgs = []; ui.pxQ = ''; ui.pxSide = o.c ? 'C' : (t.dataset.sd === 'L' || t.dataset.sd === 'R') ? t.dataset.sd : (cur.length && cur.every(e => e.sd === 'L') ? 'L' : cur.length && cur.every(e => e.sd === 'R') ? 'R' : 'B');
+      ui.pxTmp = { ty: (cur[0] && cur[0].ty) || '', wh: (cur[0] && cur[0].wh) || '' }; render(); const c = document.querySelector('#pxEd'); if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    },
+    pxSide(t) { ui.pxSide = t.dataset.sd; render(); },
+    pxClose() { ui.pxSel = null; ui.zone = null; ui.msgs = []; render(); },
+    pxClear() {
+      const o = F.PX.by[ui.pxSel]; if (!o) return; const p = P(); (o.c ? ['C'] : ['L', 'R']).forEach(sd => { if (F.pxCur(p).some(e => e.s === o.id && e.sd === sd)) F.pxSet(p, o.id, sd, 0); }); save(); ui.msgs = []; render();
+    },
+    pxTag(t) {
+      const k = t.dataset.k, v = t.dataset.v, p = P(), o = F.PX.by[ui.pxSel]; ui.pxTmp = ui.pxTmp || {}; ui.pxTmp[k] = ui.pxTmp[k] === v ? '' : v;
+      if (o) ['L', 'R', 'C'].forEach(sd => F.pxMeta(p, o.id, sd, { [k]: ui.pxTmp[k] })); save(); render();
+    },
     zoneClear(t) { setPain(t.dataset.zone, 0); },
     saveMeas() {
       const p = P(), date = ($('#msDate') || {}).value || F.todayISO(), v = {}; let n = 0;
@@ -1136,7 +1220,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   /* ---------- eventi ---------- */
   document.addEventListener('click', e => {
     const reg = e.target.closest('.reg.hit');
-    if (reg && ui.tab === 'body' && !ui.sub) { ui.zone = reg.dataset.zone; ui.msgs = []; render(); const c = document.querySelector('#painR'); if (c) c.scrollIntoView({ block: 'nearest' }); return; }
+    if (reg && ui.tab === 'body' && !ui.sub) { ui.zone = reg.dataset.zone; ui.pxSel = null; ui.msgs = []; render(); const c = document.querySelector('#painR'); if (c) c.scrollIntoView({ block: 'nearest' }); return; }
     const t = e.target.closest('[data-act]'); if (t && act[t.dataset.act]) act[t.dataset.act](t, e);
   });
   document.addEventListener('submit', e => {
@@ -1149,6 +1233,11 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const pl = F.generatePlan(p); pl.title = 'Scheda su misura ' + F.todayISO(); p.plans.push(pl); p.activePlan = pl.id;
     S.profiles.push(p); S.active = p.id; save(); ui.sub = null; ui.tab = 'home'; render(); toast('Profilo e scheda creati');
   });
+  function whyLive(i, s) {
+    const row = document.querySelector('.whyrow[data-why="' + i + ':' + s + '"]'); if (!row) return;
+    const p = P(), plan = planOf(p), d = p.draft; if (!plan || !d) return; const x = plan.days[d.dayIdx].exercises[i], c = (d.data[i] || [])[s], si = setInfo(x, s, d.data[i]), pt = F.pctTarget(p, x);
+    const diff = setDiff(x, si, c, pt && !pt.need ? pt.hi : null); row.hidden = !diff && !(c && c.why); const el = row.querySelector('.whydiff'); if (el) el.textContent = ' ' + diff;
+  }
   function esSet(t) {
     const d = ui.sub && ui.sub.draft; if (!d) return;
     if (t.dataset.es === 'date') { d.date = t.value; return; }
@@ -1158,6 +1247,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   document.addEventListener('change', e => {
     const t = e.target, p = P(); if (X && X.onChange(t)) return;
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
+    if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }
@@ -1172,7 +1262,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.dataset.rm) { const v = parseFloat(String(t.value).replace(',', '.')); p.rm = p.rm || {}; if (v > 0) p.rm[t.dataset.rm] = v; else delete p.rm[t.dataset.rm]; save(); render(); return; }
     if (t.dataset.altpick != null) { const [gid, v] = t.dataset.altpick.split('|'), plan = planOf(p), dd = p.draft, ex = plan.days[dd.dayIdx].exercises; dd.use = dd.use || {}; ex.forEach((x, j) => { if (x.altGroup === gid) dd.use[j] = v === 'both' || +v === j; }); save(); render(); return; }
     if (t.dataset.altuse != null) { const d = p.draft, i = +t.dataset.altuse; d.use = d.use || {}; d.use[i] = t.checked; save(); render(); return; }
-    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
+    if (t.dataset.done) { const [i, s] = t.dataset.done.split(':').map(Number); const d = p.draft; d.data[i] = d.data[i] || []; while (d.data[i].length <= s) d.data[i].push({}); const c = d.data[i][s]; c.done = t.checked; if (!t.checked) whyLive(+i, +s); if (t.checked) { const plan = planOf(p), x = plan.days[d.dayIdx].exercises[i], si = setInfo(x, s, d.data[i]); if (c.reps == null) { const dv = +repDefault(x, si); if (dv) c.reps = dv; } if (c.kg == null && si.kgHint != null) c.kg = si.kgHint; save(); if (!(x.tech && x.tech.emom) && si.rest) startTimer(si.rest, si.rest <= 30 ? 'Pausa' : 'Recupero'); if (x.tech && (x.tech.top || x.tech.drop || c.reps != null)) { const y = window.scrollY; render(); window.scrollTo(0, y); } return; } save(); return; }
     if (t.dataset.edit) { const [di, xi, k] = t.dataset.edit.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi]; if (k === 'sets') { x.sets = Math.max(1, Math.min(10, +t.value || 1)); x.setsEarly = Math.max(1, x.sets - 1); } else x.reps = t.value; save(); render(); return; }
     if (t.dataset.map) { if (!t.value) return; const [di, xi] = t.dataset.map.split(':'); const pl = p.plans.find(x => x.id === ui.sub.id), x = pl.days[+di].exercises[+xi], e2 = F.EXMAP[t.value]; x.exId = e2.id; x.unit = e2.unit; save(); render(); return; }
   });
@@ -1181,8 +1271,12 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { liveSearch(t.value); return; }
+    if (t.classList && t.classList.contains('whyq')) { const r = document.querySelector('.whyres[data-k="' + t.dataset.k + '"]'); if (r) r.innerHTML = F.pxSearch(t.value, 6).map(o => `<button class="sm" style="display:block;width:100%;text-align:left;margin:3px 0" data-act="whyPainPick" data-k="${t.dataset.k}" data-id="${o.id}">${esc(o.name)}</button>`).join(''); return; }
+    if (t.classList && t.classList.contains('whyl')) { const c = whyCell(t.dataset.k); if (c) { c.wl = +t.value; const sv = $('#whyV' + t.dataset.k.replace(':', '_')); if (sv) sv.textContent = t.value; save(); } return; }
+    if (t.id === 'pxQ') { ui.pxQ = t.value; const r = $('#pxRes'); if (r) r.innerHTML = pxResHtml(t.value); return; }
+    if (t.classList && t.classList.contains('pxr')) { const v = +t.value, sd = t.dataset.sd, sv = $('#pxV' + sd); if (sv) sv.textContent = v; clearTimeout(t._d); t._d = setTimeout(() => { const tm = ui.pxTmp || {}, ex = {}; if (tm.ty) ex.ty = tm.ty; if (tm.wh) ex.wh = tm.wh; ui.msgs = F.pxSet(p, t.dataset.s, sd, v, ex); save(); render(); }, 350); return; }
     if (t.id === 'painR') { const v = +t.value; $('#painV').textContent = v; clearTimeout(t._d); t._d = setTimeout(() => setPain(t.dataset.zone, v), 350); return; }
-    if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); }
+    if (t.dataset.set) { const [i, s, k] = t.dataset.set.split(':'); const d = p.draft; d.data[+i] = d.data[+i] || []; while (d.data[+i].length <= +s) d.data[+i].push({}); const raw = t.value.replace(',', '.'); d.data[+i][+s][k] = raw === '' ? undefined : parseFloat(raw); if (isNaN(d.data[+i][+s][k])) d.data[+i][+s][k] = undefined; save(); whyLive(+i, +s); }
   });
 
   /* ---------- area allenatore, sviluppatore, account ---------- */
