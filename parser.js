@@ -200,6 +200,7 @@
   F.compKind = function (text) {   // tipo di gara dichiarato nel testo della scheda (solo righe di intestazione, prima del primo giorno)
     const head = String(text || '').split(/\r?\n/).slice(0, 12).join(' ');
     if (/power\s*lifting|\bPL\b/i.test(head) && /gara|competition|contest|meet|peaking|block/i.test(head)) return 'powerlifting';
+    if (/calisthenic|kalisthenic|street\s*workout|freestyle/i.test(head) && /gara|competition|contest|challenge|campionato|peaking/i.test(head)) return 'calisthenics';
     if (/body\s*building|\bBB\b|physique|bikini|classic/i.test(head) && /gara|competition|contest|prep|peak/i.test(head)) return 'bodybuilding';
     if (/\bgara\b|competition|contest/i.test(head)) return 'gara';
     return null;
@@ -246,14 +247,15 @@
     for (const raw of lines) {
       if (/^\s*(?:giorno|day|gg)\s*\d/i.test(raw)) break;
       if (++n > 25) break;
-      const m = raw.match(/^\s*(?:[*•-]\s*)?(data gara|gara|meet|competition|federazione|federation|categoria|category|classe|attrezzatura|equipaggiamento|equipment|disciplina|luogo|sede)\s*[:\-–]\s*(.+)$/i); if (!m) continue;
+      const m = raw.match(/^\s*(?:[*•-]\s*)?(data gara|gara|meet|competition|federazione|federation|categoria|category|classe|attrezzatura|equipaggiamento|equipment|disciplina|luogo|sede|messaggio|message|nota coach)\s*[:\-–]\s*(.+)$/i); if (!m) continue;
       const k = m[1].toLowerCase(), v = m[2].trim();
       if (/data|gara|meet|competition/.test(k)) {
         const d = v.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
         if (d) { const y = +d[3] < 100 ? 2000 + +d[3] : +d[3]; o.date = y + '-' + String(d[2]).padStart(2, '0') + '-' + String(d[1]).padStart(2, '0'); }
         const nm = v.replace(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/, '').replace(/[\s,;–-]+$/, '').trim();
         if (nm && !/^data/.test(k)) o.name = nm;
-      } else if (/federaz/.test(k)) o.fed = v;
+      } else if (/messaggio|message|nota/.test(k)) o.msg = v.slice(0, 400);
+      else if (/federaz/.test(k)) o.fed = v;
       else if (/categor|classe/.test(k)) { const w = v.match(/(\d{2,3}(?:[.,]\d)?)\s*\+?/); if (w) o.cls = (v.indexOf('+') >= 0 ? '+' : '') + w[1].replace(',', '.'); else o.cls = v; }
       else if (/attrezz|equip/.test(k)) o.equip = /equip|attrez.*suppor|single|multi/i.test(v) && !/classic|raw/i.test(v) ? 'equipped' : 'classic';
       else if (/luogo|sede/.test(k)) o.place = v;
@@ -266,10 +268,10 @@
     const r = parseFlat(text); r.comp = F.compKind(text); r.compInfo = F.compInfo(text); return r;
   };
   /* settimana del blocco: automatica dalla data di inizio, oppure scelta a mano */
-  F.blockWeek = function (pl) {
+  F.blockWeek = function (pl, atISO) {
     const b = pl && pl.block; if (!b) return 1;
-    if (b.manual >= 1 && b.manual <= b.weeks) return b.manual;
-    const st = new Date(b.start || pl.createdAt || Date.now()); const w = Math.floor((Date.now() - st) / (7 * 864e5)) + 1;
+    if (!atISO && b.manual >= 1 && b.manual <= b.weeks) return b.manual;
+    const st = new Date((b.start || pl.createdAt || F.todayISO()) + 'T00:00:00'), at = atISO ? new Date(atISO + 'T00:00:00') : new Date(); const w = Math.floor((at - st) / (7 * 864e5)) + 1;
     return Math.max(1, Math.min(b.weeks, isNaN(w) ? 1 : w));
   };
   F.applyWeek = function (pl, w) {

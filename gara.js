@@ -101,6 +101,56 @@
     'GIORNO 1: SQUAT + PANCA GARA', '1. Low Bar Squat', '   * W1: 1x6 @ RPE 7 + 4x6 (-10%)', '   * W2: 1x6 @ RPE 8 + 4x6 (-10%)', '   * W3: 1x4 @ RPE 7.5 + 3x4 (-8%)', '   * W4: 1x3 @ RPE 8 + 3x3 (-6%)', '   * W5: 1x2 @ RPE 8.5-9 + 2x2 (-5%)',
     '2. Panca Gara', '   * W1: 1x6 @ RPE 7 + 4x6 (-10%)', '   * W3: 1x4 @ RPE 7.5 + 3x4 (-8%)', '3. Belt Squat', '   * W1-W2: 3x12 @ RPE 8', '   * W3: 3x10 @ RPE 8', '4. Face Pull', '   * W1-W5: 3x15-20 RIR 2', '',
     'GIORNO 2: STACCO + PANCA VOLUME', '1. Stacco Gara', '   * W1: 1x5 @ RPE 7 + 3x5 (-10%)', '   * W3: 1x3 @ RPE 8 + 3x3 (-8%)', '   * W5: 1x2 @ RPE 8.5 + 2x2 (-5%)', '2. Panca Gara', '   * W1: MAV 5 (@ RPE 7.5) + 3x6 (-10%)', '   * W3: MAV 4 (@ RPE 8) + 3x5 (-8%)'].join('\n');
+
+  /* ---------- motivazione: record e costanza dalle sedute registrate ---------- */
+  F.garaPRs = function (p) {
+    const ses = (p.sessions || []).slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0), best = {}, out = [];
+    ses.forEach(s => {
+      const day = {};
+      (s.ex || []).forEach(e => {
+        const key = String(e.name || '').toLowerCase().trim(); if (!key) return;
+        (e.sets || []).forEach(t => {
+          if (t.warm) return; let v = null, unit = '';
+          if (t.kg > 0 && t.reps > 0) { v = F.e1rm(t.kg, t.reps); unit = 'kg stimati'; } else if (t.reps > 0 && !(t.kg > 0)) { v = t.reps; unit = 'rip'; }
+          if (!v) return; const k = key + '|' + unit; if (!day[k] || v > day[k].v) day[k] = { v, name: e.name, unit };
+        });
+      });
+      Object.keys(day).forEach(k => { const d = day[k]; if (best[k] != null && d.v > best[k] + (d.unit === 'rip' ? 0 : 0.5)) out.push({ date: s.date, name: d.name, val: Math.round(d.v * 10) / 10, unit: d.unit }); if (best[k] == null || d.v > best[k]) best[k] = d.v; });
+    });
+    return out;
+  };
+  F.garaStreak = function (p) {
+    const mon = d => { const x = new Date(d + 'T00:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
+    const wk = {}; (p.sessions || []).forEach(s => { const k = mon(s.date); wk[k] = (wk[k] || 0) + 1; });
+    let cur = mon(F.todayISO()), n = 0; const thisWeek = wk[cur] || 0;
+    if (!thisWeek) { const x = new Date(cur + 'T00:00:00'); x.setDate(x.getDate() - 7); cur = mon(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0')); }
+    while (wk[cur]) { n++; const x = new Date(cur + 'T00:00:00'); x.setDate(x.getDate() - 7); cur = mon(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0')); }
+    return { weeks: n, thisWeek };
+  };
+  /* regole FIF Calisthenics Challenge 2026 (fif.it) */
+  F.CAL_RULES = [
+    ['Formato', ['Eliminatorie: un set di 50 secondi, senza limite di elementi. Passano i primi 4 in classifica.', 'Finale: i 4 finalisti eseguono 2 set a testa da 50 secondi, alternandosi.', 'Uomini: categorie Advanced (oltre 13 punti dichiarati) e Intermediate (fino a 13 punti dichiarati). Donne: una categoria. Nessuna categoria per età o peso.']],
+    ['Tenute e tempi', ['1 secondo di riconoscimento della posizione statica, poi da 1 a 3 movimenti dinamici.', 'Ogni skill isometrica va tenuta 2 secondi, contati dal blocco della posizione.', 'Il bonus di tenuta richiede 5 secondi.']],
+    ['Ripetizioni', ['Skill isometrica ripetuta sullo stesso attrezzo: la seconda vale la metà, la terza è nulla. Stessa skill su un altro attrezzo: valore pieno.', 'Push, pull, chin, presse e movimenti di forza: massimo 3 ripetizioni ciascuno; solo l’ultima termina con la tenuta di 2 secondi.', 'Dinamiche non fluide o controllate: non valide. One arm: pieno punteggio con entrambe le mani.']],
+    ['Penalità', ['Skill non eseguita: nessuna penalità, ma il valore finale è inferiore.', 'Penalità per skill: leggera 0,1-0,3; media 0,3-0,5; alta da 0,5 fino all’annullamento.', 'Presse e pulls incompleti (braccia flesse, tenuta sotto i 2 secondi): da 0,1 a 0,5, fino all’annullamento.']],
+    ['Bonus', ['Varietà di attrezzo +3,0: almeno una skill su parallele, anelli, sbarra e suolo.', 'Completezza +3,0: almeno una skill in ciascuna macro-categoria (verticalismo, spinta, tirata, forza).', 'Freestyle da 0 a 5 punti, a discrezione della giuria.', 'Collegamento senza pause sullo stesso attrezzo: +0,3 per elemento, minimo 3 elementi. Variazioni di presa: +0,1 ciascuna fino a +0,5. Tenuta di 5 secondi: +0,3.']]
+  ];
+  F.CAL_SRC = 'Fonte: Regolamento FIF Calisthenics Challenge 2026 (fif.it). Altre federazioni (per esempio WSWCF) hanno formati diversi: segui il regolamento della tua gara.';
+  const CAL_LADD = { 'Front lever': ['Tuck', 'Advanced tuck', 'Una gamba', 'Straddle', 'Completo'], 'Planche': ['Tuck', 'Advanced tuck', 'Straddle', 'Completa'], 'Verticale': ['Al muro, pancia al muro', 'Al muro, schiena al muro', 'Libera 5 s', 'Libera 30 s'], 'Muscle-up': ['Negativa', 'Con elastico', 'Alla sbarra', 'Agli anelli'] };
+
+
+  /* cruscotto del coach: tutti gli atleti con un'Area Gara */
+  F.garaBoard = function (list, uidOf) {
+    const rows = (list || []).filter(p => p.gara).map(p => {
+      const g = p.gara, m = g.meet || {}, pl = (p.plans || []).find(x => x.id === p.activePlan), st = F.clientStats ? F.clientStats(p) : { adherence: 0, daysSince: null, alerts: [] };
+      return { p, g, dd: daysTo(m.date), wk: pl && pl.block ? F.blockWeek(pl) : null, wks: pl && pl.block ? pl.block.weeks : null, st, name: m.name || 'Gara' };
+    }).sort((a, b) => (a.dd == null ? 9999 : a.dd < 0 ? 5000 - a.dd : a.dd) - (b.dd == null ? 9999 : b.dd < 0 ? 5000 - b.dd : b.dd));
+    if (!rows.length) return '';
+    const lab = { powerlifting: 'Powerlifting', bodybuilding: 'Bodybuilding', calisthenics: 'Calisthenics' };
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    return `<div class="card" style="border-color:var(--accent)"><h2>Atleti di gara</h2><p class="mute small" style="margin-top:0">Ordinati dalla gara più vicina.</p>${rows.map(r => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0;align-items:center"><div class="grow"><b>${esc(r.p.name)}</b> <span class="chip">${lab[r.g.kind] || 'Gara'}</span>${r.g.seen ? '' : ' <span class="chip warn">non ancora aperta</span>'}<div class="small mute">${esc(r.name)} · ${r.dd == null ? 'data da impostare' : r.dd > 0 ? 'tra ' + r.dd + ' giorni' : r.dd === 0 ? 'oggi' : 'passata'}${r.wk ? ' · settimana ' + r.wk + '/' + r.wks : ''}</div><div class="small">Aderenza <b>${r.st.adherence}%</b>${r.st.daysSince != null ? ' · ultima seduta ' + (r.st.daysSince === 0 ? 'oggi' : r.st.daysSince + ' g fa') : ''}${r.st.alerts && r.st.alerts.length ? ' · <span class="chip danger">dolori ' + r.st.alerts.length + '</span>' : ''}</div></div><button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(r.p))}">Apri</button></div>`).join('')}</div>`;
+  };
+
   /* ---------- montaggio nell'app ---------- */
   F.mountGara = function (c) {
     const esc = c.esc, P = c.P, ui = c.ui, G = {};
@@ -111,10 +161,13 @@
       if (!p.gara) p.gara = { kind: plan.comp, opened: Date.now(), seen: false, meet: Object.assign({}, plan.compInfo || {}), att: {}, res: {}, shared: [], history: [] };
       const g = p.gara; g.kind = g.kind || plan.comp; g.meet = g.meet || {}; g.att = g.att || {}; g.res = g.res || {}; g.shared = g.shared || []; g.history = g.history || [];
       if (plan.compInfo) { const m = plan.compInfo; ['name', 'date', 'fed', 'cls', 'equip', 'place'].forEach(k => { if (m[k] && !g.meet[k] && !g.meet['_u' + k]) g.meet[k] = m[k]; }); }
+      g.cal = g.cal || { skills: [], bonus: {}, prog: [] };
+      if (plan.compInfo) g.coachMsg = plan.compInfo.msg || '';
       p.garaPriv = p.garaPriv || { checkins: [], peak: {}, posing: [] };
     };
     const priv = p => (p.garaPriv = p.garaPriv || { checkins: [], peak: {}, posing: [] });
-    const kind = g => g.kind === 'bodybuilding' ? 'bb' : 'pl';
+    const kind = g => g.kind === 'bodybuilding' ? 'bb' : g.kind === 'calisthenics' ? 'cal' : 'pl';
+    const KL = { pl: 'Powerlifting', bb: 'Bodybuilding', cal: 'Calisthenics' };
     G.tab = ICON => ['gara', 'Gara', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v4a6 6 0 0 1-12 0V3zM6 5H3v1a3 3 0 0 0 3 3M18 5h3v1a3 3 0 0 1-3 3M12 13v5M8 21h8M10 18h4"/></svg>'];
     G.unseen = (p) => !!(p && p.gara && !p.gara.seen);
 
@@ -123,26 +176,26 @@
       if (!G.gate(p, plan) || p.gara.seen) return '';
       const k = kind(p.gara);
       return `<div class="card" style="border-color:var(--accent);background:linear-gradient(135deg,#1a0d0f,#0a0e14)"><div class="mute small">Nuovo dal tuo allenatore</div><h2 style="margin:.1em 0">Si è aperta la tua Area Gara</h2>
-        <p style="margin:.2em 0 .6em">Il tuo coach ti ha inviato una scheda di ${k === 'bb' ? 'preparazione bodybuilding' : 'powerlifting'}: ho aperto una sezione tutta tua con ${k === 'bb' ? 'check-in, foto, picco e conto alla rovescia' : 'tentativi, punteggio IPF GL, categoria di peso, giorno di gara e analisi'}. Puoi usarla subito.</p>
+        <p style="margin:.2em 0 .6em">Il tuo coach ti ha inviato una scheda di ${k === 'bb' ? 'preparazione bodybuilding' : k === 'cal' ? 'calisthenics' : 'powerlifting'}: ho aperto una sezione tutta tua con ${k === 'bb' ? 'check-in, foto, picco e conto alla rovescia' : k === 'cal' ? 'set di gara, punteggio stimato, skill, timer da 50 secondi e analisi' : 'tentativi, punteggio IPF GL, categoria di peso, giorno di gara e analisi'}. Puoi usarla subito.</p>
         <div class="row wrap"><button class="primary sm" data-act="garaOpen">Apri l’Area Gara</button><button class="sm ghost" data-act="garaSeen">Ho letto</button></div></div>`;
     };
     G.homeCard = function (p, plan) {
       if (!G.gate(p, plan) || !p.gara.seen || p.gara.hide) return '';
       const g = p.gara, m = g.meet || {}, d = daysTo(m.date), bw = plan.block ? F.blockWeek(plan) : 0;
-      return `<div class="card" style="border-color:var(--accent)"><div class="row" style="align-items:center"><div class="grow"><div class="mute small">Area Gara · ${kind(g) === 'bb' ? 'Bodybuilding' : 'Powerlifting'}</div><b>${esc(m.name || 'Gara')}</b>
-        <div class="small mute">${d == null ? 'Imposta la data della gara' : d > 0 ? 'mancano ' + d + ' giorni' : d === 0 ? 'è oggi!' : 'gara passata'}${bw ? ' · settimana ' + bw + ' di ' + plan.block.weeks : ''}</div></div><button class="sm primary" data-act="garaOpen">Apri</button></div></div>`;
+      return `<div class="card" style="border-color:var(--accent)"><div class="row" style="align-items:center"><div class="grow"><div class="mute small">Area Gara · ${KL[kind(g)]}</div><b>${esc(m.name || 'Gara')}</b>
+        <div class="small mute">${d == null ? 'Imposta la data della gara' : d > 0 ? 'mancano ' + d + ' giorni' : d === 0 ? 'è oggi!' : 'gara passata'}${bw ? ' · settimana ' + bw + ' di ' + plan.block.weeks : ''}</div></div><button class="sm primary" data-act="garaOpen">Apri</button></div>${g.coachMsg ? `<div class="msg tip" style="margin-top:8px"><b>Dal coach:</b> ${esc(g.coachMsg)}</div>` : ''}${(() => { const pr = F.garaPRs(p).filter(x => (Date.now() - new Date(x.date)) < 4 * 864e5).slice(-1)[0]; return pr ? `<div class="msg ok" style="margin-top:8px">Nuovo record: <b>${esc(pr.name)}</b> ${pr.val} ${pr.unit}</div>` : ''; })()}</div>`;
     };
 
     /* ---------- vista ---------- */
-    const tabsFor = k => k === 'bb' ? [['home', 'Panoramica'], ['checkin', 'Check-in'], ['foto', 'Foto'], ['picco', 'Picco'], ['regole', 'Categorie']] : [['home', 'Prima'], ['giorno', 'Durante'], ['dopo', 'Dopo'], ['regole', 'Regole']];
+    const tabsFor = k => k === 'cal' ? [['home', 'Prima'], ['giorno', 'Durante'], ['dopo', 'Dopo'], ['regole', 'Regole']] : k === 'bb' ? [['home', 'Panoramica'], ['checkin', 'Check-in'], ['foto', 'Foto'], ['picco', 'Picco'], ['regole', 'Categorie']] : [['home', 'Prima'], ['giorno', 'Durante'], ['dopo', 'Dopo'], ['regole', 'Regole']];
     G.view = function () {
       const p = P(), plan = c.planOf(p);
       if (!G.gate(p, plan)) return `<h1>Area Gara</h1><div class="card"><p class="mute">Questa sezione si apre quando il tuo allenatore ti invia una scheda di gara.</p></div>`;
       G.ensure(p, plan); const g = p.gara, k = kind(g); if (!g.seen) { g.seen = true; c.save(); }
       const t = ui.gtab && tabsFor(k).some(x => x[0] === ui.gtab) ? ui.gtab : 'home';
       const nav = `<div class="row wrap" role="tablist" aria-label="Area Gara" style="margin:4px 0 10px">${tabsFor(k).map(([a, l]) => `<button class="sm ${a === t ? 'primary' : ''}" role="tab" aria-selected="${a === t}" data-act="garaTab" data-t="${a}">${l}</button>`).join('')}</div>`;
-      const body = k === 'bb' ? bbView(p, plan, g, t) : plView(p, plan, g, t);
-      return `<h1 style="margin-bottom:2px">Area Gara</h1><div class="mute small" style="margin-bottom:6px">${k === 'bb' ? 'Bodybuilding' : 'Powerlifting'} · ${esc((g.meet || {}).fed || 'federazione da indicare')}</div>${nav}${body}`;
+      const body = k === 'bb' ? bbView(p, plan, g, t) : k === 'cal' ? calView(p, plan, g, t) : plView(p, plan, g, t);
+      return `<h1 style="margin-bottom:2px">Area Gara</h1><div class="mute small" style="margin-bottom:6px">${KL[k]} · ${esc((g.meet || {}).fed || 'federazione da indicare')}</div>${nav}${body}`;
     };
     const fld = (label, path, val, type, extra) => `<label class="small" for="g_${path}" style="margin-top:8px;display:block">${label}</label><input id="g_${path}" data-gp="${path}" data-gt="${type || 'text'}" type="${type === 'num' ? 'text" inputmode="decimal' : type || 'text'}" value="${esc(val == null ? '' : val)}" ${extra || ''}>`;
     const kpi = (v, l) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
@@ -176,6 +229,8 @@
         <div class="grid3 k4" style="margin-top:10px">${kpi('<span style="font-size:.62em">' + ph + '</span>', 'fase')}${kpi(wk ? wk + '/' + plan.block.weeks : '—', 'settimana blocco')}${kpi(d.tgt ? d.tgt + ' kg' : '—', 'categoria')}${kpi(d.bw ? d.bw + ' kg' : '—', 'peso')}</div>
         ${plan.block ? `<div class="row wrap" style="margin-top:10px;align-items:center"><span class="small mute">Settimana del blocco</span><button class="sm" data-act="garaWeek" data-d="-1" aria-label="Settimana precedente">‹</button><b>${wk}</b><button class="sm" data-act="garaWeek" data-d="1" aria-label="Settimana successiva">›</button>${plan.block.manual ? '<button class="sm ghost" data-act="garaWeek" data-d="0">Automatica</button>' : ''}</div>` : ''}
         ${left != null ? `<div class="msg ${left < 0 ? 'danger' : left < 1 ? 'warn' : 'ok'}" style="margin-top:10px">${left < 0 ? 'Sei ' + Math.abs(left) + ' kg sopra il limite della categoria ' + esc(d.tgt) + '.' : 'Margine sul limite ' + esc(d.tgt) + ' kg: ' + left + ' kg.'} ${d.cl && d.cl.label !== d.tgt ? '<br>Con il peso attuale rientreresti nella ' + esc(d.cl.label) + '.' : ''}</div>` : ''}</div>
+        ${motCard(p, plan, g)}
+        ${blockCard(plan)}
         <div class="card"><h2>Dati gara</h2><p class="mute small">Quello che il coach ha scritto nella scheda è già compilato: correggilo se serve.</p>
           ${fld('Nome gara', 'meet.name', d.m.name)}${fld('Data gara', 'meet.date', d.m.date, 'date')}${fld('Orario inizio della tua categoria (se lo sai)', 'meet.time', d.m.time, 'time')}${fld('Luogo', 'meet.place', d.m.place)}${fld('Federazione', 'meet.fed', d.m.fed)}
           <label class="small" for="g_meet.equip" style="margin-top:8px;display:block">Attrezzatura</label><select id="g_meet.equip" data-gp="meet.equip"><option value="classic" ${d.equip === 'classic' ? 'selected' : ''}>Classic (senza supporti)</option><option value="equipped" ${d.equip === 'equipped' ? 'selected' : ''}>Equipped</option></select>
@@ -245,6 +300,7 @@
         <div style="font:italic 700 3rem/1 var(--display)">${dd == null ? '—' : dd > 0 ? dd : dd === 0 ? 'OGGI' : 'finita'}</div><div class="mute">${dd != null && dd > 0 ? 'giorni alla gara · ' + wk + ' settimane · ' + fmtD(m.date) : 'imposta la data qui sotto'}</div>
         <div class="grid3" style="margin-top:10px">${kpi((BB_DIV.find(x => x[0] === g.div) || [0, '—'])[1], 'categoria')}${kpi(({ massa: 'Massa', definizione: 'Definizione', picco: 'Picco', post: 'Post gara' })[ph], 'fase')}${kpi(last && last.w ? last.w + ' kg' : '—', 'ultimo peso')}</div>
         ${last && first && last.w && first.w ? `<p class="small mute" style="margin:8px 0 0">Da ${fmtD(first.date)}: ${(last.w - first.w) > 0 ? '+' : ''}${Math.round((last.w - first.w) * 10) / 10} kg${last.waist && first.waist ? ' · vita ' + ((last.waist - first.waist) > 0 ? '+' : '') + Math.round((last.waist - first.waist) * 10) / 10 + ' cm' : ''}</p>` : ''}</div>
+        ${motCard(p, plan, g)}
         <div class="card"><h2>Dati gara</h2>${fld('Nome gara', 'meet.name', m.name)}${fld('Data gara', 'meet.date', m.date, 'date')}${fld('Luogo', 'meet.place', m.place)}${fld('Federazione', 'meet.fed', m.fed)}
           <label class="small" for="g_div" style="margin-top:8px;display:block">Categoria</label><select id="g_div" data-gp="div"><option value="">Scegli…</option>${BB_DIV.map(x => `<option value="${x[0]}" ${g.div === x[0] ? 'selected' : ''}>${x[1]}</option>`).join('')}</select>
           <label class="small" for="g_phase" style="margin-top:8px;display:block">Fase attuale</label><select id="g_phase" data-gp="phase">${[['massa', 'Massa'], ['definizione', 'Definizione'], ['picco', 'Picco'], ['post', 'Post gara']].map(x => `<option value="${x[0]}" ${ph === x[0] ? 'selected' : ''}>${x[1]}</option>`).join('')}</select></div>
@@ -282,17 +338,79 @@
           ${(pr.posing || []).slice(-5).reverse().map(x => `<div class="small" style="padding:5px 0;border-top:1px solid var(--line)"><b>${fmtD(x.date)}</b>${x.min ? ' · ' + x.min + ' min' : ''}${x.note ? '<br><span class="mute">' + esc(x.note) + '</span>' : ''}</div>`).join('')}</div>`;
     }
 
+
+    function blockCard(plan) {
+      if (!plan || !plan.block) return '';
+      const st = plan.block.start || plan.createdAt || '';
+      return `<div class="card"><h2>Inizio del blocco</h2><p class="small mute">Hai già iniziato la preparazione? Metti qui il giorno della prima seduta: la settimana si aggiorna da sola.</p><label class="small" for="blk_start" style="display:block">Primo giorno del blocco</label><input id="blk_start" type="date" data-gblk="start" value="${esc(st)}">${c.pastCard ? c.pastCard(P(), plan) : ''}</div>`;
+    }
+    /* ----- Motivazione: record, costanza, messaggio del coach ----- */
+    function motCard(p, plan, g) {
+      const st = F.garaStreak(p), need = plan && plan.days ? plan.days.length : 0, prs = F.garaPRs(p).filter(x => (Date.now() - new Date(x.date)) < 30 * 864e5).slice(-4).reverse();
+      return `<div class="card"><h2>La tua costanza</h2><div class="grid3">${kpi(st.weeks || 0, st.weeks === 1 ? 'settimana di fila' : 'settimane di fila')}${kpi(st.thisWeek + (need ? '/' + need : ''), 'sedute questa settimana')}${kpi(prs.length, 'record in 30 giorni')}</div>
+        ${prs.length ? `<div style="margin-top:8px">${prs.map(x => `<div class="small" style="padding:4px 0;border-top:1px solid var(--line)"><span class="chip">Record</span> <b>${esc(x.name)}</b> ${x.val} ${x.unit} <span class="mute">· ${fmtD(x.date).slice(0, 5)}</span></div>`).join('')}</div>` : '<p class="small mute" style="margin:8px 0 0">Il prossimo record lo segniamo qui appena lo fai.</p>'}
+        ${g.coachMsg ? `<div class="msg tip" style="margin-top:8px"><b>Dal coach:</b> ${esc(g.coachMsg)}</div>` : ''}</div>`;
+    }
+
+    /* ----- Calisthenics ----- */
+    function calScore(g) {
+      const c = g.cal, sk = c.skills || [], ok = sk.filter(s => s.ok === true), b = c.bonus || {};
+      const att = ['parallele', 'anelli', 'sbarra', 'suolo'], cat = ['verticalismo', 'spinta', 'tirata', 'forza'];
+      const base = ok.reduce((a, s) => a + (+s.v || 0), 0), pen = sk.reduce((a, s) => a + (+s.pen || 0), 0);
+      const varied = att.every(a => ok.some(s => s.att === a)), compl = cat.every(k => ok.some(s => s.cat === k));
+      const free = Math.min(5, Math.max(0, +b.free || 0)), link = Math.max(0, +b.link || 0) >= 3 ? 0.3 * (+b.link) : 0, grips = Math.min(0.5, 0.1 * (+b.grips || 0)), holds = 0.3 * (+b.holds || 0);
+      const total = base - pen + (varied ? 3 : 0) + (compl ? 3 : 0) + free + link + grips + holds;
+      return { base, pen, varied, compl, free, link, grips, holds, total: Math.round(total * 100) / 100, decl: sk.reduce((a, s) => a + (+s.v || 0), 0) };
+    }
+    const CAL_MAX = [['Trazioni', /trazion|pull.?up|chin.?up/i, /australian|inverted|negativ|assist|elastic/i], ['Dip alle parallele', /\bdip\b|parallele/i, /panca|bench/i], ['Piegamenti', /piegament|push.?up/i, /pike|verticale|handstand|archer|diamond/i], ['Muscle-up', /muscle.?up/i, /negativ|assist|elastic/i]];
+    function calMax(p) {
+      return CAL_MAX.map(([n, re, no]) => { let best = 0, d = ''; (p.sessions || []).forEach(s => (s.ex || []).forEach(e => { if (!re.test(e.name || '') || no.test(e.name || '')) return; (e.sets || []).forEach(t => { if (!t.warm && !(t.kg > 0) && t.reps > best) { best = t.reps; d = s.date; } }); })); return { n, best, d }; });
+    }
+    function calView(p, plan, g, t) {
+      const c2 = g.cal, m = g.meet || {}, dd = daysTo(m.date), wk = plan.block ? F.blockWeek(plan) : 0;
+      if (t === 'regole') return `<div class="msg tip">${esc(F.CAL_SRC)}</div>` + F.CAL_RULES.map(([h, l]) => `<details class="card"><summary><b>${h}</b></summary><ul style="margin:8px 0 0;padding-left:18px">${l.map(x => `<li class="small" style="margin:4px 0">${esc(x)}</li>`).join('')}</ul></details>`).join('');
+      const sc = calScore(g);
+      const skillRows = (live) => (c2.skills || []).map((s, i) => `<div class="row" style="align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><div class="grow"><b>${esc(s.n)}</b><div class="small mute">${esc(s.att)} · ${esc(s.cat)} · valore ${s.v}</div></div>${live ? `<button class="sm ${s.ok === true ? 'primary' : ''}" data-act="calOk" data-i="${i}" data-v="1" aria-pressed="${s.ok === true}">Eseguita</button><button class="sm ${s.ok === false ? 'danger' : ''}" data-act="calOk" data-i="${i}" data-v="0" aria-pressed="${s.ok === false}">No</button>` : `<button class="sm" data-act="calDel" data-i="${i}" aria-label="Togli ${esc(s.n)}">Togli</button>`}</div>${live && s.ok === true ? `<div class="row" style="align-items:center;gap:8px;padding:0 0 6px"><label class="small" for="cp_${i}">Penalità</label><input id="cp_${i}" style="max-width:90px" data-gp="cal.skills.${i}.pen" data-gt="num" type="text" inputmode="decimal" value="${s.pen || ''}"></div>` : ''}`).join('') || '<p class="mute small">Nessuna skill nel set.</p>';
+      if (t === 'giorno') return `<div class="card hero"><div class="mute small">${dd === 0 ? 'Oggi si gareggia' : dd > 0 ? 'Gara tra ' + dd + ' giorni' : 'Giorno di gara'}</div><div id="calTimer" style="font:italic 700 3.6rem/1 var(--display)">50.0</div><div class="small mute">Un set dura 50 secondi (FIF Calisthenics Challenge 2026).</div><div class="row wrap" style="margin-top:8px"><button class="primary" data-act="calTimer">Avvia set da 50 s</button><button class="sm" data-act="calTimerStop">Ferma</button></div></div>
+        <div class="card"><h2>Il tuo set</h2>${skillRows(true)}</div>
+        <div class="card"><h2>Bonus</h2><p class="small mute">Segna quello che hai fatto. Il giudizio finale è della giuria: questa è una stima.</p>
+          ${fld('Freestyle (0-5, a discrezione della giuria)', 'cal.bonus.free', (c2.bonus || {}).free, 'num')}${fld('Elementi collegati senza pause (minimo 3)', 'cal.bonus.link', (c2.bonus || {}).link, 'num')}${fld('Variazioni di presa (max +0,5)', 'cal.bonus.grips', (c2.bonus || {}).grips, 'num')}${fld('Tenute da 5 secondi', 'cal.bonus.holds', (c2.bonus || {}).holds, 'num')}</div>
+        <div class="card"><h2>Punteggio stimato</h2><div class="grid3 k4">${kpi(sc.total, 'totale')}${kpi(sc.base, 'valore skill eseguite')}${kpi(sc.varied ? '+3' : '0', 'varietà attrezzo')}${kpi(sc.compl ? '+3' : '0', 'completezza')}</div><p class="small mute">Penalità inserite: ${sc.pen}. Le regole sulle ripetizioni (seconda tenuta sullo stesso attrezzo = metà) valgono per la giuria: se ne hai ripetuta una, abbassa tu il valore.</p></div>`;
+      if (t === 'dopo') { const hist = g.history || []; return `<div class="card hero"><div class="mute small">Risultato stimato</div><div style="font:italic 700 2.6rem/1 var(--display)">${sc.total}</div><div class="small mute">${(c2.skills || []).filter(s => s.ok === true).length}/${(c2.skills || []).length} skill eseguite</div></div>
+        <div class="card"><h2>Storico gare</h2>${hist.length ? hist.slice().reverse().map(h => `<div class="row small" style="padding:5px 0;border-top:1px solid var(--line)"><span class="grow"><b>${esc(h.name || 'Gara')}</b> · ${fmtD(h.date)}</span><b>${h.score}</b></div>`).join('') : '<p class="mute small">Nessuna gara archiviata.</p>'}<button class="sm" style="margin-top:8px" data-act="calArchive">Archivia questa gara e prepara la prossima</button></div>
+        <div class="card"><h2>Invia al coach</h2><button class="sm" data-act="garaShare" data-w="calresult">Invia il punteggio stimato</button></div>`; }
+      const mx = calMax(p), pr = c2.prog || [];
+      return `<div class="card hero"><div class="mute small">${esc(m.name || 'La tua gara')}${m.place ? ' · ' + esc(m.place) : ''}</div><div style="font:italic 700 3rem/1 var(--display)">${dd == null ? '—' : dd > 0 ? dd : dd === 0 ? 'OGGI' : 'finita'}</div><div class="mute">${dd != null && dd > 0 ? 'giorni alla gara · ' + fmtD(m.date) : 'imposta la data qui sotto'}</div>
+        <div class="grid3" style="margin-top:10px">${kpi(wk ? wk + '/' + plan.block.weeks : '—', 'settimana blocco')}${kpi(sc.decl, 'punti dichiarati')}${kpi(sc.decl > 13 ? 'Advanced' : 'Intermediate', 'categoria uomini')}</div>
+        ${plan.block ? `<div class="row wrap" style="margin-top:10px;align-items:center"><span class="small mute">Settimana del blocco</span><button class="sm" data-act="garaWeek" data-d="-1" aria-label="Settimana precedente">‹</button><b>${wk}</b><button class="sm" data-act="garaWeek" data-d="1" aria-label="Settimana successiva">›</button></div>` : ''}</div>
+        ${motCard(p, plan, g)}
+        ${blockCard(plan)}
+        <div class="card"><h2>Dati gara</h2>${fld('Nome gara', 'meet.name', m.name)}${fld('Data gara', 'meet.date', m.date, 'date')}${fld('Luogo', 'meet.place', m.place)}${fld('Federazione', 'meet.fed', m.fed)}${fld('Categoria', 'meet.cls', m.cls)}<p class="small mute">Regola FIF 2026: Intermediate fino a 13 punti dichiarati, Advanced oltre 13. Controlla il bando della tua gara.</p></div>
+        <div class="card"><h2>Skill del set di gara</h2><p class="small mute">Scrivi gli elementi che dichiari, con il valore del codice della tua federazione.</p>${skillRows(false)}
+          <form data-gform="calskill" style="margin-top:8px"><label class="small" for="cs_n" style="display:block">Skill</label><input id="cs_n" name="n" required placeholder="Per esempio Front lever straddle">
+            <div class="row wrap" style="gap:8px"><div class="grow"><label class="small" for="cs_a">Attrezzo</label><select id="cs_a" name="att"><option>parallele</option><option>anelli</option><option>sbarra</option><option>suolo</option></select></div><div class="grow"><label class="small" for="cs_c">Macro-categoria</label><select id="cs_c" name="cat"><option>verticalismo</option><option>spinta</option><option>tirata</option><option>forza</option></select></div></div>
+            <label class="small" for="cs_v" style="margin-top:8px;display:block">Valore (punti del codice)</label><input id="cs_v" name="v" type="text" inputmode="decimal" required><div class="row" style="margin-top:8px"><button class="sm primary" type="submit">Aggiungi al set</button></div></form></div>
+        <div class="card"><h2>Massimo di ripetizioni</h2><p class="small mute">Dalle sedute registrate (solo serie a corpo libero).</p><div class="grid3 k4">${mx.map(x => kpi(x.best || '—', x.n)).join('')}</div></div>
+        <div class="card"><h2>Livelli delle skill</h2><p class="small mute">Livelli indicativi di progressione. Registra il livello raggiunto e quanti secondi lo tieni.</p>
+          <form data-gform="calprog"><label class="small" for="cg_s" style="display:block">Skill</label><select id="cg_s" name="s">${Object.keys(CAL_LADD).map(k => `<option>${k}</option>`).join('')}</select><label class="small" for="cg_l" style="margin-top:8px;display:block">Livello</label><select id="cg_l" name="l">${[...new Set([].concat(...Object.values(CAL_LADD)))].map(k => `<option>${k}</option>`).join('')}</select><label class="small" for="cg_h" style="margin-top:8px;display:block">Tenuta (secondi)</label><input id="cg_h" name="h" type="text" inputmode="numeric"><div class="row" style="margin-top:8px"><button class="sm primary" type="submit">Registra</button></div></form>
+          ${pr.slice(-6).reverse().map(x => `<div class="small" style="padding:5px 0;border-top:1px solid var(--line)"><b>${esc(x.s)}</b> · ${esc(x.l)}${x.h ? ' · ' + x.h + ' s' : ''} <span class="mute">${fmtD(x.date).slice(0, 5)}</span></div>`).join('')}</div>`;
+    }
+    function calCoach(g) {
+      const sc = calScore(g), sk = (g.cal && g.cal.skills) || [];
+      return `<div class="small" style="margin-top:6px">Set: <b>${sk.length}</b> skill · punti dichiarati <b>${sc.decl}</b> · stima punteggio <b>${sc.total}</b></div>${sk.slice(0, 8).map(s => `<span class="chip ${s.ok === true ? '' : s.ok === false ? 'danger' : 'warn'}" style="margin:4px 4px 0 0">${esc(s.n)} ${s.v}</span>`).join('')}`;
+    }
+
     /* ---------- vista del coach ---------- */
     F.garaCoachCard = function (cl) {
       const g = cl && cl.gara; if (!g) return '';
       const m = g.meet || {}, dd = daysTo(m.date), sex = cl.sex === 'F' ? 'F' : 'M', age = F.garaAge(cl.birth, m.date || null), eq = m.equip === 'equipped' ? 'equipped' : 'classic';
       const lw = (cl.weights || []).slice(-1)[0], bw = pickKg((g.weighIn || {}).kg) || (lw && lw.kg) || +cl.weight || 0, tt = total(g), pt = planTot(g);
       const shared = (g.shared || []).slice(-4).reverse();
-      return `<div class="card" style="border-color:var(--accent)"><div class="mute small">Area Gara · ${g.kind === 'bodybuilding' ? 'Bodybuilding' : 'Powerlifting'}${g.seen ? '' : ' · <b>non ancora aperta dall’atleta</b>'}</div><b>${esc(m.name || 'Gara')}</b> <span class="small mute">${fmtD(m.date)}${dd != null ? ' · ' + (dd > 0 ? 'tra ' + dd + ' giorni' : dd === 0 ? 'oggi' : 'passata') : ''} · ${esc(m.fed || 'federazione n.d.')}</span>
-        ${g.kind === 'bodybuilding' ? `<div class="small" style="margin-top:6px">Categoria: <b>${esc((BB_DIV.find(x => x[0] === g.div) || [0, 'n.d.'])[1])}</b> · fase: <b>${esc(g.phase || 'n.d.')}</b></div>` : `<div class="grid3 k4" style="margin-top:8px">${kpi(bw || '—', 'peso kg')}${kpi(m.cls || (F.garaClassOf(sex, bw, age.young) || {}).label || '—', 'categoria')}${kpi(pt || '—', 'totale previsto')}${kpi(pt ? F.glPoints(pt, bw, sex, eq).toFixed(1) : '—', 'GL previsto')}</div>
+      return `<div class="card" style="border-color:var(--accent)"><div class="mute small">Area Gara · ${KL[kind(g)]}${g.seen ? '' : ' · <b>non ancora aperta dall’atleta</b>'}</div><b>${esc(m.name || 'Gara')}</b> <span class="small mute">${fmtD(m.date)}${dd != null ? ' · ' + (dd > 0 ? 'tra ' + dd + ' giorni' : dd === 0 ? 'oggi' : 'passata') : ''} · ${esc(m.fed || 'federazione n.d.')}</span>
+        ${g.kind === 'calisthenics' ? calCoach(g) : g.kind === 'bodybuilding' ? `<div class="small" style="margin-top:6px">Categoria: <b>${esc((BB_DIV.find(x => x[0] === g.div) || [0, 'n.d.'])[1])}</b> · fase: <b>${esc(g.phase || 'n.d.')}</b></div>` : `<div class="grid3 k4" style="margin-top:8px">${kpi(bw || '—', 'peso kg')}${kpi(m.cls || (F.garaClassOf(sex, bw, age.young) || {}).label || '—', 'categoria')}${kpi(pt || '—', 'totale previsto')}${kpi(pt ? F.glPoints(pt, bw, sex, eq).toFixed(1) : '—', 'GL previsto')}</div>
           ${L3.map(k => { const a = (g.att || {})[k] || [], r = (g.res || {})[k] || []; return `<div class="small" style="margin-top:4px"><b>${LIFTS[k].n}</b>: ${a.map((kg, i) => kg ? `<span class="chip ${r[i] === true ? '' : r[i] === false ? 'danger' : 'warn'}">${kg}${r[i] === true ? ' ✓' : r[i] === false ? ' ✗' : ''}</span>` : '').join(' ') || '<span class="mute">non compilati</span>'}</div>`; }).join('')}
           ${tt.ok ? `<div class="msg ok" style="margin-top:8px">Totale gara: <b>${tt.tot} kg</b> · GL ${F.glPoints(tt.tot, bw, sex, eq).toFixed(2)}</div>` : ''}`}
-        ${shared.length ? `<div class="small" style="margin-top:8px"><b>Inviato dall’atleta:</b>${shared.map(s => `<div class="mute">${fmtD(String(s.at).slice(0, 10))} · ${s.type === 'checkin' ? 'check-in: ' + [s.data.w && s.data.w + ' kg', s.data.waist && 'vita ' + s.data.waist, s.data.sleep && 'sonno ' + s.data.sleep, s.data.energy && 'energia ' + s.data.energy, s.data.hunger && 'fame ' + s.data.hunger, s.data.adh && 'aderenza ' + s.data.adh].filter(Boolean).join(', ') + (s.data.note ? ' — ' + esc(s.data.note) : '') : 'risultato finale ' + s.data.total + ' kg (GL ' + (s.data.gl || 0).toFixed(2) + ')'}</div>`).join('')}</div>` : ''}</div>`;
+        ${shared.length ? `<div class="small" style="margin-top:8px"><b>Inviato dall’atleta:</b>${shared.map(s => `<div class="mute">${fmtD(String(s.at).slice(0, 10))} · ${s.type === 'checkin' ? 'check-in: ' + [s.data.w && s.data.w + ' kg', s.data.waist && 'vita ' + s.data.waist, s.data.sleep && 'sonno ' + s.data.sleep, s.data.energy && 'energia ' + s.data.energy, s.data.hunger && 'fame ' + s.data.hunger, s.data.adh && 'aderenza ' + s.data.adh].filter(Boolean).join(', ') + (s.data.note ? ' — ' + esc(s.data.note) : '') : s.type === 'calresult' ? 'punteggio stimato ' + s.data.score : 'risultato finale ' + s.data.total + ' kg (GL ' + (s.data.gl || 0).toFixed(2) + ')'}</div>`).join('')}</div>` : ''}</div>`;
     };
 
     /* ---------- foto locali (IndexedDB) ---------- */
@@ -305,6 +423,11 @@
     /* ---------- azioni ---------- */
     const setPath = (o, path, val) => { const ks = path.split('.'); let t = o; for (let i = 0; i < ks.length - 1; i++) { const k = ks[i]; if (t[k] == null || typeof t[k] !== 'object') t[k] = /^\d+$/.test(ks[i + 1]) ? [] : {}; t = t[k]; } t[ks[ks.length - 1]] = val; };
     G.acts = {
+      calOk(t) { const p = P(), g = p && p.gara; if (!g) return; const s = g.cal.skills[+t.dataset.i]; if (!s) return; const v = t.dataset.v === '1'; s.ok = s.ok === v ? null : v; c.save(); c.render(); },
+      calDel(t) { const p = P(), g = p && p.gara; if (!g) return; g.cal.skills.splice(+t.dataset.i, 1); c.save(); c.render(); },
+      calArchive() { const p = P(), g = p && p.gara; if (!g) return; const sc = calScore(g); g.history.push({ date: (g.meet || {}).date || todayISO(), name: (g.meet || {}).name, score: sc.total, skills: JSON.parse(JSON.stringify(g.cal.skills)) }); g.cal.skills.forEach(s => { s.ok = null; s.pen = 0; }); g.cal.bonus = {}; g.meet = { fed: (g.meet || {}).fed }; c.save(); ui.gtab = 'home'; c.render(); c.toast('Gara archiviata'); },
+      calTimer() { clearInterval(ui.calT); const end = Date.now() + 50000, el = () => document.getElementById('calTimer'); ui.calT = setInterval(() => { const e = el(); if (!e) { clearInterval(ui.calT); return; } const l = Math.max(0, end - Date.now()); e.textContent = (l / 1000).toFixed(1); if (!l) { clearInterval(ui.calT); try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (x) { } c.toast('Tempo! 50 secondi finiti'); } }, 100); },
+      calTimerStop() { clearInterval(ui.calT); const e = document.getElementById('calTimer'); if (e) e.textContent = '50.0'; },
       garaSample() { const t = document.getElementById('imp_text'); if (t) { t.value = F.GARA_SAMPLE; c.toast('Scheda di esempio caricata: tocca Leggi scheda'); } },
       garaOpen() { const p = P(); if (p && p.gara) { p.gara.seen = true; p.gara.hide = false; c.save(); } ui.tab = 'gara'; ui.sub = null; c.render(); window.scrollTo(0, 0); },
       garaSeen() { const p = P(); if (p && p.gara) { p.gara.seen = true; c.save(); c.render(); } },
@@ -315,12 +438,14 @@
       garaArchive() { const p = P(), g = p && p.gara, plan = p && c.planOf(p); if (!g || !plan) return; const d = plData(p, g), tt = total(g); if (!tt.ok) return; g.history.push({ date: d.m.date || todayISO(), name: d.m.name, bw: d.bw, cls: d.tgt, equip: d.equip, total: tt.tot, gl: F.glPoints(tt.tot, d.bw, d.sex, d.equip), att: JSON.parse(JSON.stringify(g.att)), res: JSON.parse(JSON.stringify(g.res)) }); g.att = {}; g.res = {}; g.meet = { fed: d.m.fed, equip: d.m.equip }; g.weighIn = null; c.save(); ui.gtab = 'home'; c.render(); c.toast('Gara archiviata'); },
       garaShare(t) { const p = P(), g = p && p.gara; if (!g) return; let item;
         if (t.dataset.w === 'checkin') { const x = priv(p).checkins.find(y => y.date === t.dataset.d); if (!x) return; item = { at: new Date().toISOString(), type: 'checkin', data: Object.assign({}, x) }; }
+        else if (t.dataset.w === 'calresult') { item = { at: new Date().toISOString(), type: 'calresult', data: { score: calScore(g).total } }; }
         else { const d = plData(p, g), tt = total(g); if (!tt.ok) return; item = { at: new Date().toISOString(), type: 'result', data: { total: tt.tot, gl: F.glPoints(tt.tot, d.bw, d.sex, d.equip), bw: d.bw } }; }
         g.shared.push(item); c.save(); c.toast('Inviato al coach: lo vedrà alla prossima sincronizzazione'); c.render(); },
       garaPhShare(t) { const p = P(); const date = ui.phDate || todayISO(), i = +t.dataset.i; idbGet(date + '|' + i).then(v => { if (!v) return c.toast('Scatta prima questa foto'); fetch(v).then(r => r.blob()).then(b => { const f = new File([b], 'foto_' + date + '_' + (i + 1) + '.jpg', { type: 'image/jpeg' }); if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: 'Foto ' + POSES[i] + ' ' + date }).catch(() => { }); else c.toast('Questo telefono non può condividere: salva la foto e mandala al coach'); }); }); }
     };
     G.onChange = function (t) {
       const p = P(); if (!p) return false;
+      if (t.dataset.gblk) { const pl = c.planOf(p); if (pl && pl.block) { pl.block.start = t.value || undefined; delete pl.block.manual; c.save(); c.render(); } return true; }
       if (t.dataset.gu) { ui[t.dataset.gu] = t.value; c.render(); return true; }
       if (t.dataset.gph != null) { const f = t.files && t.files[0], i = +t.dataset.gph; if (!f) return true; const date = ui.phDate || todayISO(); shrink(f).then(v => idbPut(date + '|' + i, v)).then(() => { c.toast('Foto salvata sul telefono'); c.render(); }).catch(() => c.toast('Non riesco a salvare la foto')); t.value = ''; return true; }
       if (t.dataset.gpk) { priv(p).peak[t.dataset.gpk] = t.value; c.save(); return true; }
@@ -335,6 +460,8 @@
     G.onSubmit = function (form) {
       const p = P(); if (!p) return false; const kind2 = form.dataset.gform; if (!kind2) return false; const fd = Object.fromEntries(new FormData(form).entries()), pr = priv(p);
       if (kind2 === 'checkin') { const o = { date: fd.date || todayISO(), w: pickKg(fd.w), waist: pickKg(fd.waist), sleep: +fd.sleep || null, energy: +fd.energy || null, hunger: +fd.hunger || null, adh: +fd.adh || null, note: (fd.note || '').trim() }; pr.checkins = pr.checkins.filter(x => x.date !== o.date); pr.checkins.push(o); pr.checkins.sort((a, b) => a.date < b.date ? -1 : 1); c.save(); c.toast('Check-in salvato sul telefono'); c.render(); return true; }
+      if (kind2 === 'calskill') { const v = pickKg(fd.v); if (!fd.n.trim() || !v) { c.toast('Scrivi il nome e il valore della skill'); return true; } p.gara.cal.skills.push({ n: fd.n.trim(), att: fd.att, cat: fd.cat, v, ok: null, pen: 0 }); c.save(); c.render(); return true; }
+      if (kind2 === 'calprog') { p.gara.cal.prog.push({ date: todayISO(), s: fd.s, l: fd.l, h: +fd.h || null }); c.save(); c.toast('Registrato'); c.render(); return true; }
       if (kind2 === 'posing') { pr.posing.push({ date: fd.date || todayISO(), min: +fd.min || null, note: (fd.note || '').trim() }); c.save(); c.toast('Prova registrata'); c.render(); return true; }
       return false;
     };

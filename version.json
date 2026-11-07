@@ -1,8 +1,8 @@
 {
-  "version": "1.31.1",
-  "build": 90,
+  "version": "1.32.0",
+  "build": 91,
   "date": "2026-11-07",
   "notes": [
-    "Anteprima Area Gara visibile anche all'account di Dalì."
+    "Area Gara aperta a chi riceve una scheda di gara: powerlifting, bodybuilding e calisthenics, record personali e costanza, messaggio del coach, cruscotto atleti di gara. RIR mostrato accanto all'RPE."
   ]
 }
