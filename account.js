@@ -148,7 +148,7 @@
   F.mergeProfiles = function (a, b) {
     const o = Object.assign({}, a), uniq = (x, y, key) => { const m = new Map(); x.concat(y).forEach(i => m.set(key(i), i)); return [...m.values()]; };
     o.sessions = uniq(a.sessions || [], (b && b.sessions) || [], s => s.id || s.date + '|' + s.dayName).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.at || 0) - (q.at || 0));
-    o.painLog = uniq(a.painLog || [], (b && b.painLog) || [], e => e.date + '|' + e.zone + '|' + e.level).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : 0);
+    o.painLog = uniq(a.painLog || [], (b && b.painLog) || [], e => e.date + '|' + e.zone + '|' + e.level + '|' + (e.at || '')).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.at || 0) - (q.at || 0));
     o.painDel = Array.from(new Set([].concat(a.painDel || [], (b && b.painDel) || []))).slice(-300);
     o.painX = uniq(a.painX || [], (b && b.painX) || [], e => [e.date, e.s, e.sd, e.l, e.at || ''].join('|')).sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (p.at || 0) - (q.at || 0));
     o.painX = o.painX.filter(e => !o.painDel.includes([e.date, e.s, e.sd, e.l, e.at || ''].join('|')));

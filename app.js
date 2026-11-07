@@ -1244,7 +1244,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   function setPain(zone, v) {
     const p = P(), before = Object.assign({}, p.pain); p.pain = p.pain || {}; if (v > 0) p.pain[zone] = v; else delete p.pain[zone];
-    p.painLog = p.painLog || []; if ((before[zone] || 0) !== v || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: F.todayISO(), zone, level: v });
+    p.painLog = p.painLog || []; if ((before[zone] || 0) !== v || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: F.todayISO(), zone, level: v, at: Date.now() });
     ui.msgs = F.painReaction(before, p.pain).filter(m => m.startsWith(F.ZONES[zone])); save(); render();
   }
 

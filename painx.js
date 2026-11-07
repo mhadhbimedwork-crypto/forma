@@ -136,7 +136,7 @@
     p.painX.push(ent);
     const lv = F.pxCur(p).filter(e => e.zone === zone).reduce((a, e) => Math.max(a, e.l), 0);
     if (lv > 0) p.pain[zone] = lv; else delete p.pain[zone];
-    if ((before[zone] || 0) !== lv || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: today(), zone, level: lv });
+    if ((before[zone] || 0) !== lv || !p.painLog.some(e => e.zone === zone)) p.painLog.push({ date: today(), zone, level: lv, at: Date.now() });
     return F.painReaction(before, p.pain).filter(m => m.startsWith(F.ZONES[zone]));
   };
   /* elimina del tutto un dolore inserito per sbaglio (non resta nello storico né nei backup) */

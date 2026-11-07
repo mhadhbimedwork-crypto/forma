@@ -21,6 +21,8 @@
     Object.keys(byZone).forEach(z => {
       const ev = byZone[z].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.i - b.i);
       const days = []; ev.forEach(e => { const l = days[days.length - 1]; if (l && l.date === e.date) l.level = e.level; else days.push({ date: e.date, level: e.level }); });
+      /* il dolore attuale è quello che l'utente ha adesso (p.pain): lo storico non può contraddirlo */
+      if (p.pain && typeof p.pain === 'object' && days.length) { const truth = Math.min(10, Math.max(0, +p.pain[z] || 0)); if (days[days.length - 1].level !== truth) days[days.length - 1].level = truth; }
       /* eventi: variazioni rispetto al valore precedente */
       const changes = []; let prev = 0, start = null, episodes = [];
       days.forEach(d => {
