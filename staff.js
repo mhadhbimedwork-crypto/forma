@@ -515,7 +515,7 @@
         <div class="card"><div class="mute small">${F.ageOf(p.birth)} anni · ${p.height} cm · ${fmt(st.weight, 1)} kg${st.weightDelta ? ` (${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} dall'inizio)` : ''}${F.isMinor(p) ? ' · minorenne' : ''}${acct ? ` · accesso: ${esc(acct.username)}` : ''}${p._updated ? ` · sincronizzato ${tr(String(p._updated).slice(0, 10))}` : ''}</div>
           <div class="grid3 k4" style="margin-top:8px"><div class="kpi"><b>${st.sessions}</b><span>sedute</span></div><div class="kpi"><b>${st.adherence}%</b><span>aderenza 4 sett.</span></div><div class="kpi"><b>${fmt(st.volume28)}</b><span>kg volume 4 sett.</span></div><div class="kpi"><b>${st.rpe28 == null ? '–' : st.rpe28}</b><span>RPE medio</span></div></div>
           <div class="row wrap" style="margin-top:10px"><button class="sm primary" data-act="xlsxClient" data-id="${esc(uidOf(p))}">Excel del cliente</button><button class="sm" data-act="csvClient" data-id="${esc(uidOf(p))}">CSV</button>${can && acct.role === 'client' ? `<label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica backup di ${esc(String(p.name).split(' ')[0])}<input type="file" id="rstOne" data-u="${esc(uidOf(p))}" accept=".zip,.json" multiple hidden></label>` : ''}</div></div>
-        ${F.garaCoachCard ? F.garaCoachCard(p) : ''}
+        ${F.garaCoachCard ? F.garaCoachCard(p, uidOf(p)) : ''}
         ${X.planHistoryCard(p)}
         ${can ? rstCard() : ''}
         <div class="card"><h2>Dashboard</h2>${X.dashStrip(p)}</div>
@@ -715,6 +715,7 @@
     acts.gymBack = () => { ui.sub = null; ui.tab = 'gyms'; c.render(); };
     acts.gymOpen = t => { ui.sub = { type: 'gym', id: t.dataset.id }; c.render(); window.scrollTo(0, 0); };
     acts.gymReload = reload;
+    acts.garaCoachOff = t => { const p = find(t.dataset.id); if (!p || !p.gara) return; if (!confirm(`Rimuovere ${p.name} dall’elenco degli atleti di gara?\n\nL’atleta non viene toccato: la rimozione vale su questo dispositivo e torna visibile solo se l’atleta apre una nuova gara.`)) return; F.garaOffSet(p, t.dataset.id); c.render(); toast('Rimosso dall’elenco gara'); };
     acts.gymActive = async t => { const on = t.dataset.on === '1'; if (!on && !confirm('Disattivare la palestra? Nessuno dei suoi account potrà entrare finché non la riattivi.')) return; try { await A.setGymActive(t.dataset.id, on); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
     acts.coachNew = () => { ui.sub = { type: 'newClient', role: 'coach', back: A.me && A.me.role === 'admin' ? 'gyms' : 'team' }; c.render(); window.scrollTo(0, 0); };
     acts.acctReset = async t => { const pw = prompt('Password temporanea generata (puoi cambiarla). Dettala alla persona: al primo accesso ne sceglierà una sua.', genPw()); if (!pw) return; try { await A.resetPassword(t.dataset.id, pw); toast('Password reimpostata'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };

@@ -140,15 +140,18 @@
 
 
   /* cruscotto del coach: tutti gli atleti con un'Area Gara */
+  const offGet = () => { try { return JSON.parse(localStorage.getItem('forgia.garaOff') || '{}'); } catch (e) { return {}; } };
+  F.garaOff = (p, uid) => { const o = offGet(); return !!(p && p.gara && o[uid] != null && o[uid] === (p.gara.opened || 0)); };
+  F.garaOffSet = (p, uid) => { const o = offGet(); o[uid] = (p.gara && p.gara.opened) || 0; try { localStorage.setItem('forgia.garaOff', JSON.stringify(o)); } catch (e) { } };
   F.garaBoard = function (list, uidOf) {
-    const rows = (list || []).filter(p => p.gara).map(p => {
+    const rows = (list || []).filter(p => p.gara && !F.garaOff(p, uidOf(p))).map(p => {
       const g = p.gara, m = g.meet || {}, pl = (p.plans || []).find(x => x.id === p.activePlan), st = F.clientStats ? F.clientStats(p) : { adherence: 0, daysSince: null, alerts: [] };
       return { p, g, dd: daysTo(m.date), wk: pl && pl.block ? F.blockWeek(pl) : null, wks: pl && pl.block ? pl.block.weeks : null, st, name: m.name || 'Gara' };
     }).sort((a, b) => (a.dd == null ? 9999 : a.dd < 0 ? 5000 - a.dd : a.dd) - (b.dd == null ? 9999 : b.dd < 0 ? 5000 - b.dd : b.dd));
     if (!rows.length) return '';
     const lab = { powerlifting: 'Powerlifting', bodybuilding: 'Bodybuilding', calisthenics: 'Calisthenics' };
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-    return `<div class="card" style="border-color:var(--accent)"><h2>Atleti di gara</h2><p class="mute small" style="margin-top:0">Ordinati dalla gara più vicina.</p>${rows.map(r => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0;align-items:center"><div class="grow"><b>${esc(r.p.name)}</b> <span class="chip">${lab[r.g.kind] || 'Gara'}</span>${r.g.seen ? '' : ' <span class="chip warn">non ancora aperta</span>'}<div class="small mute">${esc(r.name)} · ${r.dd == null ? 'data da impostare' : r.dd > 0 ? 'tra ' + r.dd + ' giorni' : r.dd === 0 ? 'oggi' : 'passata'}${r.wk ? ' · settimana ' + r.wk + '/' + r.wks : ''}</div><div class="small">Aderenza <b>${r.st.adherence}%</b>${r.st.daysSince != null ? ' · ultima seduta ' + (r.st.daysSince === 0 ? 'oggi' : r.st.daysSince + ' g fa') : ''}${r.st.alerts && r.st.alerts.length ? ' · <span class="chip danger">dolori ' + r.st.alerts.length + '</span>' : ''}</div></div><button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(r.p))}">Apri</button></div>`).join('')}</div>`;
+    return `<div class="card" style="border-color:var(--accent)"><h2>Atleti di gara</h2><p class="mute small" style="margin-top:0">Ordinati dalla gara più vicina.</p>${rows.map(r => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0;align-items:center"><div class="grow"><b>${esc(r.p.name)}</b> <span class="chip">${lab[r.g.kind] || 'Gara'}</span>${r.g.seen ? '' : ' <span class="chip warn">non ancora aperta</span>'}<div class="small mute">${esc(r.name)} · ${r.dd == null ? 'data da impostare' : r.dd > 0 ? 'tra ' + r.dd + ' giorni' : r.dd === 0 ? 'oggi' : 'passata'}${r.wk ? ' · settimana ' + r.wk + '/' + r.wks : ''}</div><div class="small">Aderenza <b>${r.st.adherence}%</b>${r.st.daysSince != null ? ' · ultima seduta ' + (r.st.daysSince === 0 ? 'oggi' : r.st.daysSince + ' g fa') : ''}${r.st.alerts && r.st.alerts.length ? ' · <span class="chip danger">dolori ' + r.st.alerts.length + '</span>' : ''}</div></div><button class="sm primary" data-act="clientOpen" data-id="${esc(uidOf(r.p))}">Apri</button><button class="sm ghost" data-act="garaCoachOff" data-id="${esc(uidOf(r.p))}" aria-label="Rimuovi ${esc(r.p.name)} dall’elenco gara">Rimuovi</button></div>`).join('')}</div>`;
   };
 
   /* ---------- montaggio nell'app ---------- */
@@ -248,7 +251,7 @@
           <p class="small mute">GL = punteggio ufficiale IPF per il migliore atleta (${d.equip === 'equipped' ? 'Equipped' : 'Classic'}, powerlifting). Calcolato con il tuo peso ${(g.weighIn || {}).kg ? 'di pesa' : 'più recente'}.</p></div>
         ${pains.length ? `<div class="msg warn"><b>Dolori da tenere d’occhio:</b> ${pains.map(([z, v]) => esc(z) + ' ' + v + '/10').join(' · ')}. Parlane con il coach prima di spingere sui carichi.</div>` : ''}
         <div class="card"><h2>Peso e pesa</h2>${fld('Peso di oggi (kg)', 'weighIn.kg', (g.weighIn || {}).kg, 'num')}<p class="small mute">Qui scrivi il peso per il calcolo categoria e punteggio. Questa sezione non dà indicazioni su come perdere peso: segui il tuo coach.</p></div>
-        ${g.hide ? '' : '<div class="row"><button class="sm ghost" data-act="garaHide">Nascondi dalla Home</button></div>'}`;
+        <div class="row wrap" style="gap:8px">${g.hide ? '' : '<button class="sm ghost" data-act="garaHide">Nascondi dalla Home</button>'}<button class="sm ghost" style="color:var(--danger)" data-act="garaLeave">Esci dalla gara ed elimina i dati gara</button></div>`;
     }
     function attemptRow(g, k, E) {
       const a = (g.att || {})[k] || [], tgt = E[k].best ? Math.floor(E[k].best.v / 2.5) * 2.5 : null;
@@ -401,8 +404,8 @@
     }
 
     /* ---------- vista del coach ---------- */
-    F.garaCoachCard = function (cl) {
-      const g = cl && cl.gara; if (!g) return '';
+    F.garaCoachCard = function (cl, uid) {
+      const g = cl && cl.gara; if (!g || F.garaOff(cl, uid)) return '';
       const m = g.meet || {}, dd = daysTo(m.date), sex = cl.sex === 'F' ? 'F' : 'M', age = F.garaAge(cl.birth, m.date || null), eq = m.equip === 'equipped' ? 'equipped' : 'classic';
       const lw = (cl.weights || []).slice(-1)[0], bw = pickKg((g.weighIn || {}).kg) || (lw && lw.kg) || +cl.weight || 0, tt = total(g), pt = planTot(g);
       const shared = (g.shared || []).slice(-4).reverse();
@@ -410,7 +413,7 @@
         ${g.kind === 'calisthenics' ? calCoach(g) : g.kind === 'bodybuilding' ? `<div class="small" style="margin-top:6px">Categoria: <b>${esc((BB_DIV.find(x => x[0] === g.div) || [0, 'n.d.'])[1])}</b> · fase: <b>${esc(g.phase || 'n.d.')}</b></div>` : `<div class="grid3 k4" style="margin-top:8px">${kpi(bw || '—', 'peso kg')}${kpi(m.cls || (F.garaClassOf(sex, bw, age.young) || {}).label || '—', 'categoria')}${kpi(pt || '—', 'totale previsto')}${kpi(pt ? F.glPoints(pt, bw, sex, eq).toFixed(1) : '—', 'GL previsto')}</div>
           ${L3.map(k => { const a = (g.att || {})[k] || [], r = (g.res || {})[k] || []; return `<div class="small" style="margin-top:4px"><b>${LIFTS[k].n}</b>: ${a.map((kg, i) => kg ? `<span class="chip ${r[i] === true ? '' : r[i] === false ? 'danger' : 'warn'}">${kg}${r[i] === true ? ' ✓' : r[i] === false ? ' ✗' : ''}</span>` : '').join(' ') || '<span class="mute">non compilati</span>'}</div>`; }).join('')}
           ${tt.ok ? `<div class="msg ok" style="margin-top:8px">Totale gara: <b>${tt.tot} kg</b> · GL ${F.glPoints(tt.tot, bw, sex, eq).toFixed(2)}</div>` : ''}`}
-        ${shared.length ? `<div class="small" style="margin-top:8px"><b>Inviato dall’atleta:</b>${shared.map(s => `<div class="mute">${fmtD(String(s.at).slice(0, 10))} · ${s.type === 'checkin' ? 'check-in: ' + [s.data.w && s.data.w + ' kg', s.data.waist && 'vita ' + s.data.waist, s.data.sleep && 'sonno ' + s.data.sleep, s.data.energy && 'energia ' + s.data.energy, s.data.hunger && 'fame ' + s.data.hunger, s.data.adh && 'aderenza ' + s.data.adh].filter(Boolean).join(', ') + (s.data.note ? ' — ' + esc(s.data.note) : '') : s.type === 'calresult' ? 'punteggio stimato ' + s.data.score : 'risultato finale ' + s.data.total + ' kg (GL ' + (s.data.gl || 0).toFixed(2) + ')'}</div>`).join('')}</div>` : ''}</div>`;
+        ${shared.length ? `<div class="small" style="margin-top:8px"><b>Inviato dall’atleta:</b>${shared.map(s => `<div class="mute">${fmtD(String(s.at).slice(0, 10))} · ${s.type === 'checkin' ? 'check-in: ' + [s.data.w && s.data.w + ' kg', s.data.waist && 'vita ' + s.data.waist, s.data.sleep && 'sonno ' + s.data.sleep, s.data.energy && 'energia ' + s.data.energy, s.data.hunger && 'fame ' + s.data.hunger, s.data.adh && 'aderenza ' + s.data.adh].filter(Boolean).join(', ') + (s.data.note ? ' — ' + esc(s.data.note) : '') : s.type === 'calresult' ? 'punteggio stimato ' + s.data.score : 'risultato finale ' + s.data.total + ' kg (GL ' + (s.data.gl || 0).toFixed(2) + ')'}</div>`).join('')}</div>` : ''}<div class="row" style="margin-top:10px"><button class="sm ghost" data-act="garaCoachOff" data-id="${esc(uid || '')}">Rimuovi dall’elenco gara</button></div></div>`;
     };
 
     /* ---------- foto locali (IndexedDB) ---------- */
@@ -423,6 +426,14 @@
     /* ---------- azioni ---------- */
     const setPath = (o, path, val) => { const ks = path.split('.'); let t = o; for (let i = 0; i < ks.length - 1; i++) { const k = ks[i]; if (t[k] == null || typeof t[k] !== 'object') t[k] = /^\d+$/.test(ks[i + 1]) ? [] : {}; t = t[k]; } t[ks[ks.length - 1]] = val; };
     G.acts = {
+      garaLeave() {
+        const p = P(); if (!p || !p.gara) return;
+        if (!confirm('Uscire dalla gara?\n\nSi eliminano i dati gara (tentativi, check-in, piano, foto salvate in questa app) e il coach non ti vedrà più tra gli atleti di gara. La scheda e gli allenamenti restano.')) return;
+        if (!confirm('ULTIMA CONFERMA\n\nL’eliminazione dei dati gara è definitiva (si recupera solo da un backup). Vuoi davvero uscire dalla gara?')) return;
+        delete p.gara; delete p.garaPriv; (p.plans || []).forEach(pl => { delete pl.comp; });
+        idb().then(db => { try { db.transaction('ph', 'readwrite').objectStore('ph').clear(); } catch (e) { } }).catch(() => { });
+        ui.tab = 'home'; ui.sub = null; c.save(); c.render(); c.toast('Sei uscito dalla gara: dati gara eliminati'); window.scrollTo(0, 0);
+      },
       calOk(t) { const p = P(), g = p && p.gara; if (!g) return; const s = g.cal.skills[+t.dataset.i]; if (!s) return; const v = t.dataset.v === '1'; s.ok = s.ok === v ? null : v; c.save(); c.render(); },
       calDel(t) { const p = P(), g = p && p.gara; if (!g) return; g.cal.skills.splice(+t.dataset.i, 1); c.save(); c.render(); },
       calArchive() { const p = P(), g = p && p.gara; if (!g) return; const sc = calScore(g); g.history.push({ date: (g.meet || {}).date || todayISO(), name: (g.meet || {}).name, score: sc.total, skills: JSON.parse(JSON.stringify(g.cal.skills)) }); g.cal.skills.forEach(s => { s.ok = null; s.pen = 0; }); g.cal.bonus = {}; g.meet = { fed: (g.meet || {}).fed }; c.save(); ui.gtab = 'home'; c.render(); c.toast('Gara archiviata'); },
