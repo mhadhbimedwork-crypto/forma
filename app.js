@@ -78,7 +78,7 @@
   window.addEventListener('offline', updSync);
   setInterval(() => { if (isDirty() && navigator.onLine !== false) syncUp(); else updSync(); }, 30000);
   const P = () => S.profiles.find(p => p.id === S.active) || null;
-  const planOf = p => p && p.plans.find(x => x.id === p.activePlan) || null;
+  const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); } catch (e) {} } return pl; };
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const ui = { tab: 'home', sub: null, zone: null, msgs: [], timer: null, tick: null };
   let toastT;

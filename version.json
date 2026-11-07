@@ -1,8 +1,8 @@
 {
-  "version": "1.29.4",
-  "build": 84,
-  "date": "2026-11-06",
+  "version": "1.29.5",
+  "build": 85,
+  "date": "2026-11-07",
   "notes": [
-    "Dolore per struttura e lato (prova su FORGIA) e pulsante \"perché?\" quando una serie va diversa dalla scheda."
+    "Corretto il calcolo delle serie con topset e riduzione (es. \"Topset 6-8 + 2x8 (-15%)\"): la prima serie è il massimale e le altre si compilano da sole al -15%, modificabili."
   ]
 }

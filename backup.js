@@ -73,7 +73,7 @@
     ['painLog', 'weights', 'sessions', 'plans'].forEach(k => { o[k] = Array.isArray(p[k]) ? p[k] : []; });
     o.weights = o.weights.filter(w => w && w.date && +w.kg > 0).map(w => ({ date: String(w.date), kg: +w.kg }));
     o.measures = (Array.isArray(p.measures) ? p.measures : []).filter(m => m && m.date && m.v && typeof m.v === 'object').map(m => { const v = {}; (F.MEASURES || []).forEach(([k]) => { if (+m.v[k] > 0) v[k] = +m.v[k]; }); return { date: String(m.date), v }; });
-    o.plans = o.plans.filter(x => x && x.id && Array.isArray(x.days));
+    o.plans = o.plans.filter(x => x && x.id && Array.isArray(x.days)); o.plans.forEach(pl => { try { F.fixTopset(pl); } catch (e) {} });
     o.sessions = o.sessions.filter(s => s && Array.isArray(s.ex));
     o.activePlan = o.plans.some(x => x.id === p.activePlan) ? p.activePlan : (o.plans.length ? o.plans[o.plans.length - 1].id : null);
     o.draft = null; o.createdAt = p.createdAt || F.todayISO();

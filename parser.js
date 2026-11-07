@@ -176,6 +176,9 @@
         if (parts[0] && sets > 0 && parts[2]) line = `${parts[0]} ${sets}x${parts.slice(2).join(' ')}`;
         else line = parts.join(' ');
       }
+      line = line.replace(/^\s*(?:[-•*·]|\d{1,2}[.)])\s+/, '');
+      // "Nome: Topset 6-8 + 2x8 (-15%)" (due punti al posto del trattino)
+      if (!/\s[-–—]\s/.test(line)) { const tm = line.match(/^(.*?):\s*((?:topset|mav|emom)\b.*)$/i); if (tm) line = tm[1].trim() + ' - ' + tm[2].trim(); }
       const alts = splitAlt(line);
       if (alts) { const gid = 'g' + (++gseq); alts.forEach((ln, k) => addLine(ln, rawLine, { id: gid, alt: k > 0, main: alts[0].split(' - ')[0] })); }
       else addLine(line, rawLine, null);
@@ -183,6 +186,22 @@
     return { days, flags: globalFlags };
   };
 
+  /* schede già salvate con "Nome: Topset 6-8 + 2x8 (-15%)" lette male: le riporta a topset + serie ridotte */
+  F.fixTopset = function (plan) {
+    let n = 0;
+    ((plan && plan.days) || []).forEach(d => (d.exercises || []).forEach(ex => {
+      const m = String(ex.name || '').match(/^(.*?):\s*(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*$/i); if (!m || ex.tech) return;
+      const k = ex.sets || 1, back = String(ex.reps || '8'), pct = ex.pct && ex.pct[0] > 0 ? ex.pct[0] : 15, topLbl = m[3] && m[3] !== m[2] ? m[2] + '-' + m[3] : m[2];
+      const info = F.parseReps(topLbl, k + 1);
+      if (info.scheme.length === 2 && info.scheme[0] < info.scheme[1]) { info.range = [info.scheme[0], info.scheme[1]]; info.scheme = [info.scheme[1]]; info.flags = (info.flags || []).filter(f => !/ripetizioni indicate/.test(f)); }
+      ex.name = m[1].trim(); ex.sets = k + 1; ex.repsInfo = info; ex.reps = info.range ? info.range.join('-') : info.scheme.join('-');
+      ex.tech = { top: { n: k, backReps: back.replace(/\s/g, ''), pct } }; ex.pct = null; ex.rest = 150;
+      ex.note = `Serie 1 = topset pesante da ${topLbl} ripetizioni; poi ${k} serie da ${back} ripetizioni con il carico ridotto del ${pct}%.` + (ex.note ? ' ' + ex.note : '');
+      const mt = F.matchExercise(ex.name); if (mt) { ex.exId = mt.ex.id; ex.match = mt.score; }
+      n++;
+    }));
+    return n;
+  };
   /* massimale (1RM) per un esercizio: valore inserito a mano oppure stima migliore dalle sedute */
   F.oneRM = function (p, exId) {
     if (p.rm && p.rm[exId] > 0) return { kg: p.rm[exId], src: 'manuale' };
