@@ -571,11 +571,10 @@
         const a = p._acct || {}, folder = [root, F.safeName(gy(a.gym_id)), F.safeName(nm(a.coach_id) || 'Senza_allenatore'), uniq(F.safeName(p.name))].join('/'), fn = folder.split('/').pop();
         const prof = F.profileObject(Object.assign({}, p, { _uid: undefined, _acct: undefined, _updated: undefined })), json = JSON.stringify(prof, null, 2);
         out.push({ path: folder + '/' + fn + '.xlsx', blob: F.xlsxBuild(F.datasets([p])) });
-        out.push({ path: folder + '/' + fn + '.json', text: json, mime: 'application/json' });
-        out.push({ path: folder + '/storico/' + fn + '_' + d + '.json', text: json, mime: 'application/json' });
+        out.push({ path: folder + '/' + fn + '.json', prev: folder + '/' + fn + '_precedente.json', text: json, mime: 'application/json' });
       }
-      out.unshift({ path: root + '/00_TUTTI_I_CLIENTI_' + d + '.xlsx', blob: F.xlsxBuild(F.datasets(all)) });
-      out.unshift({ path: root + '/LEGGIMI.txt', text: 'Backup ordinato per palestra, allenatore e utente.\r\nOgni utente ha la sua cartella: <nome>.xlsx e <nome>.json sono sempre l\'ultima copia; nella cartella "storico" resta una copia per ogni giorno.\r\n00_TUTTI_I_CLIENTI contiene tutti gli utenti in un solo Excel.\r\nCreato il ' + d + ' con la versione ' + F.VERSION.version + '.\r\n', mime: 'text/plain' });
+      out.unshift({ path: root + '/00_TUTTI_I_CLIENTI.xlsx', blob: F.xlsxBuild(F.datasets(all)) });
+      out.unshift({ path: root + '/LEGGIMI.txt', text: 'Backup ordinato per palestra, allenatore e utente.\r\nOgni utente ha la sua cartella: <nome>.xlsx e <nome>.json sono sempre l\'ultima copia (si aggiornano ogni giorno, senza creare nuovi file); <nome>_precedente.json è la copia del giorno prima.\r\n00_TUTTI_I_CLIENTI contiene tutti gli utenti in un solo Excel.\r\nCreato il ' + d + ' con la versione ' + F.VERSION.version + '.\r\n', mime: 'text/plain' });
       void enc; void u8; return out;
     }
     async function orgBackup(interactive) {
@@ -584,7 +583,7 @@
       if (h) { try { const perm = await F.dirPermission(h, !!interactive); if (perm === 'granted') { await F._writeToDir(h, files); return { ok: true, where: 'cartella "' + h.name + '" del PC', n: files.length }; } } catch (e) { if (!interactive) return { ok: false, reason: e.message }; } if (!interactive) return { ok: false, reason: 'permission' }; }
       if (!interactive) return { ok: false, reason: 'nodir' };
       const zf = []; for (const f of files) zf.push({ path: f.path, data: f.blob ? new Uint8Array(await f.blob.arrayBuffer()) : new TextEncoder().encode(f.text) });
-      await deliver(F.zipBuild(zf), 'BACKUP_TLZ_' + dayStr() + '.zip'); return { ok: true, where: 'file ZIP con le cartelle ordinate', n: files.length };
+      await deliver(F.zipBuild(zf), 'BACKUP_TLZ.zip'); return { ok: true, where: 'file ZIP con le cartelle ordinate', n: files.length };
     }
     acts.bkUpdate = async () => { try { const r = await orgBackup(true); if (r.ok) { localStorage.setItem('tlz.bkver', F.VERSION.version + '.' + F.VERSION.build); localStorage.setItem('tlz.orgday', dayStr()); localStorage.setItem('tlz.orgts', String(Date.now())); toast('Backup ordinato salvato: ' + r.where); c.render(); } else toast('Backup non riuscito: ' + (r.reason || '')); } catch (e) { toast('Backup non riuscito: ' + e.message); } };
     acts.bkOrgPick = async () => { try { await F.pickDir(); ui.bkDir = (await F.getDir()).name; await acts.bkUpdate(); } catch (e) { if (e && e.name !== 'AbortError') toast('Cartella non collegata: ' + e.message); } };
@@ -608,7 +607,7 @@
       } catch (e) { } finally { ui.abBusy = false; }
     }
     X.autoBackup = autoBackup;
-    acts.bkShareOrg = async () => { try { const files = await orgFiles(); if (!files.length) { toast('Nessun utente'); return; } await F.webShareZip(files, 'BACKUP_TLZ_' + dayStr() + '.zip', 'Backup utenti'); lss('tlz.orgts', String(Date.now())); lss('tlz.orgday', dayStr()); toast('Backup condiviso'); c.render(); } catch (e) { if (!e || e.name !== 'AbortError') toast('Condivisione non disponibile: uso il download'); if (e && e.name !== 'AbortError') acts.bkUpdate(); } };
+    acts.bkShareOrg = async () => { try { const files = await orgFiles(); if (!files.length) { toast('Nessun utente'); return; } await F.webShareZip(files, 'BACKUP_TLZ.zip', 'Backup utenti'); lss('tlz.orgts', String(Date.now())); lss('tlz.orgday', dayStr()); toast('Backup condiviso'); c.render(); } catch (e) { if (!e || e.name !== 'AbortError') toast('Condivisione non disponibile: uso il download'); if (e && e.name !== 'AbortError') acts.bkUpdate(); } };
     acts.bkLocalDl = async () => {
       const idx = F.kvGet ? await F.kvGet('snap.idx') : null; const k = idx && idx.length ? await F.kvGet('snap.' + idx[idx.length - 1]) : null;
       if (!k) { toast('Nessuna copia automatica nel browser'); return; }

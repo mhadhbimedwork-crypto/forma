@@ -1,8 +1,8 @@
 {
-  "version": "1.29.5",
-  "build": 85,
+  "version": "1.29.6",
+  "build": 86,
   "date": "2026-11-07",
   "notes": [
-    "Corretto il calcolo delle serie con topset e riduzione (es. \"Topset 6-8 + 2x8 (-15%)\"): la prima serie è il massimale e le altre si compilano da sole al -15%, modificabili."
+    "Schede già in uso rilette e corrette per tutti (topset, myo-reps, dropset, percentuali); backup con file fissi che si aggiornano invece di creare nuove cartelle ogni giorno."
   ]
 }

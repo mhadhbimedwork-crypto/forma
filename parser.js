@@ -108,18 +108,21 @@
       notes.push(inner.trim().replace(/(\d+)\s*["″]/g, '$1 secondi').replace(/\b(\d)a serie\b/g, '$1ª serie')); return ' ';
     });
     // topset + back-off
-    m = scheme.match(/(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)\s*(?:\(\s*-\s*(\d+)\s*%\s*\))?/i);
-    if (m) {
-      const n = +m[3]; if (!m[2]) m[2] = m[1]; const topLbl = m[1] === m[2] ? m[1] : m[1] + '-' + m[2];
-      notes.unshift(`Serie 1 = topset pesante da ${topLbl} ripetizioni; poi ${n} serie da ${m[4].replace(/\s/g, '')} ripetizioni${m[5] ? ` con il carico ridotto del ${m[5]}%` : ''}.`);
-      scheme = `${1 + n}x${topLbl} rest 150s`; tech.top = { n, backReps: m[4].replace(/\s/g, ''), pct: m[5] ? +m[5] : 15 };
+    const TOP_BACK = '\\s*\\+\\s*(\\d+)\\s*[x×]\\s*(\\d+(?:\\s*[-–]\\s*\\d+(?!\\d|\\s*%))?)\\s*(?:\\(\\s*-\\s*(\\d+)\\s*%\\s*\\)|-\\s*(\\d+)\\s*%)?';
+    let tp = scheme.match(new RegExp('(?:topset|mav)\\s*(\\d+)(?:\\s*[-–]\\s*(\\d+))?\\s*(?:reps?|rip\\w*)?\\s*(?:\\(\\s*@\\s*(?:rpe\\s*)?([\\d.,]+)\\s*\\))?' + TOP_BACK, 'i')) ||
+      scheme.match(new RegExp('(?:^|[^\\d])(\\d+)()\\s*(?:reps?\\s*)?@\\s*(?:rpe\\s*)?([\\d.,]+)' + TOP_BACK, 'i')) ||
+      scheme.match(new RegExp('1\\s*[x×]\\s*(\\d+)()\\s*(?:reps?\\s*)?@\\s*(?:rpe\\s*)?([\\d.,\\-]+)' + TOP_BACK, 'i'));
+    if (tp) {
+      const n = +tp[4], top1 = tp[1], top2 = tp[2] || tp[1], topLbl = top1 === top2 ? top1 : top1 + '-' + top2, backReps = tp[5].replace(/\s/g, ''), pct = tp[6] || tp[7], rpeTop = tp[3];
+      notes.unshift(`Serie 1 = topset pesante da ${topLbl} ripetizioni${rpeTop ? ' (RPE ' + rpeTop.replace(',', '.') + ')' : ''}; poi ${n} serie da ${backReps} ripetizioni${pct ? ` con il carico ridotto del ${pct}%` : ''}.`);
+      scheme = `${1 + n}x${topLbl} rest 150s`; tech.top = { n, backReps, pct: pct ? +pct : 15 };
     }
     // EMOM
     m = scheme.match(/emom\s*(\d+)\s*(?:['’′]|min\w*)?/i);
     if (m) { tech.emom = +m[1]; notes.unshift(`EMOM ${m[1]} minuti: una serie ogni minuto con ripetizioni sub-massimali (lascia 1-2 ripetizioni di riserva) e riposa il tempo che resta nel minuto.`); scheme = scheme.replace(m[0], ' ') ; scheme = `${m[1]}xMAX ` + scheme.replace(/^\s*\d+\s*[x×]\s*\S+/, ' ') + ' rest 30s'; }
     // myo-reps
-    m = scheme.match(/\+\s*(\d+)\s*[x×]\s*myo[\s-]?reps?/i);
-    if (m) {
+    m = scheme.match(/\+\s*(?:(\d+)\s*[x×]\s*)?myo[\s-]?reps?/i);
+    if (m) { if (!m[1]) m[1] = '1';
       const base = scheme.replace(m[0], ' ').match(/(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)/);
       if (base) { notes.push('Ultima serie in myo-reps: una serie attivante vicino al cedimento, poi 3-4 mini-serie da 3-5 ripetizioni con 10-15 secondi di pausa.'); scheme = `${+base[1] + +m[1]}x${base[2].replace(/\s/g, '')}`; tech.myo = { sets: +m[1] }; }
     }
@@ -127,6 +130,7 @@
   }
 
   F.parseScheda = function (text) {
+    text = String(text || '').replace(/[\u200b-\u200d\u2060\ufeff]/g, '');
     const days = []; let cur = null, defRest = null; const globalFlags = [];
     const newDay = n => { cur = { name: n, exercises: [] }; days.push(cur); defRest = null; };
     let gseq = 0;
@@ -138,6 +142,7 @@
       const sp = line.split(/\s+[-–—]\s+/); if (sp.length < 2) return null;
       const names = sp[0].split(/\s*\/\s*/), schemes = sp.slice(1).join(' - ').split(/\s+\/\s+/);
       if (names.length < 2 || names.some(n => !n.trim() || /\d/.test(n.replace(/\([^)]*\)/g, '')) || n.replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3)) return null;
+      names.forEach((n, k) => { const mw = names[0].trim().split(/\s+/); if (k > 0 && n.trim().split(/\s+/).length === 1 && mw.length >= 3 && mw.includes('con')) names[k] = mw.slice(0, mw.lastIndexOf('con') + 1).join(' ') + ' ' + n.trim(); });
       if (schemes.length === names.length) return names.map((n, k) => n.trim() + ' - ' + schemes[k].trim());
       if (schemes.length === 1) return names.map(n => n.trim() + ' - ' + schemes[0].trim());
       return null;
@@ -177,8 +182,9 @@
         else line = parts.join(' ');
       }
       line = line.replace(/^\s*(?:[-•*·]|\d{1,2}[.)])\s+/, '');
-      // "Nome: Topset 6-8 + 2x8 (-15%)" (due punti al posto del trattino)
-      if (!/\s[-–—]\s/.test(line)) { const tm = line.match(/^(.*?):\s*((?:topset|mav|emom)\b.*)$/i); if (tm) line = tm[1].trim() + ' - ' + tm[2].trim(); }
+      line = line.replace(/\s*<\s*<\s*\/\s*>\s*>\s*/g, ' / ');
+      // "Nome: 2x8 + 1x myo-reps" / "Nome: Topset 6-8 + 2x8 (-15%)" / "Nome: 3@9 + 4x6 -15%" (due punti al posto del trattino)
+      if (!/\s[-–—]\s/.test(line)) { const tm = line.match(/^(.*?):\s*((?:topset|mav|emom)(?![a-z]).*|\d.*(?:myo|drop|topset|mav|emom|@\s*(?:rpe\s*)?\d.*\+).*)$/i); if (tm) line = tm[1].trim() + ' - ' + tm[2].trim(); }
       const alts = splitAlt(line);
       if (alts) { const gid = 'g' + (++gseq); alts.forEach((ln, k) => addLine(ln, rawLine, { id: gid, alt: k > 0, main: alts[0].split(' - ')[0] })); }
       else addLine(line, rawLine, null);
@@ -186,11 +192,29 @@
     return { days, flags: globalFlags };
   };
 
+  /* schede già salvate e lette male (topset, myo-reps, dropset, % scambiate per massimale): rilegge il testo originale con le regole attuali.
+     Cambia solo gli esercizi dove tecnica/percentuale/nome risultano diversi, così le modifiche fatte a mano a serie e ripetizioni restano. */
+  F.repairPlan = function (plan, body) {
+    if (!plan || !Array.isArray(plan.days) || !body) return 0;
+    const r = F.parseScheda(body), nd = r.days.filter(d => d.exercises.length);
+    if (nd.length !== plan.days.length || plan.days.some((d, i) => d.exercises.length !== nd[i].exercises.length)) return 0;
+    const J = v => JSON.stringify(v == null ? null : v); let n = 0;
+    plan.days.forEach((d, i) => d.exercises.forEach((ex, k) => {
+      const nx = nd[i].exercises[k];
+      if (J(ex.tech) === J(nx.tech) && J(ex.pct) === J(nx.pct) && ex.name === nx.name) return;
+      const renamed = ex.name !== nx.name;
+      ['name', 'sets', 'reps', 'repsInfo', 'rest', 'restRead', 'tech', 'pct', 'rpe', 'note', 'unit', 'flags', 'alt', 'altGroup'].forEach(f => { ex[f] = nx[f]; });
+      if (renamed || !ex.exId) { ex.exId = nx.exId; ex.match = nx.match; }
+      ex.setsEarly = Math.max(2, ex.sets - 1); n++;
+    }));
+    return n;
+  };
+
   /* schede già salvate con "Nome: Topset 6-8 + 2x8 (-15%)" lette male: le riporta a topset + serie ridotte */
   F.fixTopset = function (plan) {
     let n = 0;
     ((plan && plan.days) || []).forEach(d => (d.exercises || []).forEach(ex => {
-      const m = String(ex.name || '').match(/^(.*?):\s*(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*$/i); if (!m || ex.tech) return;
+      const m = String(ex.name || '').match(/^(.*?)[:\s]+(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*$/i); if (!m || ex.tech) return;
       const k = ex.sets || 1, back = String(ex.reps || '8'), pct = ex.pct && ex.pct[0] > 0 ? ex.pct[0] : 15, topLbl = m[3] && m[3] !== m[2] ? m[2] + '-' + m[3] : m[2];
       const info = F.parseReps(topLbl, k + 1);
       if (info.scheme.length === 2 && info.scheme[0] < info.scheme[1]) { info.range = [info.scheme[0], info.scheme[1]]; info.scheme = [info.scheme[1]]; info.flags = (info.flags || []).filter(f => !/ripetizioni indicate/.test(f)); }

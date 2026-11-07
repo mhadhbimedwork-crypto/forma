@@ -68,11 +68,27 @@
         try { localStorage.setItem(keyNow(), JSON.stringify(S)); } catch (e) { }
       }
       const r = await AC.pushMine(p); const v = r && r[0] && r[0].version; if (v != null) lsSet(vkey(), String(v));
-      ui.syncAt = Date.now(); ui.syncErr = null;
+      ui.syncAt = Date.now(); ui.syncErr = null; setTimeout(repairPlans, 300);
       if (+lsGet(dkey()) <= t0) { try { localStorage.removeItem(dkey()); } catch (e) { } }
       if (merged && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) render();
     } catch (e) { ui.syncErr = e.message; }
     finally { syncBusy = false; updSync(); if (syncAgain) { syncAgain = false; setTimeout(syncUp, 500); } }
+  }
+  /* una volta per accesso: rilegge con le regole attuali le schede ricevute dall'allenatore (testo originale sul server) e corregge quelle lette male */
+  let repairDone = false;
+  async function repairPlans() {
+    const p = P(); if (repairDone || !p || !(AC.enabled && AC.me) || navigator.onLine === false) return; repairDone = true;
+    let n = 0;
+    try {
+      for (const pl of p.plans || []) {
+        if (pl.pv >= 3) continue;
+        let body = pl.body || null;
+        if (!body && pl.assignedId) body = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null);
+        if (body) { try { n += F.repairPlan(pl, body); } catch (e) { } }
+        pl.pv = 3;
+      }
+    } catch (e) { repairDone = false; return; }
+    if (n || (p.plans || []).some(x => x.pv === 3)) { save(); if (n) render(); }
   }
   window.addEventListener('online', () => { updSync(); if (isDirty() || AC.me) syncUp(); });
   window.addEventListener('offline', updSync);
@@ -1177,9 +1193,9 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     async bkPick() { try { const h = await F.pickDir(); ui.bkDir = h.name; const r = await F.runBackup(S, { interactive: true }); save(); render(); toast(r.ok ? 'Cartella collegata. Backup fatto: ' + r.where : 'Cartella collegata'); } catch (e) { if (!e || e.name !== 'AbortError') toast('Cartella non accessibile'); } },
     async bkForget() { await F.forgetDir(); ui.bkDir = null; render(); toast('Cartella scollegata'); },
     async bkNow() { const r = await F.runBackup(S, { interactive: true, manual: true }); if (r.ok) { save(); ui.bkHide = true; render(); toast(`Backup di ${r.profiles} profil${r.profiles === 1 ? 'o' : 'i'} salvato: ${r.where}`); } else toast('Backup non riuscito (' + r.reason + ')'); },
-    async bkShare() { try { if (F.isNative()) await F.nativeShare(F.allFiles(S)); else await F.webShareZip(F.allFiles(S), 'FORGIA_backup_' + F.todayISO() + '.zip', 'FORGIA backup'); } catch (e) { toast(e && e.name === 'AbortError' ? 'Condivisione annullata' : 'Condivisione non disponibile su questo browser'); } },
+    async bkShare() { try { if (F.isNative()) await F.nativeShare(F.allFiles(S)); else await F.webShareZip(F.allFiles(S), 'FORGIA_backup.zip', 'FORGIA backup'); } catch (e) { toast(e && e.name === 'AbortError' ? 'Condivisione annullata' : 'Condivisione non disponibile su questo browser'); } },
     bkLater() { ui.bkHide = true; render(); },
-    export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo_' + F.todayISO() + '.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
+    export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
     profUse(t) { S.active = t.dataset.id; save(); ui.sub = null; ui.zone = null; render(); window.scrollTo(0, 0); },
     delProfile(t) {
       const id = (t && t.dataset && t.dataset.id) || S.active, p = S.profiles.find(x => x.id === id); if (!p) return;

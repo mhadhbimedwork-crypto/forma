@@ -42,12 +42,12 @@
   function csvWeights(p) {
     return BOM + [['data', 'kg']].concat((p.weights || []).map(w => [w.date, w.kg])).map(r => r.map(csvCell).join(';')).join('\r\n');
   }
-  /** File di un profilo: cartella "<Nome>" con JSON, MD e CSV datati. */
-  F.profileFiles = function (p, date) {
-    date = date || F.todayISO();
-    const n = safe(p.name), fn = safe(p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')), base = `${n}/${fn}_${date}`;
+  /** File di un profilo: cartella "<Nome>" con JSON, riepilogo e CSV. Nomi FISSI (senza data): ogni backup aggiorna gli stessi file;
+      del JSON resta una sola copia precedente ("_precedente"), così non si accumulano file e cartelle. */
+  F.profileFiles = function (p) {
+    const n = safe(p.name), fn = safe(p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')), base = `${n}/${fn}`;
     return [
-      { path: base + '.json', mime: 'application/json', text: JSON.stringify(F.profileObject(p), null, 2) },
+      { path: base + '_backup.json', prev: base + '_backup_precedente.json', mime: 'application/json', text: JSON.stringify(F.profileObject(p), null, 2) },
       { path: base + '_riepilogo.md', mime: 'text/markdown', text: markdown(p) },
       { path: base + '_sedute.csv', mime: 'text/csv', text: csvSessions(p) },
       { path: base + '_peso.csv', mime: 'text/csv', text: csvWeights(p) }
@@ -129,6 +129,9 @@
     for (const f of files) {
       const parts = f.path.split('/'); let d = root;
       for (const part of parts.slice(0, -1)) d = await d.getDirectoryHandle(part, { create: true });
+      if (f.prev) {   // prima di sovrascrivere: se il file è di un giorno precedente diventa la copia "precedente"
+        try { const old = await (await d.getFileHandle(parts[parts.length - 1])).getFile(); if (new Date(old.lastModified).toDateString() !== new Date().toDateString()) { const pw = await (await d.getFileHandle(f.prev.split('/').pop(), { create: true })).createWritable(); await pw.write(await old.text()); await pw.close(); } } catch (e) { }
+      }
       const fh = await d.getFileHandle(parts[parts.length - 1], { create: true });
       const w = await fh.createWritable(); await w.write(f.blob || f.text); await w.close();
     }
@@ -136,10 +139,17 @@
   F._writeToDir = writeToDir;
 
   async function nativeWrite(files) {
-    const FS = Capacitor.Plugins.Filesystem; let where = 'Documenti/FORGIA-Backup';
+    const FS = Capacitor.Plugins.Filesystem, today = new Date().toDateString(); let where = 'Documenti/FORGIA-Backup';
     for (const f of files) {
-      try { await FS.writeFile({ path: 'FORGIA-Backup/' + f.path, data: f.text, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true }); }
-      catch (e) { where = 'memoria dell\'app (FORGIA-Backup)'; await FS.writeFile({ path: 'FORGIA-Backup/' + f.path, data: f.text, directory: 'DATA', encoding: 'utf8', recursive: true }); }
+      for (const dir of ['DOCUMENTS', 'DATA']) {
+        try {
+          if (f.prev) {   // il file di un giorno precedente diventa la copia "precedente"
+            try { const st = await FS.stat({ path: 'FORGIA-Backup/' + f.path, directory: dir }); if (new Date(+st.mtime).toDateString() !== today) { const rd = await FS.readFile({ path: 'FORGIA-Backup/' + f.path, directory: dir, encoding: 'utf8' }); await FS.writeFile({ path: 'FORGIA-Backup/' + f.prev, data: rd.data, directory: dir, encoding: 'utf8', recursive: true }); } } catch (e) { }
+          }
+          await FS.writeFile({ path: 'FORGIA-Backup/' + f.path, data: f.text, directory: dir, encoding: 'utf8', recursive: true });
+          if (dir === 'DATA') where = 'memoria dell\'app (FORGIA-Backup)'; break;
+        } catch (e) { if (dir === 'DATA') throw e; }
+      }
     }
     return where;
   }
