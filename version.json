@@ -1,8 +1,8 @@
 {
-  "version": "1.29.7",
-  "build": 87,
+  "version": "1.30.0",
+  "build": 88,
   "date": "2026-11-07",
   "notes": [
-    "La riga dell'allenatore resta identica e si vede nell'esercizio (es. MAV6 + 3x6 -15%); dropset: ultima serie al -20% calcolata dal peso della serie prima."
+    "Schede di gara a settimane (W1…W5): l'app mostra la settimana in corso e apre in automatico l'area Gara nel profilo dell'atleta."
   ]
 }

@@ -95,7 +95,7 @@
   setInterval(() => { if (isDirty() && navigator.onLine !== false) syncUp(); else updSync(); }, 30000);
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const srcLine = x => x && x.src && (x.tech || x.pct || x.rpe || x.alt || /[+@%]/.test(x.src)) ? `<div class="small" style="color:var(--mute);margin:1px 0">Scheda: <b>${esc(x.src)}</b></div>` : '';
-  const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); } catch (e) {} } return pl; };
+  const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); if (pl.block) F.applyWeek(pl, F.blockWeek(pl)); if (pl.comp && p && !p.gara) p.gara = { kind: pl.comp }; } catch (e) {} } return pl; };
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const ui = { tab: 'home', sub: null, zone: null, msgs: [], timer: null, tick: null };
   let toastT;
@@ -329,7 +329,13 @@
     const news = '';
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
-    return `${upd}${news}${backupBanner()}${inbox}${symCard}${next}
+    const gk = { powerlifting: 'Powerlifting', bodybuilding: 'Bodybuilding', gara: 'Gara' };
+    const garaCard = (plan && plan.comp && p.gara && !p.gara.hide) ? (() => { const g = p.gara, bw = plan.block ? F.blockWeek(plan) : 0, left = g.date ? Math.ceil((new Date(g.date) - new Date(F.todayISO())) / 864e5) : null;
+      return `<div class="card" style="border-color:var(--accent)"><div class="mute small">Area gara · ${esc(gk[g.kind] || 'Gara')}</div><h2 style="margin:.1em 0">${plan.block ? 'Settimana ' + bw + ' di ' + plan.block.weeks : esc(plan.title)}</h2>
+        ${plan.block ? `<div class="row wrap" style="margin:6px 0"><button class="sm ghost" data-act="garaWeek" data-d="-1" aria-label="Settimana precedente">‹</button><button class="sm ghost" data-act="garaWeek" data-d="1" aria-label="Settimana successiva">›</button>${plan.block.manual ? '<button class="sm ghost" data-act="garaWeek" data-d="0">Automatica</button>' : ''}</div>` : ''}
+        <div class="row wrap" style="align-items:center;gap:8px"><label for="gara_date" class="small" style="margin:0">Data gara</label><input type="date" id="gara_date" data-gara="date" value="${esc(g.date || '')}" style="max-width:170px">${left != null ? `<b>${left > 0 ? 'mancano ' + left + ' giorni' : left === 0 ? 'è oggi!' : 'gara passata'}</b>` : ''}</div>
+        <button class="sm ghost" style="margin-top:8px" data-act="garaHide">Nascondi quest'area</button></div>`; })() : '';
+    return `${upd}${news}${backupBanner()}${inbox}${symCard}${garaCard}${next}
       ${GYM ? '' : `      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>`}
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
@@ -1085,10 +1091,12 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     },
     saveImport() {
       const p = P(), st = ui.sub.state, title = ($('#imp_title').value || st.title).trim();
-      const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length) };
+      const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length), block: st.parsed.block, comp: st.parsed.comp || undefined };
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
       p.plans.push(pl); p.activePlan = pl.id; if (st.inboxId) { AC.markPlanImported(st.inboxId).catch(() => { }); ui.inbox = (ui.inbox || []).filter(x => x.id !== st.inboxId); } save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
+    garaWeek(t) { const p = P(), pl = planOf(p); if (!pl || !pl.block) return; const d = +t.dataset.d; if (d === 0) delete pl.block.manual; else pl.block.manual = Math.max(1, Math.min(pl.block.weeks, F.blockWeek(pl) + d)); save(); render(); },
+    garaHide() { const p = P(); if (p && p.gara) { p.gara.hide = true; save(); render(); } },
     bodyMode(t) { ui.bodyMode = t.dataset.m; render(); window.scrollTo(0, 0); },
     pickDay(t) { ui.pickDay = +t.dataset.day; render(); },
     dropDraft() { if (!confirm('Scartare la seduta in corso? I dati inseriti non salvati andranno persi.')) return; P().draft = null; save(); render(); },
@@ -1296,6 +1304,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const t = e.target, p = P(); if (X && X.onChange(t)) return;
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
+    if (t.dataset.gara === 'date' && p && p.gara) { p.gara.date = t.value || ''; save(); render(); return; }
     if (t.id === 'profSel') { S.active = t.value; save(); ui.sub = null; ui.zone = null; render(); return; }
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'measSel') { ui.measSel = t.value; render(); return; }
@@ -1371,7 +1380,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       let r; try { r = F.parseScheda(m.body); } catch (e) { r = null; }
       if (!r || !r.days.some(d => d.exercises.length)) { left.push(m); continue; }
       if (!(p.plans || []).some(x => x.assignedId === m.id)) {
-        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length) };
+        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined };
         pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
         const same = p.plans.filter(x => x.assignedId && x.title.replace(/ \(v\d+\)$/, '').toLowerCase() === m.title.toLowerCase()).length; if (same) pl.title = m.title + ' (v' + (same + 1) + ')'; p.plans.forEach(x => { if (x.offer) x.offer = false; }); if (m.created_at) pl.createdAt = String(m.created_at).slice(0, 10); const had = planOf(p) && planOf(p).days.length; if (had) pl.offer = true; p.plans.push(pl); if (!had) p.activePlan = pl.id; done.push(m.title);
       }

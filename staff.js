@@ -170,7 +170,7 @@
         if (!A.enabled) {
           const cl = find(ui.sub.uid); if (!cl) return true;
           const key = fd.title.trim().toLowerCase(), prevN = (cl.plans || []).filter(x => x.assignedLocal && (x.baseTitle || x.title).toLowerCase() === key).length;
-          const pl = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title: fd.title.trim() + (prevN ? ' (v' + (prevN + 1) + ')' : ''), baseTitle: fd.title.trim(), body: fd.body, assignedLocal: true, source: 'allenatore', createdAt: F.todayISO(), notes: ['Scheda assegnata dal tuo allenatore.'], days: r.days.filter(d => d.exercises.length) };
+          const pl = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), title: fd.title.trim() + (prevN ? ' (v' + (prevN + 1) + ')' : ''), baseTitle: fd.title.trim(), body: fd.body, assignedLocal: true, source: 'allenatore', createdAt: F.todayISO(), notes: ['Scheda assegnata dal tuo allenatore.'], days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined };
           pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
           const had = cl.plans.find(x => x.id === cl.activePlan); cl.plans.forEach(x => { if (x.offer) x.offer = false; });
           if (had) pl.offer = true; cl.plans.push(pl); if (!had) cl.activePlan = pl.id;

@@ -129,7 +129,7 @@
     return { line: `${name} ${scheme.replace(/\s+/g, ' ').trim()}`, note: notes.join(' '), tech: Object.keys(tech).length ? tech : null };
   }
 
-  F.parseScheda = function (text) {
+  const parseFlat = function (text) {
     text = String(text || '').replace(/[\u200b-\u200d\u2060\ufeff]/g, '');
     const days = []; let cur = null, defRest = null; const globalFlags = [];
     const newDay = n => { cur = { name: n, exercises: [] }; days.push(cur); defRest = null; };
@@ -193,10 +193,83 @@
     return { days, flags: globalFlags };
   };
 
+
+  /* ---------- schede a blocco (settimane W1…W5, atleti di gara) ---------- */
+  const WK = /^\s*(?:[*•·-]\s*)?W(\d+)(?:\s*[-–]\s*W?(\d+))?\s*[:\-–]\s*(.+)$/i;
+  const WK_FIELDS = ['sets', 'reps', 'repsInfo', 'rest', 'restRead', 'tech', 'pct', 'rpe', 'note', 'unit', 'flags', 'tempo', 'src'];
+  F.compKind = function (text) {   // tipo di gara dichiarato nel testo della scheda (solo righe di intestazione, prima del primo giorno)
+    const head = String(text || '').split(/\r?\n/).slice(0, 12).join(' ');
+    if (/power\s*lifting|\bPL\b/i.test(head) && /gara|competition|contest|meet|peaking|block/i.test(head)) return 'powerlifting';
+    if (/body\s*building|\bBB\b|physique|bikini|classic/i.test(head) && /gara|competition|contest|prep|peak/i.test(head)) return 'bodybuilding';
+    if (/\bgara\b|competition|contest/i.test(head)) return 'powerlifting' === '' ? '' : 'gara';
+    return null;
+  };
+  function parseBlock(text) {
+    const days = [], flags = []; let cur = null, ex = null, maxW = 1, start = null;
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim(); if (!line) continue;
+      const sm = line.match(/^(?:inizio|start)\s*(?:blocco)?\s*[:\-]\s*(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/i);
+      if (sm) { const y = +sm[3] < 100 ? 2000 + +sm[3] : +sm[3]; start = y + '-' + String(sm[2]).padStart(2, '0') + '-' + String(sm[1]).padStart(2, '0'); continue; }
+      const wm = line.match(WK);
+      if (wm) { if (!ex) continue; const a = +wm[1], b = wm[2] ? +wm[2] : a; maxW = Math.max(maxW, a, b); ex.weeks.push({ a, b, txt: wm[3].trim(), raw: line.replace(/^\s*[*•·-]\s*/, '') }); continue; }
+      const dm = line.match(/^(?:giorno|day|gg|workout|seduta)\s*(\d+)\s*(?:[:\-–]\s*(.*))?$/i);
+      if (dm) { cur = { name: 'GIORNO ' + dm[1], focus: (dm[2] || '').trim(), exercises: [], _ex: [] }; days.push(cur); ex = null; continue; }
+      if (!cur) continue;   // titoli prima del primo giorno
+      ex = { name: line.replace(/^\s*(?:[-•*·]|\d{1,2}[.)])\s+/, '').trim(), weeks: [] }; cur._ex.push(ex);
+    }
+    days.forEach(d => {
+      d._ex.forEach(e => {
+        if (!e.weeks.length) { try { parseFlat('X\n' + e.name).days.forEach(x => x.exercises.forEach(o => d.exercises.push(o))); } catch (er) { } return; }
+        const wk = {}; let base = null;
+        e.weeks.forEach(w => {
+          const one = parseFlat('X\n' + e.name + ' - ' + w.txt).days.map(x => x.exercises[0]).filter(Boolean)[0];
+          if (!one) { flags.push('Riga non letta: "' + e.name + ' ' + w.raw + '"'); return; }
+          const v = {}; WK_FIELDS.forEach(f => { v[f] = one[f]; }); v.src = e.name + ' · ' + w.raw;
+          for (let k = w.a; k <= w.b; k++) wk[k] = JSON.parse(JSON.stringify(v));
+          if (!base || w.a < base.a) base = { a: w.a, one };
+        });
+        if (!base) return;
+        const o = Object.assign({}, base.one, { name: e.name.replace(/\s+/g, ' '), wk });
+        WK_FIELDS.forEach(f => { o[f] = wk[Math.min.apply(null, Object.keys(wk).map(Number))][f]; });
+        d.exercises.push(o);
+      });
+      delete d._ex;
+    });
+    const out = { days: days.filter(d => d.exercises.length), flags, block: { weeks: maxW } };
+    if (start) out.block.start = start;
+    return out;
+  }
+  F.parseScheda = function (text) {
+    text = String(text || '').replace(/[\u200b-\u200d\u2060\ufeff]/g, '');
+    if (text.split(/\r?\n/).filter(l => WK.test(l)).length >= 3) { try { const r = parseBlock(text); if (r.days.length) { r.comp = F.compKind(text); return r; } } catch (e) { } }
+    const r = parseFlat(text); r.comp = F.compKind(text); return r;
+  };
+  /* settimana del blocco: automatica dalla data di inizio, oppure scelta a mano */
+  F.blockWeek = function (pl) {
+    const b = pl && pl.block; if (!b) return 1;
+    if (b.manual >= 1 && b.manual <= b.weeks) return b.manual;
+    const st = new Date(b.start || pl.createdAt || Date.now()); const w = Math.floor((Date.now() - st) / (7 * 864e5)) + 1;
+    return Math.max(1, Math.min(b.weeks, isNaN(w) ? 1 : w));
+  };
+  F.applyWeek = function (pl, w) {
+    if (!pl || !pl.block) return;
+    pl.days.forEach(d => d.exercises.forEach(x => {
+      if (!x.wk) return; const ks = Object.keys(x.wk).map(Number).sort((a, b) => a - b); if (!ks.length) return;
+      const k = x.wk[w] ? w : (ks.filter(n => n < w).pop() || ks[0]), v = x.wk[k];
+      if (x.wkNow === k) return;
+      if (x.wkNow && x.wk[x.wkNow]) F.wkSync(pl, x);
+      WK_FIELDS.forEach(f => { x[f] = v[f] == null ? v[f] : JSON.parse(JSON.stringify(v[f])); });
+      x.setsEarly = Math.max(2, (x.sets || 2) - 1); x.wkNow = k;
+    }));
+  };
+  F.wkSync = function (pl, x) {   // una modifica fatta a mano alla settimana in corso resta in quella settimana
+    if (!pl || !pl.block || !x || !x.wk || !x.wkNow || !x.wk[x.wkNow]) return;
+    WK_FIELDS.forEach(f => { x.wk[x.wkNow][f] = x[f] == null ? x[f] : JSON.parse(JSON.stringify(x[f])); });
+  };
   /* schede già salvate e lette male (topset, myo-reps, dropset, % scambiate per massimale): rilegge il testo originale con le regole attuali.
      Cambia solo gli esercizi dove tecnica/percentuale/nome risultano diversi, così le modifiche fatte a mano a serie e ripetizioni restano. */
   F.repairPlan = function (plan, body) {
-    if (!plan || !Array.isArray(plan.days) || !body) return 0;
+    if (!plan || !Array.isArray(plan.days) || !body || plan.block) return 0;
     const r = F.parseScheda(body), nd = r.days.filter(d => d.exercises.length);
     if (nd.length !== plan.days.length || plan.days.some((d, i) => d.exercises.length !== nd[i].exercises.length)) return 0;
     const J = v => JSON.stringify(v == null ? null : v); let n = 0;
