@@ -1,8 +1,8 @@
 {
-  "version": "1.31.0",
-  "build": 89,
+  "version": "1.31.1",
+  "build": 90,
   "date": "2026-11-07",
   "notes": [
-    "Area Gara per powerlifting e bodybuilding (anteprima per l'amministratore): tentativi, punteggi IPF GL e DOTS, giorno di gara, check-in e foto sul telefono."
+    "Anteprima Area Gara visibile anche all'account di Dalì."
   ]
 }

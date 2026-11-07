@@ -105,7 +105,7 @@
   F.mountGara = function (c) {
     const esc = c.esc, P = c.P, ui = c.ui, G = {};
     const AC = F.Account;
-    G.gate = (p, plan) => !!(p && plan && plan.comp && p.gara && (F.GARA_LIVE || (AC && AC.isAdmin && AC.isAdmin()) || p.garaPreview));
+    G.gate = (p, plan) => !!(p && plan && plan.comp && p.gara && (F.GARA_LIVE || (AC && AC.isAdmin && AC.isAdmin()) || (AC && AC.me && (F.GARA_PREVIEW || []).indexOf(AC.me.username) >= 0) || p.garaPreview));
     G.ensure = function (p, plan) {
       if (!p || !plan || !plan.comp) return;
       if (!p.gara) p.gara = { kind: plan.comp, opened: Date.now(), seen: false, meet: Object.assign({}, plan.compInfo || {}), att: {}, res: {}, shared: [], history: [] };
