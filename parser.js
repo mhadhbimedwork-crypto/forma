@@ -148,6 +148,7 @@
       return null;
     };
     const addLine = (line, rawLine, grp) => {
+      const srcTxt = rawLine.trim().replace(/^\s*(?:[-•*·]|\d{1,2}[.)])\s+/, '').replace(/\s+/g, ' ');   // riga esattamente come l'ha scritta l'allenatore
       const pre = advanced(line); line = pre.line;
       const L = F.parseLine(line);
       if (L.none) {
@@ -168,7 +169,7 @@
       else if (mt.score < 0.75) fl.push(`Riconosciuto come "${mt.ex.name}" (non sicuro): controlla.`);
       if (L.pct && L.pct[0] > 100) fl.push(`Percentuale ${L.pct[0]}% strana: controllala.`);
       if (pre.tech && pre.tech.drop && pre.tech.drop.after < 0) pre.tech.drop.after = L.sets - 1;
-      cur.exercises.push({ name: L.name, sets: L.sets + (pre.tech && pre.tech.drop ? 1 : 0), repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
+      cur.exercises.push({ src: srcTxt, name: L.name, sets: L.sets + (pre.tech && pre.tech.drop ? 1 : 0), repsInfo: info, reps: info.max ? 'MAX' : (info.range ? info.range.join('-') : info.scheme.join('-')), exId: mt ? mt.ex.id : null, match: mt ? mt.score : 0,
         unit: timed ? 'sec' : (mt ? mt.ex.unit : 'reps'), rest: L.rest || defRest || (L.pct && L.pct[1] >= 80 ? 150 : 90), restRead: !!L.rest,
         tech: pre.tech || null, exact: true, pct: L.pct || null, rpe: L.rpe || null, tempo: L.tempo || null, note: [L.superset ? 'Superserie con l\'esercizio successivo' : '', grp && grp.alt ? 'Alternativa a: ' + grp.main + '.' : '', pre.note].filter(Boolean).join(' '), flags: fl, altGroup: grp ? grp.id : null, alt: !!(grp && grp.alt) });
     };
@@ -201,6 +202,7 @@
     const J = v => JSON.stringify(v == null ? null : v); let n = 0;
     plan.days.forEach((d, i) => d.exercises.forEach((ex, k) => {
       const nx = nd[i].exercises[k];
+      if (nx.src && ex.src !== nx.src) ex.src = nx.src;   // testo originale dell'allenatore, sempre
       if (J(ex.tech) === J(nx.tech) && J(ex.pct) === J(nx.pct) && ex.name === nx.name) return;
       const renamed = ex.name !== nx.name;
       ['name', 'sets', 'reps', 'repsInfo', 'rest', 'restRead', 'tech', 'pct', 'rpe', 'note', 'unit', 'flags', 'alt', 'altGroup'].forEach(f => { ex[f] = nx[f]; });
@@ -214,10 +216,12 @@
   F.fixTopset = function (plan) {
     let n = 0;
     ((plan && plan.days) || []).forEach(d => (d.exercises || []).forEach(ex => {
+      if (ex.tech && ex.tech.drop && ex.tech.drop.after === 0 && (ex.sets || 0) >= 3 && /ultim/i.test(ex.note || '')) { ex.tech.drop.after = ex.sets - 2; n++; }   // "dropset ultimo set": il recupero breve va prima dell'ultima serie
       const m = String(ex.name || '').match(/^(.*?)[:\s]+(?:topset|mav)\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:reps?|rip\w*)?\s*\+\s*$/i); if (!m || ex.tech) return;
       const k = ex.sets || 1, back = String(ex.reps || '8'), pct = ex.pct && ex.pct[0] > 0 ? ex.pct[0] : 15, topLbl = m[3] && m[3] !== m[2] ? m[2] + '-' + m[3] : m[2];
       const info = F.parseReps(topLbl, k + 1);
       if (info.scheme.length === 2 && info.scheme[0] < info.scheme[1]) { info.range = [info.scheme[0], info.scheme[1]]; info.scheme = [info.scheme[1]]; info.flags = (info.flags || []).filter(f => !/ripetizioni indicate/.test(f)); }
+      if (!ex.src) ex.src = String(ex.name).replace(/\s+/g, ' ').trim() + ' ' + k + 'x' + back.replace(/\s/g, '') + ' (-' + pct + '%)';
       ex.name = m[1].trim(); ex.sets = k + 1; ex.repsInfo = info; ex.reps = info.range ? info.range.join('-') : info.scheme.join('-');
       ex.tech = { top: { n: k, backReps: back.replace(/\s/g, ''), pct } }; ex.pct = null; ex.rest = 150;
       ex.note = `Serie 1 = topset pesante da ${topLbl} ripetizioni; poi ${k} serie da ${back} ripetizioni con il carico ridotto del ${pct}%.` + (ex.note ? ' ' + ex.note : '');

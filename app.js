@@ -94,6 +94,7 @@
   window.addEventListener('offline', updSync);
   setInterval(() => { if (isDirty() && navigator.onLine !== false) syncUp(); else updSync(); }, 30000);
   const P = () => S.profiles.find(p => p.id === S.active) || null;
+  const srcLine = x => x && x.src && (x.tech || x.pct || x.rpe || x.alt || /[+@%]/.test(x.src)) ? `<div class="small" style="color:var(--mute);margin:1px 0">Scheda: <b>${esc(x.src)}</b></div>` : '';
   const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); } catch (e) {} } return pl; };
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const ui = { tab: 'home', sub: null, zone: null, msgs: [], timer: null, tick: null };
@@ -349,7 +350,7 @@
     if (t.emom) { o.role = 'EMOM ' + (s + 1) + '/' + t.emom; o.rest = 0; }
     if (t.myo && s === x.sets - 1) { o.role = 'MYO-REPS'; o.rest = 15; o.target = 'attivante + mini-serie'; }
     if (t.drop) {
-      if (s === x.sets - 1) { o.role = 'DROPSET −' + t.drop.pct + '%'; o.target = 'MAX'; o.max = true; const b = prevKg(s - 1); if (b) o.kgHint = r25(b * (1 - t.drop.pct / 100)); o.rest = x.rest || 90; }
+      if (s === x.sets - 1) { o.role = 'DROPSET −' + t.drop.pct + '%'; o.target = 'MAX'; o.max = true; const b = prevKg(s - 1); if (b) o.kgHint = Math.round(b * (1 - t.drop.pct / 100) * 2) / 2; o.rest = x.rest || 90; }
       else if (s === t.drop.after) o.rest = t.drop.rest;
     }
     return o;
@@ -401,7 +402,7 @@
     const blocks = day.exercises.map((x, i) => {
       const on = exOn(d, x, i), altBar = '';
       const ch = chooser(x, i);
-if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b> <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
+if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.name)}</b>${srcLine(x)} <span class="mute small">${x.sets} serie · ${esc(F.repsLabel(x))}</span></div>`;
       const e = F.EXMAP[x.exId], hist = histFor(p, x.exId), sug = F.suggest(x, hist), last = hist[hist.length - 1];
       const n = setCount(d, i, x, early);
       const pe0 = last ? { sets: last.sets, date: last.date } : null;
@@ -416,7 +417,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
           <td><input inputmode="decimal" data-set="${i}:${s}:rpe" value="${cur.rpe != null ? cur.rpe : ''}" placeholder="1-10" aria-label="Sforzo serie ${s + 1}"></td>
           <td><input type="checkbox" data-done="${i}:${s}" ${cur.done ? 'checked' : ''} aria-label="Serie ${s + 1} fatta"></td></tr>${whyRow(p, i, s, x, si, cur, ptKg)}`);
       }
-      return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>
+      return ch + `<div class="card">${altBar}<div class="ex">${exPic(x)}<div class="grow"><b>${esc(x.name)}</b>${srcLine(x)}
         <div class="mute small">${n} serie · ${esc(F.repsLabel(x))}${x.repsInfo && x.repsInfo.max ? '' : ''} · recupero ${x.rest || 90}s${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rpe ? ' · RPE ' + x.rpe : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''}</div>
         ${x.pct && pt && pt.off ? '<div class="msg warn small">Percentuale del massimale non attiva per ora: usa i kg o lo sforzo indicati dall\'allenatore.</div>' : x.pct ? (pt && !pt.need ? `<div class="msg ok small">Carico di oggi: ${pt.lo === pt.hi ? pt.lo : pt.lo + '-' + pt.hi} kg (${esc(F.pctLabel(x))}, 1RM ${pt.rm.kg} kg)</div>` : '<div class="msg warn small">Percentuale indicata ma manca il tuo 1RM: scegli un carico con 3 ripetizioni in riserva; poi lo stimo io.</div>') : ''}
         ${x.note ? `<div class="msg warn small">${esc(x.note)}</div>` : ''}

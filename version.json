@@ -1,8 +1,8 @@
 {
-  "version": "1.29.6",
-  "build": 86,
+  "version": "1.29.7",
+  "build": 87,
   "date": "2026-11-07",
   "notes": [
-    "Schede già in uso rilette e corrette per tutti (topset, myo-reps, dropset, percentuali); backup con file fissi che si aggiornano invece di creare nuove cartelle ogni giorno."
+    "La riga dell'allenatore resta identica e si vede nell'esercizio (es. MAV6 + 3x6 -15%); dropset: ultima serie al -20% calcolata dal peso della serie prima."
   ]
 }
