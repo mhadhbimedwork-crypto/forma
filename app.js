@@ -81,14 +81,23 @@
     let n = 0;
     try {
       for (const pl of p.plans || []) {
-        if (pl.pv >= 3) continue;
+        if (pl.pv >= 4) continue;
         let body = pl.body || null;
         if (!body && pl.assignedId) body = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null);
-        if (body) { try { n += F.repairPlan(pl, body); } catch (e) { } }
-        pl.pv = 3;
+        if (body && !pl.block) {
+          try {
+            const r = F.parseScheda(body), nd = r.days.filter(d => d.exercises.length);
+            if (r.block && nd.length) {   // scheda a settimane / di gara arrivata con una versione precedente: la rileggo
+              nd.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
+              pl.days = nd; pl.block = r.block; if (r.comp) pl.comp = r.comp; if (r.compInfo) pl.compInfo = r.compInfo;
+              if (p.draft && p.draft.planId === pl.id) p.draft = null; n++;
+            } else n += F.repairPlan(pl, body);
+          } catch (e) { }
+        }
+        pl.pv = 4;
       }
     } catch (e) { repairDone = false; return; }
-    if (n || (p.plans || []).some(x => x.pv === 3)) { save(); if (n) render(); }
+    if (n || (p.plans || []).some(x => x.pv === 4)) { save(); if (n) render(); }
   }
   window.addEventListener('online', () => { updSync(); if (isDirty() || AC.me) syncUp(); });
   window.addEventListener('offline', updSync);

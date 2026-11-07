@@ -271,7 +271,7 @@
   F.blockWeek = function (pl, atISO) {
     const b = pl && pl.block; if (!b) return 1;
     if (!atISO && b.manual >= 1 && b.manual <= b.weeks) return b.manual;
-    const st = new Date((b.start || pl.createdAt || F.todayISO()) + 'T00:00:00'), at = atISO ? new Date(atISO + 'T00:00:00') : new Date(); const w = Math.floor((at - st) / (7 * 864e5)) + 1;
+    const st = new Date(String(b.start || pl.createdAt || F.todayISO()).slice(0, 10) + 'T00:00:00'), at = atISO ? new Date(atISO + 'T00:00:00') : new Date(); const w = Math.floor((at - st) / (7 * 864e5)) + 1;
     return Math.max(1, Math.min(b.weeks, isNaN(w) ? 1 : w));
   };
   F.applyWeek = function (pl, w) {
