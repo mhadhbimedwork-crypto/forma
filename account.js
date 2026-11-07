@@ -138,7 +138,7 @@
   /* ---- dati del cliente: il dispositivo resta la fonte principale (funziona offline), il server tiene la copia ---- */
   A.pullMine = async function () { const r = await rest('client_data?user_id=eq.' + A.me.id + '&select=data,version,updated_at'); return r[0] || null; };
   /** Sul server va SOLO l'allenamento: mai dieta, alimenti, intolleranze, bozze o altro. Il resto resta sul dispositivo. */
-  const SHARE = ['id', 'name', 'birth', 'sex', 'height', 'weight', 'goal', 'waist', 'bf', 'style', 'days', 'level', 'stopMonths', 'pain', 'painLog', 'painX', 'painDel', 'weights', 'measures', 'plans', 'sessions', 'activePlan', 'rm', 'symptoms', 'createdAt'];
+  const SHARE = ['id', 'name', 'birth', 'sex', 'height', 'weight', 'goal', 'waist', 'bf', 'style', 'days', 'level', 'stopMonths', 'pain', 'painLog', 'painX', 'painDel', 'weights', 'measures', 'plans', 'sessions', 'activePlan', 'gara', 'rm', 'symptoms', 'createdAt'];
   F.shareable = p => { const o = {}; SHARE.forEach(k => { if (p && p[k] !== undefined) o[k] = p[k]; }); return o; };
   A.pushMine = async function (profile, device) {
     profile = F.shareable(profile);

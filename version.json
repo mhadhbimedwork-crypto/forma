@@ -1,8 +1,8 @@
 {
-  "version": "1.30.0",
-  "build": 88,
+  "version": "1.31.0",
+  "build": 89,
   "date": "2026-11-07",
   "notes": [
-    "Schede di gara a settimane (W1…W5): l'app mostra la settimana in corso e apre in automatico l'area Gara nel profilo dell'atleta."
+    "Area Gara per powerlifting e bodybuilding (anteprima per l'amministratore): tentativi, punteggi IPF GL e DOTS, giorno di gara, check-in e foto sul telefono."
   ]
 }

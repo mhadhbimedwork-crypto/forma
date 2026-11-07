@@ -95,7 +95,8 @@
   setInterval(() => { if (isDirty() && navigator.onLine !== false) syncUp(); else updSync(); }, 30000);
   const P = () => S.profiles.find(p => p.id === S.active) || null;
   const srcLine = x => x && x.src && (x.tech || x.pct || x.rpe || x.alt || /[+@%]/.test(x.src)) ? `<div class="small" style="color:var(--mute);margin:1px 0">Scheda: <b>${esc(x.src)}</b></div>` : '';
-  const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); if (pl.block) F.applyWeek(pl, F.blockWeek(pl)); if (pl.comp && p && !p.gara) p.gara = { kind: pl.comp }; } catch (e) {} } return pl; };
+  let G = null;
+  const planOf = p => { const pl = p && p.plans.find(x => x.id === p.activePlan) || null; if (pl) { try { F.fixTopset(pl); if (pl.block) F.applyWeek(pl, F.blockWeek(pl)); if (pl.comp && p && G) G.ensure(p, pl); } catch (e) {} } return pl; };
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const ui = { tab: 'home', sub: null, zone: null, msgs: [], timer: null, tick: null };
   let toastT;
@@ -199,7 +200,7 @@
         ${AC.enabled ? X.menuBtn() : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team'].includes(x[0]));
+    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ...((G && P() && G.gate(P(), planOf(P()))) ? [G.tab(ICON)] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   /* --- sblocco con impronta / Face ID (WebAuthn): vale solo su questo dispositivo --- */
@@ -245,9 +246,10 @@
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
     else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
-    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
+    else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, gara: () => G.view(), clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
     $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
+    if (G && G.after) G.after();
   }
   /* suoni del timer (generati con Web Audio: nessun file) */
   let actx = null;
@@ -329,13 +331,7 @@
     const news = '';
     const sym = (p.symptoms || []).filter(x => Date.now() - new Date(x.at || x.date) < 21 * 864e5).slice(-1)[0];
     const symCard = sym ? `<div class="card" style="border-color:var(--warn)"><b>Malessere del ${esc(sym.date)}</b><div class="small">Per le prossime sedute: carichi leggeri, niente cardio a tutta, mangia e bevi prima. Se si ripete, fai controllare cuore, pressione e glicemia dal medico.</div></div>` : '';
-    const gk = { powerlifting: 'Powerlifting', bodybuilding: 'Bodybuilding', gara: 'Gara' };
-    const garaCard = (plan && plan.comp && p.gara && !p.gara.hide) ? (() => { const g = p.gara, bw = plan.block ? F.blockWeek(plan) : 0, left = g.date ? Math.ceil((new Date(g.date) - new Date(F.todayISO())) / 864e5) : null;
-      return `<div class="card" style="border-color:var(--accent)"><div class="mute small">Area gara · ${esc(gk[g.kind] || 'Gara')}</div><h2 style="margin:.1em 0">${plan.block ? 'Settimana ' + bw + ' di ' + plan.block.weeks : esc(plan.title)}</h2>
-        ${plan.block ? `<div class="row wrap" style="margin:6px 0"><button class="sm ghost" data-act="garaWeek" data-d="-1" aria-label="Settimana precedente">‹</button><button class="sm ghost" data-act="garaWeek" data-d="1" aria-label="Settimana successiva">›</button>${plan.block.manual ? '<button class="sm ghost" data-act="garaWeek" data-d="0">Automatica</button>' : ''}</div>` : ''}
-        <div class="row wrap" style="align-items:center;gap:8px"><label for="gara_date" class="small" style="margin:0">Data gara</label><input type="date" id="gara_date" data-gara="date" value="${esc(g.date || '')}" style="max-width:170px">${left != null ? `<b>${left > 0 ? 'mancano ' + left + ' giorni' : left === 0 ? 'è oggi!' : 'gara passata'}</b>` : ''}</div>
-        <button class="sm ghost" style="margin-top:8px" data-act="garaHide">Nascondi quest'area</button></div>`; })() : '';
-    return `${upd}${news}${backupBanner()}${inbox}${symCard}${garaCard}${next}
+    return `${upd}${news}${backupBanner()}${inbox}${symCard}${G ? G.notice(p, plan) + G.homeCard(p, plan) : ''}${next}
       ${GYM ? '' : `      <div class="card"><h2>Obiettivi di oggi</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
       <p class="mute small">Acqua: ~${fmt(c.water, 1)} l · Sonno: ${c.minor ? '8-10' : '7-9'} ore</p></div>`}
       <div class="card"><h2>Analisi dell'andamento</h2><div class="msg ${adv.kind}">${esc(adv.text)}</div>
@@ -503,7 +499,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return `<div class="row"><button class="ghost" data-act="cancelSub">← Annulla</button></div><h1>Importa scheda</h1>
       <div class="card"><h2>Incolla il testo</h2><p class="mute small">Incolla la scheda come l'ha scritta l'allenatore, anche in inglese: <code>Bench press 4x6 @80% rest 2 min</code>, <code>Lat pulldown 3 x 8-10 RPE 8</code>, <code>Squat 5 serie da 5, 75%, recupero 2'</code>. Riconosco serie, ripetizioni, % del massimale, RPE/RIR, recuperi e tempo. Le righe come <code># Giorno 1</code> o <code>Push day:</code> sono i giorni.</p>
       <textarea id="imp_text" placeholder="# Day 1&#10;Bench press 4x6 @80% rest 2 min&#10;Lat pulldown 3x8-10 RPE 8&#10;Leg press 3x12 rec 90s" aria-label="Testo della scheda"></textarea>
-      <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button></div>
+      <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button>${AC.isAdmin && AC.isAdmin() ? '<button class="sm" style="margin-top:8px" data-act="garaSample">Prova: carica scheda di gara di esempio</button>' : ''}</div>
       <div class="card"><h2>Da file: Excel, PDF, CSV</h2><p class="mute small">Carica la scheda dell'allenatore come file <b>.xlsx</b>, <b>.csv</b>, <b>.pdf</b> o <b>.txt</b>. Riconosco le colonne (esercizio, serie, ripetizioni, recupero, carico, RPE, note) e i giorni (un foglio per giorno, oppure una riga titolo o la colonna Giorno). I PDF devono contenere testo; se è una scansione usa la foto.</p>
       <input type="file" id="imp_file" accept=".xlsx,.csv,.pdf,.txt,application/pdf" aria-label="File della scheda"></div>
       <div class="card"><h2>Da foto</h2><p class="mute small">La lettura automatica da foto usa l'IA e richiede il server collegato (Profilo → Server IA). Senza server, incolla il testo qui sopra.</p>
@@ -1091,7 +1087,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     },
     saveImport() {
       const p = P(), st = ui.sub.state, title = ($('#imp_title').value || st.title).trim();
-      const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length), block: st.parsed.block, comp: st.parsed.comp || undefined };
+      const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length), block: st.parsed.block, comp: st.parsed.comp || undefined, compInfo: st.parsed.compInfo };
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
       p.plans.push(pl); p.activePlan = pl.id; if (st.inboxId) { AC.markPlanImported(st.inboxId).catch(() => { }); ui.inbox = (ui.inbox || []).filter(x => x.id !== st.inboxId); } save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
@@ -1280,6 +1276,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const t = e.target.closest('[data-act]'); if (t && act[t.dataset.act]) act[t.dataset.act](t, e);
   });
   document.addEventListener('submit', e => {
+    if (e.target.dataset && e.target.dataset.gform && G && G.onSubmit(e.target)) { e.preventDefault(); return; }
     if (e.target.id !== 'pform') { if (X && X.forms.includes(e.target.id)) { e.preventDefault(); X.onSubmit(e.target); } return; } e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target).entries());
     const base = { name: fd.name.trim(), birth: fd.birth, sex: fd.sex, height: +fd.height, weight: +fd.weight, goal: fd.goal, waist: +fd.waist || 0, bf: +fd.bf || 0, style: fd.style, days: +fd.days, level: +fd.level, stopMonths: +fd.stopMonths || 0 };
@@ -1301,7 +1298,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (f === 'rpe') x.rpe = v > 0 && v <= 10 ? v : null; else x[f] = v >= 0 ? v : 0;
   }
   document.addEventListener('change', e => {
-    const t = e.target, p = P(); if (X && X.onChange(t)) return;
+    const t = e.target, p = P(); if (X && X.onChange(t)) return; if (G && G.onChange(t)) return;
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
     if (t.dataset.gara === 'date' && p && p.gara) { p.gara.date = t.value || ''; save(); render(); return; }
@@ -1380,7 +1377,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       let r; try { r = F.parseScheda(m.body); } catch (e) { r = null; }
       if (!r || !r.days.some(d => d.exercises.length)) { left.push(m); continue; }
       if (!(p.plans || []).some(x => x.assignedId === m.id)) {
-        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined };
+        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined, compInfo: r.compInfo };
         pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
         const same = p.plans.filter(x => x.assignedId && x.title.replace(/ \(v\d+\)$/, '').toLowerCase() === m.title.toLowerCase()).length; if (same) pl.title = m.title + ' (v' + (same + 1) + ')'; p.plans.forEach(x => { if (x.offer) x.offer = false; }); if (m.created_at) pl.createdAt = String(m.created_at).slice(0, 10); const had = planOf(p) && planOf(p).days.length; if (had) pl.offer = true; p.plans.push(pl); if (!had) p.activePlan = pl.id; done.push(m.title);
       }
@@ -1392,6 +1389,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   function onSignOut() { S = emptyState(); mem = null; ui.sub = null; ui.tab = 'home'; ui.consent = undefined; ui.cl = null; ui.clLoaded = false; ui.inbox = []; render(); }
   const X = F.mountExtras({ S: () => S, P, save, render, toast, esc, ui, fmt, lineChart, onSignIn, onSignOut });
   Object.assign(act, X.acts);
+  G = GYM ? F.mountGara({ P, save, render, toast, esc, ui, lineChart, planOf }) : F.mountGara({ P, save, render, toast, esc, ui, lineChart, planOf });
+  Object.assign(act, G.acts);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && AC.enabled && AC.me) { clearTimeout(syncT); syncUp(); } });
   /* console amministratore: disconnessione automatica dopo 15 minuti di inattività */
   { let hid = 0; document.addEventListener('visibilitychange', () => { if (document.hidden) hid = Date.now(); else if (hid && Date.now() - hid > 120000 && AC.enabled && AC.me && bio.ok && bio.id && !(AC.imp && AC.imp()) && !ui.locked) { ui.locked = true; render(); } }); }

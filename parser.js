@@ -201,7 +201,7 @@
     const head = String(text || '').split(/\r?\n/).slice(0, 12).join(' ');
     if (/power\s*lifting|\bPL\b/i.test(head) && /gara|competition|contest|meet|peaking|block/i.test(head)) return 'powerlifting';
     if (/body\s*building|\bBB\b|physique|bikini|classic/i.test(head) && /gara|competition|contest|prep|peak/i.test(head)) return 'bodybuilding';
-    if (/\bgara\b|competition|contest/i.test(head)) return 'powerlifting' === '' ? '' : 'gara';
+    if (/\bgara\b|competition|contest/i.test(head)) return 'gara';
     return null;
   };
   function parseBlock(text) {
@@ -239,10 +239,31 @@
     if (start) out.block.start = start;
     return out;
   }
+
+  /* dati di gara scritti dall'allenatore nelle righe di intestazione: "Gara: Nome 12/12/2026", "Federazione: FIPL", "Categoria: 83", "Attrezzatura: Classic" */
+  F.compInfo = function (text) {
+    const o = {}, lines = String(text || '').split(/\r?\n/); let n = 0;
+    for (const raw of lines) {
+      if (/^\s*(?:giorno|day|gg)\s*\d/i.test(raw)) break;
+      if (++n > 25) break;
+      const m = raw.match(/^\s*(?:[*•-]\s*)?(data gara|gara|meet|competition|federazione|federation|categoria|category|classe|attrezzatura|equipaggiamento|equipment|disciplina|luogo|sede)\s*[:\-–]\s*(.+)$/i); if (!m) continue;
+      const k = m[1].toLowerCase(), v = m[2].trim();
+      if (/data|gara|meet|competition/.test(k)) {
+        const d = v.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+        if (d) { const y = +d[3] < 100 ? 2000 + +d[3] : +d[3]; o.date = y + '-' + String(d[2]).padStart(2, '0') + '-' + String(d[1]).padStart(2, '0'); }
+        const nm = v.replace(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/, '').replace(/[\s,;–-]+$/, '').trim();
+        if (nm && !/^data/.test(k)) o.name = nm;
+      } else if (/federaz/.test(k)) o.fed = v;
+      else if (/categor|classe/.test(k)) { const w = v.match(/(\d{2,3}(?:[.,]\d)?)\s*\+?/); if (w) o.cls = (v.indexOf('+') >= 0 ? '+' : '') + w[1].replace(',', '.'); else o.cls = v; }
+      else if (/attrezz|equip/.test(k)) o.equip = /equip|attrez.*suppor|single|multi/i.test(v) && !/classic|raw/i.test(v) ? 'equipped' : 'classic';
+      else if (/luogo|sede/.test(k)) o.place = v;
+    }
+    return o;
+  };
   F.parseScheda = function (text) {
     text = String(text || '').replace(/[\u200b-\u200d\u2060\ufeff]/g, '');
-    if (text.split(/\r?\n/).filter(l => WK.test(l)).length >= 3) { try { const r = parseBlock(text); if (r.days.length) { r.comp = F.compKind(text); return r; } } catch (e) { } }
-    const r = parseFlat(text); r.comp = F.compKind(text); return r;
+    if (text.split(/\r?\n/).filter(l => WK.test(l)).length >= 3) { try { const r = parseBlock(text); if (r.days.length) { r.comp = F.compKind(text); r.compInfo = F.compInfo(text); return r; } } catch (e) { } }
+    const r = parseFlat(text); r.comp = F.compKind(text); r.compInfo = F.compInfo(text); return r;
   };
   /* settimana del blocco: automatica dalla data di inizio, oppure scelta a mano */
   F.blockWeek = function (pl) {

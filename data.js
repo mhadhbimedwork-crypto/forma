@@ -1,7 +1,8 @@
 /* FORGIA – dati: esercizi, zone del corpo, schede di esempio. Script classico (funziona anche da file://). */
 window.FORMA = window.FORMA || {};
 (function (F) {
-  F.VERSION = { version: '1.30.0', build: 88 };
+  F.GARA_LIVE = false;   // finché è false l'Area Gara si vede solo all'amministratore (anteprima); si apre agli atleti con il via
+  F.VERSION = { version: '1.31.0', build: 89 };
   F.REPO = 'mhadhbimedwork-crypto/forma';
   // muscolo -> zona di dolore associata
   F.MUSCLE_ZONE = {
