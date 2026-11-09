@@ -500,11 +500,23 @@
         return `<details style="border-top:1px solid var(--line);padding:6px 0"><summary><b>${esc(m.title)}</b> <span class="chip">v${m.ver}</span> <span class="mute small">inviata ${tr(String(m.created_at).slice(0, 10))}${m.coach && m.coach.full_name ? ' da ' + esc(m.coach.full_name) : ''}${m.imported_at ? ' · vista dal cliente il ' + tr(String(m.imported_at).slice(0, 10)) : ''}</span> ${stat(m, isLast)}</summary>
           ${d ? `<p class="small" style="margin:6px 0 2px"><b>Modifiche rispetto alla v${prev.ver}:</b> ${d.add.length} righe nuove o cambiate, ${d.del.length} tolte o cambiate.</p>${d.add.length ? '<div class="small" style="color:var(--ok)">' + d.add.map(x => '+ ' + esc(x)).join('<br>') + '</div>' : ''}${d.del.length ? '<div class="small" style="color:var(--danger)">' + d.del.map(x => '− ' + esc(x)).join('<br>') + '</div>' : ''}` : '<p class="small mute" style="margin:6px 0 2px">Prima versione.</p>'}
           <pre class="small" style="white-space:pre-wrap;font-family:inherit;margin:6px 0;max-height:220px;overflow:auto">${esc(m.body)}</pre>
-          ${A.me && A.me.role !== 'admin' ? `<button class="sm" data-act="planReuse" data-id="${m.id}" data-u="${esc(uid)}">Modifica e rinvia</button>` : ''}</details>`;
+          ${A.me && A.me.role !== 'admin' ? `<button class="sm" data-act="planReuse" data-id="${m.id}" data-u="${esc(uid)}">Modifica e rinvia</button> <button class="sm danger" data-act="planDel" data-id="${m.id}" data-u="${esc(uid)}">Elimina</button>` : ''}</details>`;
       }).reverse().join('');
       return `<div class="card" id="schedeInviate"><h2>Schede inviate (${list.length})</h2><p class="mute small" style="margin-top:0">Ogni invio resta registrato: se rinvii una scheda con lo stesso titolo diventa una nuova versione.</p>${rows}</div>`;
     };
     acts.planHistRetry = t => { if (ui.ph) delete ui.ph[t.dataset.u]; c.render(); };
+    acts.planDel = async t => {
+      const uid = t.dataset.u, m = ((ui.ph || {})[uid] || []).find(x => String(x.id) === t.dataset.id); if (!m || ui.planDelBusy) return;
+      const v = planVersions((ui.ph || {})[uid] || []).find(x => String(x.id) === t.dataset.id);
+      if (!confirm(`Eliminare la scheda «${m.title}»${v ? ' (v' + v.ver + ')' : ''}?\n\n${m.imported_at ? 'Il cliente l\'ha già ricevuta: sul suo telefono resta, ma qui sparisce dall\'elenco.' : 'Il cliente non l\'ha ancora aperta: non la vedrà più.'}\nNon si può annullare.`)) return;
+      ui.planDelBusy = true;
+      try {
+        if (!A.enabled) { const cl = find(uid); if (cl) { cl.plans = (cl.plans || []).filter(x => x.id !== m.id); c.save(); } }
+        else await A.deletePlan(uid, m.id);
+        if (ui.ph) delete ui.ph[uid]; toast('Scheda eliminata');
+      } catch (e) { toast('Non riuscito: ' + e.message); }
+      ui.planDelBusy = false; c.render();
+    };
     acts.planReuse = t => { const m = ((ui.ph || {})[t.dataset.u] || []).find(x => String(x.id) === t.dataset.id); if (!m) return; ui.asgDraft = { uid: t.dataset.u, title: m.title, body: m.body }; c.render(); setTimeout(() => { const el = document.getElementById('assignForm'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 50); toast('Modifica il testo e invia: sarà una nuova versione'); };
 
     views.client = function () {

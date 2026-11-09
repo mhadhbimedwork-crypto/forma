@@ -1,8 +1,8 @@
 {
-  "version": "1.32.0",
-  "build": 93,
-  "date": "2026-11-07",
+  "version": "1.33.0",
+  "build": 94,
+  "date": "2026-11-09",
   "notes": [
-    "Area Gara aperta a chi riceve una scheda di gara: powerlifting, bodybuilding e calisthenics, record personali e costanza, messaggio del coach, cruscotto atleti di gara. RIR mostrato accanto all'RPE."
+    "Scheda dell'allenatore: versione scritta identica all'originale; eliminazione delle schede inviate con conferma."
   ]
 }

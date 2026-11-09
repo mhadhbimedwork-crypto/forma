@@ -263,7 +263,7 @@
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team'].includes(ui.tab)) ui.tab = X.homeTab();
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, gara: () => G.view(), clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
     $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
@@ -476,6 +476,13 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="card"><h2>Nuova scheda</h2><div class="row wrap"><button class="primary" data-act="genPlan">Crea su misura per ${esc(p.name)}</button><button data-act="importPlan">Importa scheda dell'allenatore</button></div>
       <p class="mute small">La scheda su misura usa età, obiettivo, livello, stop dall'allenamento e dolori indicati nella sezione Corpo.</p></div>`;
   }
+  function viewSent() {
+    const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); if (!pl) { ui.sub = null; return viewPlans(); }
+    const body = ui.sub.text;
+    return `<div class="row"><button class="ghost" data-act="sentBack" data-id="${esc(pl.id)}">← Scheda</button></div><h1>${esc(pl.title)}</h1><p class="mute small" style="margin-top:0">Versione scritta inviata dal tuo allenatore${pl.createdAt ? ' · ' + esc(pl.createdAt) : ''}</p>
+      ${body === undefined ? '<div class="card"><p class="mute">Carico…</p></div>' : body === null ? '<div class="card"><p class="mute">Non riesco a caricare il testo (controlla la connessione) e questa scheda non lo ha salvato sul telefono.</p><button class="sm" data-act="sentOpen" data-id="' + esc(pl.id) + '">Riprova</button></div>' : `<div class="card"><pre style="white-space:pre-wrap;font-family:inherit;font-feature-settings:'calt' 0,'liga' 0;margin:0;line-height:1.5">${esc(body)}</pre></div>
+      <div class="row wrap" style="gap:8px"><button class="primary" data-act="sentPrint" data-id="${esc(pl.id)}">Stampa o salva in PDF</button><button data-act="sentSave" data-id="${esc(pl.id)}">Scarica il testo</button><button data-act="sentCopy" data-id="${esc(pl.id)}">Copia</button></div>`}`;
+  }
   function viewPlanDetail() {
     const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); if (!pl) { ui.sub = null; return viewPlans(); }
     const a = F.analyzePlan(pl, p);
@@ -497,6 +504,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const per = Object.entries(a.per).sort((x, y) => y[1] - x[1]);
     const mx = Math.max(1, ...per.map(e => e[1]));
     return `<div class="row"><button class="ghost" data-act="cancelSub">← Schede</button></div><h1>${esc(pl.title)}</h1>
+      ${pl.assignedId || pl.sentBody || pl.assignedLocal ? `<div class="card"><h2>Versione scritta del tuo allenatore</h2><p class="mute small" style="margin-top:0">Il testo identico a come l'ha inviato il coach: puoi leggerlo, stamparlo o salvarlo.</p><button class="sm primary" data-act="sentOpen" data-id="${esc(pl.id)}">Apri la versione scritta</button></div>` : ''}
       <div class="card"><h2>Analisi per ${esc(p.name)}</h2>${msgs(a.flags)}
       <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="adapt" data-id="${pl.id}">Crea versione adattata a profilo e dolori</button>${pl.id !== p.activePlan ? `<button class="sm" data-act="activate" data-id="${pl.id}">Attiva</button>` : ''}</div></div>
       ${(pl.notes || []).length ? `<div class="card"><h2>Note</h2>${msgs(pl.notes.map(t => ({ t })))}</div>` : ''}
@@ -1091,6 +1099,25 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     offerNo(t) { const p = P(), x = p.plans.find(q => q.id === t.dataset.id); if (x) { x.offer = false; save(); render(); toast('Resta la scheda di prima. La nuova è tra le tue schede.'); } },
     inboxImport(t) { const m = (ui.inbox || []).find(x => String(x.id) === t.dataset.id); if (!m) return; const r = F.parseScheda(m.body); ui.sub = { type: 'import', state: { parsed: r, title: m.title, inboxId: m.id } }; render(); window.scrollTo(0, 0); },
     openPlan(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
+    async sentOpen(t) {
+      const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!pl) return;
+      ui.sub = { type: 'sent', id: pl.id, text: pl.sentBody || (pl.assignedLocal && pl.body) || undefined }; render(); window.scrollTo(0, 0);
+      if (ui.sub.text) return;
+      let tx = null; try { if (AC.enabled && AC.me && pl.assignedId) tx = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null); } catch (e) { }
+      if (tx) { pl.sentBody = tx; save(); }
+      if (ui.sub && ui.sub.type === 'sent' && ui.sub.id === pl.id) { ui.sub.text = tx; render(); }
+    },
+    sentBack(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
+    sentCopy(t) { const tx = ui.sub && ui.sub.text; if (!tx) return; (navigator.clipboard ? navigator.clipboard.writeText(tx).then(() => toast('Copiato')).catch(() => toast('Copia non riuscita')) : toast('Copia non disponibile')); },
+    sentSave(t) { const pl = P().plans.find(x => x.id === t.dataset.id), tx = ui.sub && ui.sub.text; if (!pl || !tx) return; F.download([{ path: (pl.title || 'scheda').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '.txt', mime: 'text/plain', text: tx }]); },
+    sentPrint(t) {
+      const pl = P().plans.find(x => x.id === t.dataset.id), tx = ui.sub && ui.sub.text; if (!pl || !tx) return;
+      const fr = document.createElement('iframe'); fr.setAttribute('aria-hidden', 'true'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0';
+      const e = v => String(v).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+      fr.srcdoc = '<!doctype html><meta charset="utf-8"><title>' + e(pl.title) + '</title><style>body{font:14px/1.5 Arial,sans-serif;margin:24px;color:#000}h1{font-size:20px;margin:0 0 12px}pre{white-space:pre-wrap;font:inherit;margin:0}</style><h1>' + e(pl.title) + '</h1><pre>' + e(tx) + '</pre>';
+      fr.onload = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (er) { toast('Stampa non disponibile: usa "Scarica il testo"'); } setTimeout(() => fr.remove(), 60000); };
+      document.body.appendChild(fr);
+    },
     activate(t) { const p = P(); p.activePlan = t.dataset.id; p.draft = null; save(); render(); toast('Scheda attivata'); },
     delPlan(t) { const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!confirm(`Eliminare "${pl.title}"? Le sedute già registrate restano.`)) return; p.plans = p.plans.filter(x => x.id !== pl.id); if (pl.comp && !p.plans.some(x => x.comp)) { delete p.gara; delete p.garaPriv; } if (p.activePlan === pl.id) { p.activePlan = p.plans.length ? p.plans[p.plans.length - 1].id : null; p.draft = null; } save(); render(); },
     adapt(t) { const p = P(), pl = p.plans.find(x => x.id === t.dataset.id), n = adaptPlan(pl, p); p.plans.push(n); p.activePlan = n.id; save(); ui.sub = { type: 'plan', id: n.id }; render(); toast('Versione adattata creata e attivata'); },
@@ -1404,7 +1431,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       let r; try { r = F.parseScheda(m.body); } catch (e) { r = null; }
       if (!r || !r.days.some(d => d.exercises.length)) { left.push(m); continue; }
       if (!(p.plans || []).some(x => x.assignedId === m.id)) {
-        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined, compInfo: r.compInfo };
+        const pl = { id: 'p' + uid(), title: m.title, source: 'allenatore', assignedId: m.id, sentBody: m.body, createdAt: F.todayISO(), notes: ['Scheda inviata dal tuo allenatore.'].concat(r.days.some(d => d.exercises.some(x => !x.exId)) ? ['Qualche esercizio non è nella lista: controllalo nella scheda.'] : []), days: r.days.filter(d => d.exercises.length), block: r.block, comp: r.comp || undefined, compInfo: r.compInfo };
         pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
         const same = p.plans.filter(x => x.assignedId && x.title.replace(/ \(v\d+\)$/, '').toLowerCase() === m.title.toLowerCase()).length; if (same) pl.title = m.title + ' (v' + (same + 1) + ')'; p.plans.forEach(x => { if (x.offer) x.offer = false; }); if (m.created_at) pl.createdAt = String(m.created_at).slice(0, 10); const had = planOf(p) && planOf(p).days.length; if (had) pl.offer = true; p.plans.push(pl); if (!had) p.activePlan = pl.id; done.push(m.title);
       }

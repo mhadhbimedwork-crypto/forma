@@ -186,6 +186,7 @@
   A.setActive = (uid, active) => admin({ action: 'set_active', user_id: uid, active });
   A.deleteUser = uid => admin({ action: 'delete', user_id: uid });
   A.assignPlan = (uid, title, body) => rest('assigned_plans', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: uid, coach_id: A.me.id, title, body }) }).then(r => { A.logAccess(uid, 'send_plan'); return r; });
+  A.deletePlan = (uid, id) => rest('assigned_plans?id=eq.' + id + '&user_id=eq.' + uid, { method: 'DELETE', headers: { Prefer: 'return=representation' } }).then(r => { if (!r || !r.length) throw new Error('Scheda non eliminata'); A.logAccess(uid, 'delete_plan'); return r; });
   A.clientPlans = uid => rest('assigned_plans?user_id=eq.' + uid + '&select=id,title,body,created_at,imported_at,coach:profiles!coach_id(full_name)&order=created_at.asc');
   A.myPlans = () => rest('assigned_plans?user_id=eq.' + A.me.id + '&imported_at=is.null&select=id,title,body,created_at&order=created_at.desc');
   A.markPlanImported = id => rest('assigned_plans?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ imported_at: new Date().toISOString() }) });
