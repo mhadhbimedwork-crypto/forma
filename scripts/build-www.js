@@ -1,13 +1,13 @@
 // Copia i file web dell'app in una cartella di output (default: www). Usato da Pages e da Capacitor.
 const fs = require('fs'), path = require('path');
 const out = path.resolve(process.argv[2] || 'www');
-const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'body3d.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'guide.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
+const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'guide.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 for (const f of FILES) fs.copyFileSync(f, path.join(out, f));
 fs.cpSync('icons', path.join(out, 'icons'), { recursive: true });
 fs.cpSync('fonts', path.join(out, 'fonts'), { recursive: true });
 fs.cpSync('img', path.join(out, 'img'), { recursive: true });
-fs.cpSync('lib', path.join(out, 'lib'), { recursive: true });
+fs.cpSync('lib', path.join(out, 'lib'), { recursive: true, filter: s3 => !/anatomy|three\.min/.test(s3) });
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 
 /* App principale FORGIA collegata al server (stesso server di THE LIFTING ZONE): accesso con nome e password, sincronizzazione del solo allenamento */
@@ -32,7 +32,7 @@ if (path.basename(out) === '_site') {
     if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'THE LIFTING ZONE'; m.short_name = 'THE LIFTING ZONE'; m.description = 'La tua scheda di allenamento'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: 'icons/gym/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }, { src: 'icons/gym/icon.svg', sizes: 'any', type: 'image/svg+xml' }]; t = JSON.stringify(m, null, 1); }
     fs.writeFileSync(path.join(g, f), t);
   }
-  fs.cpSync('icons', path.join(g, 'icons'), { recursive: true }); fs.cpSync('img', path.join(g, 'img'), { recursive: true }); fs.cpSync('lib', path.join(g, 'lib'), { recursive: true }); fs.cpSync('fonts', path.join(g, 'fonts'), { recursive: true });
+  fs.cpSync('icons', path.join(g, 'icons'), { recursive: true }); fs.cpSync('img', path.join(g, 'img'), { recursive: true }); fs.cpSync('lib', path.join(g, 'lib'), { recursive: true, filter: s3 => !/anatomy|three\.min/.test(s3) }); fs.cpSync('fonts', path.join(g, 'fonts'), { recursive: true });
 
   /* Console amministratore: stesso codice, indirizzo separato (/admin/), non collegata da nessuna parte nell'app dei clienti */
   const ad = path.join(out, 'admin'); fs.mkdirSync(ad, { recursive: true });
@@ -44,7 +44,7 @@ if (path.basename(out) === '_site') {
     if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'TLZ Console'; m.short_name = 'TLZ Console'; m.description = 'Amministrazione'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: 'icons/gym/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }]; t = JSON.stringify(m, null, 1); }
     fs.writeFileSync(path.join(ad, f), t);
   }
-  fs.cpSync('icons', path.join(ad, 'icons'), { recursive: true }); fs.cpSync('img', path.join(ad, 'img'), { recursive: true }); fs.cpSync('fonts', path.join(ad, 'fonts'), { recursive: true }); fs.cpSync('lib', path.join(ad, 'lib'), { recursive: true });
+  fs.cpSync('icons', path.join(ad, 'icons'), { recursive: true }); fs.cpSync('img', path.join(ad, 'img'), { recursive: true }); fs.cpSync('fonts', path.join(ad, 'fonts'), { recursive: true }); fs.cpSync('lib', path.join(ad, 'lib'), { recursive: true, filter: s3 => !/anatomy|three\.min/.test(s3) });
   console.log('Console amministratore in', ad);
   console.log('Versione palestra in', g);
 }
