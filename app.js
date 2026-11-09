@@ -743,6 +743,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const sub = plan ? plan.days.map((d, i) => { const r = F.dayReadiness(p, d, rec); return `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(d.name)}</span><span class="chip" style="border-color:${F.recColor(r.pct)};color:${F.recColor(r.pct)}">${r.pct}% pronto</span></div>`; }).join('') : '';
     return `<h1>Recupero muscolare</h1><p class="mute small">Stima dalla tua cronologia: peso sollevato rispetto al tuo massimale, serie, sforzo (RPE), muscoli principali e secondari, età e rientro. Non è una misura medica.</p>
       <div class="bodies"><figure>${F.bodySVG('f', { rec })}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', { rec })}<figcaption>Retro</figcaption></figure></div>
+      <div class="row" style="margin:6px 0"><button class="sm" data-act="b3" data-k="rec">Vedi in 3D</button></div>
       <div class="legend"><span><i style="background:#34d399"></i>90-100%</span><span><i style="background:#a3e635"></i>70-89</span><span><i style="background:#facc15"></i>50-69</span><span><i style="background:#f97316"></i>30-49</span><span><i style="background:#ef4444"></i>sotto 30</span></div>
       <div class="msg tip" style="margin:10px 0">${esc(tip)}</div>
       <div class="card"><h2>Muscolo per muscolo</h2>${rows.map(([m, o]) => `<div style="margin:7px 0"><div class="row small"><span class="grow">${esc(F.MUSCLE_LABEL[m])}</span><b style="color:${F.recColor(o.pct)}">${o.pct}%</b><span class="mute" style="min-width:104px;text-align:right;white-space:nowrap">${o.hours ? 'pronto tra ' + (o.hours >= 48 ? Math.round(o.hours / 24) + ' g' : o.hours + ' h') : (o.last ? 'pronto' : 'a riposo')}</span></div><div style="height:6px;background:var(--line);border-radius:3px"><div style="height:6px;width:${o.pct}%;background:${F.recColor(o.pct)};border-radius:3px"></div></div></div>`).join('')}</div>
@@ -827,6 +828,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const plan = planOf(p), a = plan ? F.analyzePlan(plan, p) : null, bad = a ? a.flags.filter(f => f.k === 'danger') : [];
     return `<h1>Dove senti dolore?</h1><p class="mute small">Tocca una zona del corpo e indica l'intensità da 1 a 10. L'app adatta schede e allenamenti: 1-3 resta attenzione, 4-6 riduce serie e toglie gli esercizi più stressanti, 7-10 esclude gli esercizi che la caricano.</p>
       <div class="bodies"><figure>${F.bodySVG('f', { pain, sel: z })}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', { pain, sel: z })}<figcaption>Retro</figcaption></figure></div>
+      <div class="row" style="margin:6px 0"><button class="sm" data-act="b3" data-k="pain">Vedi in 3D</button></div>
       <div class="legend"><span><i style="background:var(--body-fill)"></i>ok</span><span><i style="background:#facc15"></i>1-3</span><span><i style="background:#f97316"></i>4-6</span><span><i style="background:#ef4444"></i>7-10</span></div>
       ${z ? `<div class="card"><h2>${esc(F.ZONES[z])}</h2><label for="painR">Intensità del dolore: <b id="painV">${pain[z] || 0}</b>/10</label>
         <input id="painR" type="range" min="0" max="10" step="1" value="${pain[z] || 0}" data-zone="${z}"><div class="row small mute"><span class="grow">0 = nessun dolore</span><span>10 = insopportabile</span></div>
@@ -1099,6 +1101,11 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     offerNo(t) { const p = P(), x = p.plans.find(q => q.id === t.dataset.id); if (x) { x.offer = false; save(); render(); toast('Resta la scheda di prima. La nuova è tra le tue schede.'); } },
     inboxImport(t) { const m = (ui.inbox || []).find(x => String(x.id) === t.dataset.id); if (!m) return; const r = F.parseScheda(m.body); ui.sub = { type: 'import', state: { parsed: r, title: m.title, inboxId: m.id } }; render(); window.scrollTo(0, 0); },
     openPlan(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
+    b3(t) {
+      const p = P(), k = t.dataset.k;
+      if (k === 'rec') F.view3D({ rec: F.recovery(p) });
+      else F.view3D({ pain: p.pain || {}, sel: ui.zone });
+    },
     async sentOpen(t) {
       const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!pl) return;
       ui.sub = { type: 'sent', id: pl.id, text: pl.sentBody || (pl.assignedLocal && pl.body) || undefined }; render(); window.scrollTo(0, 0);

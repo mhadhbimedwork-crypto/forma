@@ -1,8 +1,8 @@
 {
-  "version": "1.33.0",
-  "build": 94,
+  "version": "1.34.0",
+  "build": 95,
   "date": "2026-11-09",
   "notes": [
-    "Scheda dell'allenatore: versione scritta identica all'originale; eliminazione delle schede inviate con conferma."
+    "Corpo 3D ruotabile per recupero e dolore."
   ]
 }
