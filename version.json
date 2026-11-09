@@ -1,8 +1,8 @@
 {
-  "version": "1.34.0",
-  "build": 95,
+  "version": "1.34.1",
+  "build": 96,
   "date": "2026-11-09",
   "notes": [
-    "Corpo 3D ruotabile per recupero e dolore."
+    "Corpo 3D anatomico ruotabile per recupero e dolore."
   ]
 }

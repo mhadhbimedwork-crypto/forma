@@ -1104,7 +1104,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     b3(t) {
       const p = P(), k = t.dataset.k;
       if (k === 'rec') F.view3D({ rec: F.recovery(p) });
-      else F.view3D({ pain: p.pain || {}, sel: ui.zone });
+      else { const sides = F.pxSideMap(p, 'b'), pain = {}; Object.keys(sides).forEach(z => { pain[z] = Math.max(sides[z].sl, sides[z].sr); }); F.view3D({ pain, sides, sel: ui.zone }); }
     },
     async sentOpen(t) {
       const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!pl) return;
