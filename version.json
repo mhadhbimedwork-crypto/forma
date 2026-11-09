@@ -1,8 +1,8 @@
 {
-  "version": "1.35.0",
-  "build": 97,
+  "version": "1.35.1",
+  "build": 98,
   "date": "2026-11-09",
   "notes": [
-    "Schede del coach lette esattamente come scritte: serie del topset, MAV, serie al massimo e giri."
+    "Le schede importate conservano il testo originale, consultabile come Scheda scritta."
   ]
 }

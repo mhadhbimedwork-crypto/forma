@@ -82,7 +82,7 @@
     try {
       for (const pl of p.plans || []) {
         if (pl.pv >= 5) continue;
-        let body = pl.body || null;
+        let body = pl.body || pl.sentBody || null;
         if (!body && pl.assignedId) body = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null);
         if (body && !pl.block) {
           try {
@@ -481,7 +481,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   function viewSent() {
     const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); if (!pl) { ui.sub = null; return viewPlans(); }
     const body = ui.sub.text;
-    return `<div class="row"><button class="ghost" data-act="sentBack" data-id="${esc(pl.id)}">← Scheda</button></div><h1>${esc(pl.title)}</h1><p class="mute small" style="margin-top:0">Versione scritta inviata dal tuo allenatore${pl.createdAt ? ' · ' + esc(pl.createdAt) : ''}</p>
+    return `<div class="row"><button class="ghost" data-act="sentBack" data-id="${esc(pl.id)}">← Scheda</button></div><h1>${esc(pl.title)}</h1><p class="mute small" style="margin-top:0">${pl.source === 'importata' ? 'Testo della scheda come è stato importato' : 'Versione scritta inviata dal tuo allenatore'}${pl.createdAt ? ' · ' + esc(pl.createdAt) : ''}</p>
       ${body === undefined ? '<div class="card"><p class="mute">Carico…</p></div>' : body === null ? '<div class="card"><p class="mute">Non riesco a caricare il testo (controlla la connessione) e questa scheda non lo ha salvato sul telefono.</p><button class="sm" data-act="sentOpen" data-id="' + esc(pl.id) + '">Riprova</button></div>' : `<div class="card"><pre style="white-space:pre-wrap;font-family:inherit;font-feature-settings:'calt' 0,'liga' 0;margin:0;line-height:1.5">${esc(body)}</pre></div>
       <div class="row wrap" style="gap:8px"><button class="primary" data-act="sentPrint" data-id="${esc(pl.id)}">Stampa o salva in PDF</button><button data-act="sentSave" data-id="${esc(pl.id)}">Scarica il testo</button><button data-act="sentCopy" data-id="${esc(pl.id)}">Copia</button></div>`}`;
   }
@@ -1126,16 +1126,17 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     swap(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), e = F.EXMAP[t.dataset.ex], x = pl.days[+t.dataset.d].exercises[+t.dataset.x]; Object.assign(x, { exId: e.id, name: e.name, unit: e.unit, repsInfo: undefined, reps: x.repsInfo ? '8-12' : x.reps, flags: [], note: '' }); save(); render(); },
     async rmEx(t) { if (!(await ask({ title: 'Togliere questo esercizio dalla scheda?', text: 'Le sedute già registrate restano.' }))) return; const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); pl.days[+t.dataset.d].exercises.splice(+t.dataset.x, 1); save(); render(); },
     addEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), v = $('#add_' + t.dataset.d).value; if (!v) return; const e = F.EXMAP[v]; pl.days[+t.dataset.d].exercises.push({ exId: e.id, name: e.name, sets: 3, setsEarly: 2, reps: e.unit === 'sec' ? '20-40 s' : '8-12', unit: e.unit, rest: 90, note: '' }); save(); render(); },
-    parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, title: 'Scheda importata ' + F.todayISO() }; render(); },
+    parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, raw: tx, title: 'Scheda importata ' + F.todayISO() }; render(); },
     async parsePhoto() {
       const f = $('#imp_photo').files[0]; if (!f) return toast('Scegli prima una foto');
       const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(f); });
       toast('Lettura in corso…'); const out = await ai('parse-scheda', { image: b64, mime: f.type }); if (!out || !out.text) return;
-      const r = F.parseScheda(out.text); ui.sub.state = { parsed: r, title: 'Scheda da foto ' + F.todayISO() }; render();
+      const r = F.parseScheda(out.text); ui.sub.state = { parsed: r, raw: out.text, title: 'Scheda da foto ' + F.todayISO() }; render();
     },
     saveImport() {
       const p = P(), st = ui.sub.state, title = ($('#imp_title').value || st.title).trim();
       const pl = { id: 'p' + uid(), title, source: 'importata', createdAt: F.todayISO(), notes: ['Scheda importata: controlla ambiguità ed esercizi collegati.'], days: st.parsed.days.filter(d => d.exercises.length), block: st.parsed.block, comp: st.parsed.comp || undefined, compInfo: st.parsed.compInfo };
+      if (st.raw) pl.sentBody = st.raw;   // testo originale: resta consultabile come "Scheda scritta"
       pl.days.forEach(d => d.exercises.forEach(x => { x.setsEarly = Math.max(2, x.sets - 1); }));
       p.plans.push(pl); p.activePlan = pl.id; if (st.inboxId) { AC.markPlanImported(st.inboxId).catch(() => { }); ui.inbox = (ui.inbox || []).filter(x => x.id !== st.inboxId); } save(); ui.sub = { type: 'plan', id: pl.id }; render(); toast('Scheda salvata e attivata');
     },
