@@ -3,7 +3,7 @@ window.FORMA = window.FORMA || {};
 (function (F) {
   F.GARA_PREVIEW = ['dali.mhadhbi', 'mohamedali.mhadhbi'];   // account che vedono l'anteprima dell'Area Gara
   F.GARA_LIVE = true;   // true: l'Area Gara si apre a chiunque riceva una scheda di gara; false: solo anteprima agli account in GARA_PREVIEW
-  F.VERSION = { version: '1.34.1', build: 96 };
+  F.VERSION = { version: '1.35.0', build: 97 };
   F.REPO = 'mhadhbimedwork-crypto/forma';
   // muscolo -> zona di dolore associata
   F.MUSCLE_ZONE = {

@@ -81,7 +81,7 @@
     let n = 0;
     try {
       for (const pl of p.plans || []) {
-        if (pl.pv >= 4) continue;
+        if (pl.pv >= 5) continue;
         let body = pl.body || null;
         if (!body && pl.assignedId) body = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null);
         if (body && !pl.block) {
@@ -94,10 +94,10 @@
             } else n += F.repairPlan(pl, body);
           } catch (e) { }
         }
-        pl.pv = 4;
+        pl.pv = 5;
       }
     } catch (e) { repairDone = false; return; }
-    if (n || (p.plans || []).some(x => x.pv === 4)) { save(); if (n) render(); }
+    if (n || (p.plans || []).some(x => x.pv === 5)) { save(); if (n) render(); }
   }
   window.addEventListener('online', () => { updSync(); if (isDirty() || AC.me) syncUp(); });
   window.addEventListener('offline', updSync);
@@ -342,7 +342,7 @@
       const picker = hasDraft ? '' : `<div class="row wrap" style="margin:8px 0" role="group" aria-label="Scegli il giorno">${plan.days.map((x, k) => `<button class="sm ${k === idx ? 'primary' : 'ghost'}" data-act="pickDay" data-day="${k}">${esc(x.name.length > 14 ? x.name.slice(0, 14) + '…' : x.name)}${k === auto ? ' ★' : ''}</button>`).join('')}</div><div class="mute small">★ = prossimo giorno in ordine. Scegli tu quello che vuoi fare oggi.</div>`;
       next = `<div class="card hero"><div class="mute small">${hasDraft ? 'Seduta in corso' : 'Seduta di oggi'} · ${esc(plan.title)}</div><h1 style="margin:.1em 0">${esc(d.name)}</h1>
         <p>${d.exercises.filter(x => !x.alt).length} esercizi${d.exercises.some(x => x.alt) ? ' (+ alternative)' : ''} · ${d.exercises.filter(x => !x.alt).reduce((a, x) => a + (early && x.setsEarly ? x.setsEarly : x.sets), 0)} serie${early ? ' (fase di rientro: volume ridotto)' : ''}</p>${(p.sessions || []).length ? (() => { const r = F.dayReadiness(p, d); return `<p class="small" style="margin:.2em 0 .6em">Recupero dei muscoli di oggi: <b>${r.pct}%</b>${r.pct < 70 && r.worst ? ' · il più affaticato è ' + esc(F.MUSCLE_LABEL[r.worst]).toLowerCase() : ''}</p>`; })() : ''}${picker}
-        <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
+        <div class="row wrap" style="margin-top:8px"><button class="primary" data-act="startSession" data-day="${idx}">${hasDraft ? 'Riprendi seduta' : 'Inizia'}</button>${plan.assignedId || plan.sentBody || plan.assignedLocal ? `<button class="sm" data-act="sentOpen" data-id="${esc(plan.id)}">Scheda scritta del coach</button>` : ''}${hasDraft ? '<button class="ghost sm" data-act="dropDraft">Scarta bozza e scegli un altro giorno</button>' : ''}</div></div>`;
     } else next = `<div class="card"><h2>Nessuna scheda attiva</h2><p class="mute">Crea una scheda su misura o importa quella del tuo allenatore.</p><button class="primary" data-act="tab" data-tab="plan">Vai a Scheda</button></div>`;
     const pains = Object.entries(p.pain || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     const upd = '';   // nessun avviso di aggiornamento: si aggiorna in silenzio; lo stato si chiede dal Profilo
@@ -358,7 +358,7 @@
   }
 
   /* --- tecniche della scheda: ruolo, recupero e carico suggerito per ogni serie --- */
-  const early0 = (p, plan) => F.isReturning(p) && plan.source !== 'importata' && (Date.now() - new Date(plan.createdAt)) / 864e5 < 28;
+  const early0 = (p, plan) => F.isReturning(p) && plan.source === 'generata' && (Date.now() - new Date(plan.createdAt)) / 864e5 < 28;
   const r25 = v => Math.round(v / 2.5) * 2.5;
   function setInfo(x, s, cur) {
     const t = x.tech || {}, o = { role: '', target: F.targetFor(x, s), rest: x.rest || 90, kgHint: null, max: false };
@@ -367,6 +367,8 @@
       if (s === 0) { o.role = 'TOPSET'; o.rest = x.restRead ? x.rest : 180; }
       else if (!(t.drop && s === x.sets - 1)) { o.role = 'BACK-OFF −' + t.top.pct + '%'; o.target = t.top.backReps; o.rest = 120; const b = prevKg(0); if (b) o.kgHint = r25(b * (1 - t.top.pct / 100)); }
     }
+    if (t.maxLast && s >= x.sets - t.maxLast) { o.role = 'MAX REPS'; o.target = 'MAX'; o.max = true; }
+    if (t.rounds) { const iso = s % 2 === 0; o.role = 'GIRO ' + (Math.floor(s / 2) + 1) + '/' + t.rounds.g + (iso ? ' · ISOMETRIA' : ' · MAX REPS'); o.target = iso ? t.rounds.iso + ' sec' : 'MAX'; o.max = !iso; }
     if (t.emom) { o.role = 'EMOM ' + (s + 1) + '/' + t.emom; o.rest = 0; }
     if (t.myo && s === x.sets - 1) { o.role = 'MYO-REPS'; o.rest = 15; o.target = 'attivante + mini-serie'; }
     if (t.drop) {
@@ -456,7 +458,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho bevuto circa mezzo litro d'acqua</label>
         <label class="row" style="margin:6px 0;color:var(--ink)"><input type="checkbox" style="width:22px;min-height:0"> Ho dormito bene e sto bene oggi</label>
         <p class="mute small">Durante le serie espira e non trattenere il fiato. Se senti formicolio, testa leggera o confusione, fermati subito. Alla fine non fermarti di colpo: 5 minuti di camminata lenta. Niente intervalli a tutta nelle prime 4-6 settimane.</p></details>
-      <p class="mute small" style="margin:4px 0 8px">RPE = sforzo 1-10 (10 = al limite). Nelle piramidi aumenta il peso a ogni serie.</p>
+      <p class="mute small" style="margin:4px 0 8px">RPE = sforzo da 1 a 10 (10 = al limite). RIR = ripetizioni che ti restano in riserva a fine serie: RIR 2 significa che ne potevi fare ancora 2 (RIR = 10 − RPE, quindi RPE 8 = RIR 2). Nelle piramidi aumenta il peso a ogni serie.</p>
       <div class="card"><label for="sesDate" class="small" style="display:block">Data della seduta</label><input id="sesDate" type="date" value="${esc(d.date || F.todayISO())}" max="${F.todayISO()}" data-ddate="1"><p class="small mute" style="margin:6px 0 0">Se l'hai fatta un altro giorno, cambia la data: la scheda mostra la settimana di quel giorno.</p></div>
       <div class="exgrid">${blocks}</div><button class="primary" style="width:100%" data-act="finishSession">Termina e salva</button>`;
   }
@@ -743,7 +745,6 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const sub = plan ? plan.days.map((d, i) => { const r = F.dayReadiness(p, d, rec); return `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(d.name)}</span><span class="chip" style="border-color:${F.recColor(r.pct)};color:${F.recColor(r.pct)}">${r.pct}% pronto</span></div>`; }).join('') : '';
     return `<h1>Recupero muscolare</h1><p class="mute small">Stima dalla tua cronologia: peso sollevato rispetto al tuo massimale, serie, sforzo (RPE), muscoli principali e secondari, età e rientro. Non è una misura medica.</p>
       <div class="bodies"><figure>${F.bodySVG('f', { rec })}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', { rec })}<figcaption>Retro</figcaption></figure></div>
-      <div class="row" style="margin:6px 0"><button class="sm" data-act="b3" data-k="rec">Vedi in 3D</button></div>
       <div class="legend"><span><i style="background:#34d399"></i>90-100%</span><span><i style="background:#a3e635"></i>70-89</span><span><i style="background:#facc15"></i>50-69</span><span><i style="background:#f97316"></i>30-49</span><span><i style="background:#ef4444"></i>sotto 30</span></div>
       <div class="msg tip" style="margin:10px 0">${esc(tip)}</div>
       <div class="card"><h2>Muscolo per muscolo</h2>${rows.map(([m, o]) => `<div style="margin:7px 0"><div class="row small"><span class="grow">${esc(F.MUSCLE_LABEL[m])}</span><b style="color:${F.recColor(o.pct)}">${o.pct}%</b><span class="mute" style="min-width:104px;text-align:right;white-space:nowrap">${o.hours ? 'pronto tra ' + (o.hours >= 48 ? Math.round(o.hours / 24) + ' g' : o.hours + ' h') : (o.last ? 'pronto' : 'a riposo')}</span></div><div style="height:6px;background:var(--line);border-radius:3px"><div style="height:6px;width:${o.pct}%;background:${F.recColor(o.pct)};border-radius:3px"></div></div></div>`).join('')}</div>
@@ -828,7 +829,6 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const plan = planOf(p), a = plan ? F.analyzePlan(plan, p) : null, bad = a ? a.flags.filter(f => f.k === 'danger') : [];
     return `<h1>Dove senti dolore?</h1><p class="mute small">Tocca una zona del corpo e indica l'intensità da 1 a 10. L'app adatta schede e allenamenti: 1-3 resta attenzione, 4-6 riduce serie e toglie gli esercizi più stressanti, 7-10 esclude gli esercizi che la caricano.</p>
       <div class="bodies"><figure>${F.bodySVG('f', { pain, sel: z })}<figcaption>Fronte</figcaption></figure><figure>${F.bodySVG('b', { pain, sel: z })}<figcaption>Retro</figcaption></figure></div>
-      <div class="row" style="margin:6px 0"><button class="sm" data-act="b3" data-k="pain">Vedi in 3D</button></div>
       <div class="legend"><span><i style="background:var(--body-fill)"></i>ok</span><span><i style="background:#facc15"></i>1-3</span><span><i style="background:#f97316"></i>4-6</span><span><i style="background:#ef4444"></i>7-10</span></div>
       ${z ? `<div class="card"><h2>${esc(F.ZONES[z])}</h2><label for="painR">Intensità del dolore: <b id="painV">${pain[z] || 0}</b>/10</label>
         <input id="painR" type="range" min="0" max="10" step="1" value="${pain[z] || 0}" data-zone="${z}"><div class="row small mute"><span class="grow">0 = nessun dolore</span><span>10 = insopportabile</span></div>
@@ -1101,11 +1101,6 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     offerNo(t) { const p = P(), x = p.plans.find(q => q.id === t.dataset.id); if (x) { x.offer = false; save(); render(); toast('Resta la scheda di prima. La nuova è tra le tue schede.'); } },
     inboxImport(t) { const m = (ui.inbox || []).find(x => String(x.id) === t.dataset.id); if (!m) return; const r = F.parseScheda(m.body); ui.sub = { type: 'import', state: { parsed: r, title: m.title, inboxId: m.id } }; render(); window.scrollTo(0, 0); },
     openPlan(t) { ui.sub = { type: 'plan', id: t.dataset.id }; render(); window.scrollTo(0, 0); },
-    b3(t) {
-      const p = P(), k = t.dataset.k;
-      if (k === 'rec') F.view3D({ rec: F.recovery(p) });
-      else { const sides = F.pxSideMap(p, 'b'), pain = {}; Object.keys(sides).forEach(z => { pain[z] = Math.max(sides[z].sl, sides[z].sr); }); F.view3D({ pain, sides, sel: ui.zone }); }
-    },
     async sentOpen(t) {
       const p = P(), pl = p.plans.find(x => x.id === t.dataset.id); if (!pl) return;
       ui.sub = { type: 'sent', id: pl.id, text: pl.sentBody || (pl.assignedLocal && pl.body) || undefined }; render(); window.scrollTo(0, 0);

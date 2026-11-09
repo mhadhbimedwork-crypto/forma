@@ -1,8 +1,8 @@
 {
-  "version": "1.34.1",
-  "build": 96,
+  "version": "1.35.0",
+  "build": 97,
   "date": "2026-11-09",
   "notes": [
-    "Corpo 3D anatomico ruotabile per recupero e dolore."
+    "Schede del coach lette esattamente come scritte: serie del topset, MAV, serie al massimo e giri."
   ]
 }

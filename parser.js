@@ -23,7 +23,11 @@
 
   const num = s => parseFloat(String(s).replace(',', '.'));
   /** Recupero in secondi, o null. Rimuove da `s` il testo letto. */
-  function takeRest(s) {
+  function takeRest(s0) {
+    const r = takeRest0(s0.replace(/\b(pausa)\s+(\d+)\s*(["″”])(?=\s*[A-Za-zÀ-ÿ])/gi, '$1\u0001$2$3'));
+    return { sec: r.sec, rest: r.rest.replace(/\u0001/g, ' ') };
+  }
+  function takeRest0(s) {
     const unit = (u, v) => { u = (u || '').toLowerCase(); if (/^(min|m$|['’]$)/.test(u) && !/^(''|’’)$/.test(u)) return v * 60; if (u) return v; return v <= 5 ? v * 60 : v; };
     let m;
     const U = "(min\\w*|sec\\w*|s\\b|''|’’|\"|″|['’]|m\\b)?";
@@ -107,6 +111,21 @@
       if (pm) tech.pause = { sec: +pm[1], every: pm[2] ? +pm[2] : 1 };
       notes.push(inner.trim().replace(/(\d+)\s*["″]/g, '$1 secondi').replace(/\b(\d)a serie\b/g, '$1ª serie')); return ' ';
     });
+    // testo descrittivo dopo lo schema: "3x10 1" fermo fronte e 1" fermo mento" -> nota
+    m = scheme.match(/^(\d+\s*[x×]\s*\d+(?:\s*[-–]\s*\d+)?)\s+(\d+\s*["″”].*)$/);
+    if (m) { notes.push(m[2].trim().replace(/(\d+)\s*["″”]/g, '$1 secondo di').replace(/secondo di di/g, 'secondo di')); scheme = m[1]; }
+    // superserie/dropset con "+": "3x12+12", "1x8+8 in dropset"
+    m = scheme.match(/^(\d+)\s*[x×]\s*(\d+)\s*\+\s*(\d+)\s*(in\s+dropset)?\s*$/i);
+    if (m) {
+      if (m[4]) { notes.push(`${m[2]} ripetizioni e subito altre ${m[3]} in dropset (riduci il carico, senza pausa).`); scheme = `${m[1]}x${m[2]}`; tech.dropIn = true; }
+      else { notes.push(`Superserie: ${m[2]} ripetizioni + ${m[3]} ripetizioni dell'altro esercizio, senza pausa tra i due.`); scheme = `${m[1]}x${m[2]}`; }
+    }
+    // "2x8 + max + max": le ultime serie sono al massimo delle ripetizioni
+    m = scheme.match(/^(\d+)\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)((?:\s*\+\s*max(?:\s*reps?)?)+)\s*$/i);
+    if (m) { const k = (m[3].match(/max/gi) || []).length; notes.push(`Poi ${k} ${k === 1 ? 'serie' : 'serie'} al massimo delle ripetizioni (max reps).`); scheme = `${+m[1] + k}x${m[2].replace(/\s/g, '')}`; tech.maxLast = k; }
+    // "1x15" + 1xmax reps (ripeti per 3 giri totali)": giri alternati isometria + max reps
+    m = scheme.match(/^1\s*[x×]\s*(\d+)\s*["″”]\s*\+\s*1\s*[x×]\s*max(?:\s*reps?)?\s*(?:\(?\s*ripeti\s*per\s*(\d+)\s*giri.*)?$/i);
+    if (m) { let g = +(m[2] || 1); const gi = notes.findIndex(n => /\d+\s*giri/i.test(n)); if (gi >= 0) { g = +notes[gi].match(/(\d+)\s*giri/i)[1]; notes.splice(gi, 1); } notes.push(`${g} giri: ogni giro è 1 serie isometrica da ${m[1]} secondi e 1 serie al massimo delle ripetizioni (${g * 2} serie in tutto).`); scheme = `${g * 2}xMAX`; tech.rounds = { iso: +m[1], g }; }
     // topset + back-off
     const TOP_BACK = '\\s*\\+\\s*(\\d+)\\s*[x×]\\s*(\\d+(?:\\s*[-–]\\s*\\d+(?!\\d|\\s*%))?)\\s*(?:\\(\\s*-\\s*(\\d+)\\s*%\\s*\\)|-\\s*(\\d+)\\s*%)?';
     let tp = scheme.match(new RegExp('(?:topset|mav)\\s*(\\d+)(?:\\s*[-–]\\s*(\\d+))?\\s*(?:reps?|rip\\w*)?\\s*(?:\\(\\s*@\\s*(?:rpe\\s*)?([\\d.,]+)\\s*\\))?' + TOP_BACK, 'i')) ||
@@ -185,7 +204,9 @@
       line = line.replace(/^\s*(?:[-•*·]|\d{1,2}[.)])\s+/, '');
       line = line.replace(/\s*<\s*<\s*\/\s*>\s*>\s*/g, ' / ');
       // "Nome: 2x8 + 1x myo-reps" / "Nome: Topset 6-8 + 2x8 (-15%)" / "Nome: 3@9 + 4x6 -15%" (due punti al posto del trattino)
-      if (!/\s[-–—]\s/.test(line)) { const tm = line.match(/^(.*?):\s*((?:topset|mav|emom)(?![a-z]).*|\d.*(?:myo|drop|topset|mav|emom|@\s*(?:rpe\s*)?\d.*\+).*)$/i); if (tm) line = tm[1].trim() + ' - ' + tm[2].trim(); }
+      if (!/\s[-–—]\s/.test(line)) { const tm = line.match(/^(.*?):\s*((?:topset|mav|emom)(?![a-z]).*|\d.*(?:myo|drop|topset|mav|emom|\+\s*max|\d\s*["″”]\s*\+|@\s*(?:rpe\s*)?\d.*\+).*)$/i); if (tm) line = tm[1].trim() + ' - ' + tm[2].trim(); }
+      if (!/\s[-–—]\s/.test(line) && !/:/.test(line)) { const sm3 = line.match(/^(.*?[A-Za-zÀ-ÿ°)'])\s+(\d+\s*[x×]\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*\+\s*\d+|\s+\d+\s*["″”]).*)$/i); if (sm3) line = sm3[1].trim() + ' - ' + sm3[2].trim(); }
+      if (!/\s[-–—]\s/.test(line) && !/:/.test(line)) { const sm2 = line.match(/^(.*?[A-Za-zÀ-ÿ°)])\s+((?:mav|topset)\s*\d.*|emom\b.*)$/i); if (sm2) line = sm2[1].trim() + ' - ' + sm2[2].trim(); }
       const alts = splitAlt(line);
       if (alts) { const gid = 'g' + (++gseq); alts.forEach((ln, k) => addLine(ln, rawLine, { id: gid, alt: k > 0, main: alts[0].split(' - ')[0] })); }
       else addLine(line, rawLine, null);
@@ -294,12 +315,15 @@
   F.repairPlan = function (plan, body) {
     if (!plan || !Array.isArray(plan.days) || !body || plan.block) return 0;
     const r = F.parseScheda(body), nd = r.days.filter(d => d.exercises.length);
-    if (nd.length !== plan.days.length || plan.days.some((d, i) => d.exercises.length !== nd[i].exercises.length)) return 0;
+    if (nd.length !== plan.days.length || plan.days.some((d, i) => d.exercises.length !== nd[i].exercises.length)) {
+      if (plan.source !== 'allenatore' || !nd.length) return 0;   // scheda del coach: il testo scritto è la verità, la rileggo per intero (prima mancavano esercizi)
+      plan.days = nd; if (r.block) plan.block = r.block; return 1;
+    }
     const J = v => JSON.stringify(v == null ? null : v); let n = 0;
     plan.days.forEach((d, i) => d.exercises.forEach((ex, k) => {
       const nx = nd[i].exercises[k];
       if (nx.src && ex.src !== nx.src) ex.src = nx.src;   // testo originale dell'allenatore, sempre
-      if (J(ex.tech) === J(nx.tech) && J(ex.pct) === J(nx.pct) && ex.name === nx.name) return;
+      if (J(ex.tech) === J(nx.tech) && J(ex.pct) === J(nx.pct) && ex.name === nx.name && (plan.source !== 'allenatore' || (ex.sets === nx.sets && String(ex.reps) === String(nx.reps) && ex.note === nx.note))) return;
       const renamed = ex.name !== nx.name;
       ['name', 'sets', 'reps', 'repsInfo', 'rest', 'restRead', 'tech', 'pct', 'rpe', 'note', 'unit', 'flags', 'alt', 'altGroup'].forEach(f => { ex[f] = nx[f]; });
       if (renamed || !ex.exId) { ex.exId = nx.exId; ex.match = nx.match; }
