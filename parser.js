@@ -312,6 +312,15 @@
   };
   /* schede già salvate e lette male (topset, myo-reps, dropset, % scambiate per massimale): rilegge il testo originale con le regole attuali.
      Cambia solo gli esercizi dove tecnica/percentuale/nome risultano diversi, così le modifiche fatte a mano a serie e ripetizioni restano. */
+  /* collega agli esercizi noti quelli rimasti "non riconosciuti": non cambia mai nome, serie, ripetizioni o note */
+  F.relinkExercises = function (plan) {
+    let n = 0;
+    ((plan && plan.days) || []).forEach(d => (d.exercises || []).forEach(ex => {
+      if (ex.exId || !ex.name) return;
+      const mt = F.matchExercise(ex.name); if (mt) { ex.exId = mt.ex.id; ex.match = mt.score; n++; }
+    }));
+    return n;
+  };
   F.repairPlan = function (plan, body) {
     if (!plan || !Array.isArray(plan.days) || !body || plan.block) return 0;
     const r = F.parseScheda(body), nd = r.days.filter(d => d.exercises.length);

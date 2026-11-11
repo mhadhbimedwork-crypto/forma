@@ -26,6 +26,8 @@
   add('chest_row', 'Rematore al petto (macchina)', 'pull', ['upback', 'lats'], ['biceps'], { shoulder: 1, elbow: 1 }, 1, 'reps', 'Petto sul supporto, tira i gomiti indietro e stringi le scapole.', ['chest supported row', 'machine row', 'row machine', 'seated machine row', 'rematore macchina', 'rematore al petto']);
   add('ez_skull', 'Estensioni tricipiti sdraiato (manubri)', 'arms', ['triceps'], [], { elbow: 3, shoulder: 1 }, 2, 'reps', 'Gomiti fermi, scendi verso la fronte e risali senza aprire i gomiti.', ['lying triceps extension', 'dumbbell skull crusher', 'tricipiti manubri sdraiato']);
 
+  add('ext_rot_band', 'Extrarotazione spalla (elastico/cavo)', 'delt', ['delts'], ['upback'], { shoulder: 1 }, 1, 'reps', 'Gomito al fianco a 90°, ruota l\'avambraccio verso l\'esterno senza muovere il busto; ritorno lento.', ['extrarot elastico', 'extrarotazione elastico', 'extrarotazione spalla', 'extrarotazioni', 'extrarot', 'extra rotazione', 'external rotation', 'band external rotation', 'rotazione esterna spalla']);
+
   const more = {
     bench: ['bench press', 'barbell bench press', 'flat bench press', 'flat bench', 'bp', 'panca'],
     bench_incl: ['incline bench press', 'incline barbell press', 'incline press', 'incline bench', 'panca inclinata'],
@@ -70,14 +72,20 @@
     leg_raise: ['hanging leg raise', 'hanging leg raises', 'leg raises', 'toes to bar'],
     squat_bw: ['bodyweight squat', 'air squat', 'bw squat'],
     split_squat: ['split squat', 'split squats', 'static lunge'],
-    bulgarian: ['bulgarian split squat', 'bulgarian split squats', 'rear foot elevated split squat', 'rfess'],
+    bulgarian: ['bulgarian split squat', 'bulgarian split squats', 'rear foot elevated split squat', 'rfess', 'affondo bulgaro', 'affondi bulgari', 'affondi bulgaro', 'squat bulgaro', 'bulgaro', 'bulgarian', 'split squat bulgaro', 'affondo bulgaro singolo', 'affondo bulgaro con manubri', 'affondo bulgaro con manubrio', 'affondo bulgaro al multipower', 'affondo bulgaro al smith', 'affondo bulgaro con bilanciere', 'affondi bulgari con manubri', 'affondi bulgari con manubrio', 'affondi bulgari al multipower'],
     step_up: ['step up', 'step ups', 'step-up'],
     glute_bridge: ['glute bridge', 'glute bridges', 'bridge'],
     pike_pushup: ['pike push up', 'pike pushup', 'pike push-ups'],
     superman: ['superman', 'back raise'],
     side_plank: ['side plank', 'side planks'],
     dead_bug: ['dead bug', 'dead bugs'],
-    hollow: ['hollow hold', 'hollow body hold']
+    hollow: ['hollow hold', 'hollow body hold'],
+    squat_bb: ['low bar squat', 'low bar', 'high bar squat', 'high bar', 'squat low bar', 'squat high bar', 'squat bilanciere basso', 'squat bilanciere alto'],
+    bench: ['panca fermo', 'panca con fermo', 'panca ferma', 'panca con pausa', 'panca pausa', 'pause bench', 'paused bench press'],
+    seated_row: ['tirate al petto al cavo', 'tirate al petto cavo', 'tirate al petto ai cavi', 'rematore al petto al cavo', 'cable row al petto'],
+    crunch: ['addome', 'addominali bassi', 'addominali alti', 'addominali a terra'],
+    // varianti italiane di affondi (aggiunte dopo il caso "Affondo bulgaro singolo su panca con manubrio")
+    walking_lunge: ['affondo indietro', 'affondi indietro', 'affondo frontale', 'affondi frontali', 'affondo con manubri', 'affondo con manubrio', 'affondo con bilanciere', 'affondi con bilanciere', 'affondo al multipower', 'affondi al multipower', 'affondo al smith', 'affondo in camminata', 'affondi in camminata', 'affondo camminato', 'affondi camminati', 'reverse lunge', 'reverse lunges', 'forward lunge', 'forward lunges', 'affondo laterale', 'affondi laterali', 'lateral lunge', 'lateral lunges']
   };
   Object.keys(more).forEach(id => { if (F.EXMAP[id]) F.EXMAP[id].al = F.EXMAP[id].al.concat(more[id]); });
 })(window.FORMA);

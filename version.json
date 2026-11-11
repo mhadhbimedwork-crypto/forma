@@ -1,8 +1,8 @@
 {
-  "version": "1.35.1",
-  "build": 98,
-  "date": "2026-11-09",
+  "version": "1.35.2",
+  "build": 99,
+  "date": "2026-11-11",
   "notes": [
-    "Le schede importate conservano il testo originale, consultabile come Scheda scritta."
+    "Riconoscimento degli esercizi più completo (affondi bulgari, squat low/high bar, panca con fermo e altri)."
   ]
 }

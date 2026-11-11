@@ -81,7 +81,8 @@
     let n = 0;
     try {
       for (const pl of p.plans || []) {
-        if (pl.pv >= 5) continue;
+        if (pl.pv >= 6) continue;
+        try { n += F.relinkExercises(pl); } catch (e) { }
         let body = pl.body || pl.sentBody || null;
         if (!body && pl.assignedId) body = await AC._rest('assigned_plans?id=eq.' + encodeURIComponent(pl.assignedId) + '&select=body').then(r => r && r[0] && r[0].body).catch(() => null);
         if (body && !pl.block) {
@@ -94,10 +95,10 @@
             } else n += F.repairPlan(pl, body);
           } catch (e) { }
         }
-        pl.pv = 5;
+        pl.pv = 6;
       }
     } catch (e) { repairDone = false; return; }
-    if (n || (p.plans || []).some(x => x.pv === 5)) { save(); if (n) render(); }
+    if (n || (p.plans || []).some(x => x.pv === 6)) { save(); if (n) render(); }
   }
   window.addEventListener('online', () => { updSync(); if (isDirty() || AC.me) syncUp(); });
   window.addEventListener('offline', updSync);
