@@ -72,7 +72,7 @@
     leg_raise: ['hanging leg raise', 'hanging leg raises', 'leg raises', 'toes to bar'],
     squat_bw: ['bodyweight squat', 'air squat', 'bw squat'],
     split_squat: ['split squat', 'split squats', 'static lunge'],
-    bulgarian: ['bulgarian split squat', 'bulgarian split squats', 'rear foot elevated split squat', 'rfess', 'affondo bulgaro', 'affondi bulgari', 'affondi bulgaro', 'squat bulgaro', 'bulgaro', 'bulgarian', 'split squat bulgaro', 'affondo bulgaro singolo', 'affondo bulgaro con manubri', 'affondo bulgaro con manubrio', 'affondo bulgaro al multipower', 'affondo bulgaro al smith', 'affondo bulgaro con bilanciere', 'affondi bulgari con manubri', 'affondi bulgari con manubrio', 'affondi bulgari al multipower'],
+    bulgarian: ['bulgarian split squat', 'bulgarian split squats', 'rear foot elevated split squat', 'rfess', 'affondo bulgaro', 'affondi bulgari', 'affondi bulgaro', 'squat bulgaro', 'bulgaro', 'bulgarian', 'split squat bulgaro', 'affondo bulgaro singolo', 'affondo bulgaro singolo su panca con manubrio', 'affondo bulgaro con manubri', 'affondo bulgaro con manubrio', 'affondo bulgaro al multipower', 'affondo bulgaro al smith', 'affondo bulgaro con bilanciere', 'affondi bulgari con manubri', 'affondi bulgari con manubrio', 'affondi bulgari al multipower'],
     step_up: ['step up', 'step ups', 'step-up'],
     glute_bridge: ['glute bridge', 'glute bridges', 'bridge'],
     pike_pushup: ['pike push up', 'pike pushup', 'pike push-ups'],
