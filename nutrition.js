@@ -161,7 +161,7 @@
   const add = (a, b, m) => { a.k += b.k * m; a.p += b.p * m; a.c += b.c * m; a.f += b.f * m; return a; };
 
   /** alimenti dell'utente (personalizzati) + predefiniti */
-  F.getFood = (p, id) => (p.nutrition && (p.nutrition.foods || []).find(x => x.id === id)) || F.FOODMAP[id] || null;
+  F.getFood = (p, id) => (p.nutrition && (p.nutrition.foods || []).find(x => x.id === id)) || F.FOODMAP[id] || (F.CREAMAP && F.CREAMAP[id]) || null;
   F.allFoods = p => ((p.nutrition && p.nutrition.foods) || []).map(x => Object.assign({ grp: 'I miei', custom: true }, x)).concat(F.FOODS);
   F.foodMacros = (food, g) => { const m = g / 100; return { k: food.k * m, p: food.p * m, c: food.c * m, f: food.f * m }; };
   F.recipeTotal = (p, rec) => { const t = zero(); (rec.items || []).forEach(([id, g]) => { const fd = F.getFood(p, id); if (fd) add(t, F.foodMacros(fd, g), 1); }); return t; };
@@ -189,8 +189,8 @@
   // ricerca istantanea: nome, sinonimi, parole in qualsiasi ordine, senza accenti
   F.searchFoods = function (p, q, max) {
     const nq = norm(q); if (!nq) return [];
-    const toks = nq.split(' ');
-    return F.allFoods(p).map(fd => {
+    const toks = nq.split(' '), cap = max || 15;
+    const own = F.allFoods(p).map(fd => {
       const name = norm(fd.name), al = (fd.al || []).map(norm);
       let s = 0;
       if (name === nq || al.indexOf(nq) >= 0) s = 100;
@@ -200,7 +200,11 @@
       else if (toks.some(t => t.length >= 3 && (name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0)))) s = 20;
       if (!s) { const words = (name + ' ' + al.join(' ')).split(' '); if (toks.every(t => name.indexOf(t) >= 0 || al.some(x => x.indexOf(t) >= 0) || fuzzy(t, words))) s = 10; }
       return { fd, s };
-    }).filter(o => o.s > 0).sort((a, b) => b.s - a.s || (a.fd.custom ? -1 : 0) - (b.fd.custom ? -1 : 0)).slice(0, max || 15).map(o => o.fd);
+    }).filter(o => o.s > 0).sort((a, b) => b.s - a.s || (a.fd.custom ? -1 : 0) - (b.fd.custom ? -1 : 0)).slice(0, cap).map(o => o.fd);
+    // tabelle CREA: in coda, per completare la lista (senza ripetere ciò che c'è già)
+    if (own.length >= cap || !F.searchCrea) return own;
+    const seen = new Set(own.map(x => norm(x.name)));
+    return own.concat(F.searchCrea(q, cap).filter(x => !seen.has(norm(x.name)))).slice(0, cap);
   };
   /* ---- limiti, stagione, piano dei soli alimenti mancanti ---- */
   const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];

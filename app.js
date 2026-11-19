@@ -575,7 +575,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   function resultsHtml(p, q) {
     const res = F.searchFoods(p, q, 15);
-    return res.length ? `<div class="mute small" style="margin:6px 0 2px">${res.length} risultati nella tua lista</div>${res.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><span class="grow small"><b>${esc(x.name)}</b><br><span class="mute">${x.k} kcal · P ${x.p} · C ${x.c} · G ${x.f} per 100 ${F.unitOf(x)}</span></span><button class="sm primary" data-act="dPick" data-id="${x.id}">Scegli</button></div>`).join('')}` : '';
+    return res.length ? `<div class="mute small" style="margin:6px 0 2px">${res.length} risultati (tua lista e tabelle CREA)</div>${res.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><span class="grow small"><b>${esc(x.name)}</b>${x.src === 'CREA' ? ' <span class="chip">CREA</span>' : ''}<br><span class="mute">${x.k} kcal · P ${x.p} · C ${x.c} · G ${x.f} per 100 ${F.unitOf(x)}</span></span><button class="sm primary" data-act="dPick" data-id="${x.id}">Scegli</button></div>`).join('')}${res.some(x => x.src === 'CREA') ? `<div class="mute small" style="margin-top:6px">${esc(F.CREA_FONTE)} · <a href="https://www.alimentinutrizione.it" target="_blank" rel="noopener">alimentinutrizione.it</a>. Valori per 100 g di parte edibile.</div>` : ''}` : '';
   }
   async function offFetch(q, out) {
     out.innerHTML = 'Cerco online…';
@@ -611,7 +611,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     let pickBox = '';
     if (pk) {
       if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
-      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${fd.custom ? `<div class="row small" style="margin-top:6px"><span class="mute grow">Misurato in <b>${F.unitOf(fd)}</b></span><button class="sm" data-act="foodUnit" data-id="${fd.id}">Cambia in ${fd.liq ? 'grammi' : 'millilitri'}</button></div>` : ''}${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
+      else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${fd.src === 'CREA' ? `<div class="mute small">Fonte: CREA, Tabelle di composizione degli alimenti 2019 · <a href="${F.creaLink(fd)}" target="_blank" rel="noopener">scheda completa</a>${fd.cat ? ' · ' + esc(fd.cat) : ''}</div>` : ''}${fd.custom ? `<div class="row small" style="margin-top:6px"><span class="mute grow">Misurato in <b>${F.unitOf(fd)}</b></span><button class="sm" data-act="foodUnit" data-id="${fd.id}">Cambia in ${fd.liq ? 'grammi' : 'millilitri'}</button></div>` : ''}${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
         <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'}"><span>${F.unitOf(fd)}</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
     }
     const rec = nut.recipes;
@@ -1455,6 +1455,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   F.state = () => S; F.__adapt = adaptPlan;
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
   render();
+  // tabelle CREA: si caricano a parte; a caricamento finito ridisegno solo se la lista serve (dieta)
+  setTimeout(() => { if (F.loadCrea) F.loadCrea().then(l => { if (l.length && !ui.sub && /diet|nutri|food/i.test(String(ui.tab))) render(); }); }, 2000);
   if (AC.enabled) bio.check().then(() => AC.restore()).then(me => { if (me && bio.ok && bio.id) ui.locked = true; return me ? onSignIn() : render(); });
   else autoBackup();
   checkVersion().then(r => {
