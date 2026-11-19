@@ -29,7 +29,7 @@
   add('ext_rot_band', 'Extrarotazione spalla (elastico/cavo)', 'delt', ['delts'], ['upback'], { shoulder: 1 }, 1, 'reps', 'Gomito al fianco a 90°, ruota l\'avambraccio verso l\'esterno senza muovere il busto; ritorno lento.', ['extrarot elastico', 'extrarotazione elastico', 'extrarotazione spalla', 'extrarotazioni', 'extrarot', 'extra rotazione', 'external rotation', 'band external rotation', 'rotazione esterna spalla']);
 
   const more = {
-    bench: ['bench press', 'barbell bench press', 'flat bench press', 'flat bench', 'bp', 'panca'],
+    bench: ['bench press', 'barbell bench press', 'flat bench press', 'flat bench', 'bp', 'panca', 'panca fermo', 'panca con fermo', 'panca ferma', 'panca con pausa', 'panca pausa', 'pause bench', 'paused bench press'],
     bench_incl: ['incline bench press', 'incline barbell press', 'incline press', 'incline bench', 'panca inclinata'],
     chest_press: ['chest press', 'machine chest press', 'seated chest press', 'chest press macchina', 'pettorali macchina'],
     cable_fly: ['cable fly', 'cable flyes', 'cable crossover', 'cable chest fly', 'crossover', 'croci cavi'],
@@ -41,7 +41,7 @@
     shrug: ['shrug', 'shrugs', 'dumbbell shrug', 'barbell shrug', 'trapezi'],
     upright_row: ['upright row', 'upright rows'],
     lat_machine: ['lat pulldown', 'lat pull down', 'pulldown', 'pull down', 'cable pulldown', 'wide grip pulldown', 'lat pulldown wide', 'trazioni al lat', 'lat machine avanti'],
-    seated_row: ['seated cable row', 'cable row', 'seated row', 'low row', 'low cable row', 'pulley', 'rematore ai cavi'],
+    seated_row: ['seated cable row', 'cable row', 'seated row', 'low row', 'low cable row', 'pulley', 'rematore ai cavi', 'tirate al petto al cavo', 'tirate al petto cavo', 'tirate al petto ai cavi', 'rematore al petto al cavo', 'cable row al petto'],
     bb_row: ['barbell row', 'bent over row', 'bent-over row', 'bent over barbell row', 'bb row', 'rematore bilanciere'],
     hyper: ['back extension', 'back extensions', 'hyperextension', 'hyperextensions', 'lombari panca'],
     deadlift: ['deadlift', 'conventional deadlift', 'dead lift', 'stacco'],
@@ -53,7 +53,7 @@
     curl_db: ['hammer curl', 'hammer curls', 'dumbbell curl', 'dumbbell curls', 'db curl', 'biceps curl', 'bicep curl', 'alternating curl'],
     tri_cable: ['push down sbarra', 'push down sbarra dritta', 'push down singolo', 'push down singolo al cavo', 'push down singolo al cavo di lato', 'triceps pushdown', 'tricep pushdown', 'tricep pushdowns', 'rope pushdown', 'cable triceps extension', 'triceps rope', 'push down', 'pushdowns'],
     french: ['skull crusher', 'skullcrusher', 'skull crushers', 'lying triceps extension', 'ez skull crusher'],
-    squat_bb: ['back squat', 'barbell squat', 'barbell back squat', 'squats', 'squat bilanciere'],
+    squat_bb: ['back squat', 'barbell squat', 'barbell back squat', 'squats', 'squat bilanciere', 'low bar squat', 'low bar', 'high bar squat', 'high bar', 'squat low bar', 'squat high bar', 'squat bilanciere basso', 'squat bilanciere alto'],
     leg_press: ['leg press', '45 degree leg press', 'pressa'],
     leg_ext: ['leg extension', 'leg extensions', 'knee extension'],
     leg_curl: ['lying leg curl', 'prone leg curl', 'hamstring curl', 'leg curls'],
@@ -67,7 +67,7 @@
     dip_bench: ['bench dips', 'bench dip'],
     inv_row: ['inverted row', 'inverted rows', 'bodyweight row', 'australian pull up', 'ring row'],
     plank: ['planks', 'front plank', 'forearm plank'],
-    crunch: ['crunches', 'sit up', 'sit ups', 'situps', 'abs', 'ab crunch'],
+    crunch: ['crunches', 'sit up', 'sit ups', 'situps', 'abs', 'ab crunch', 'addome', 'addominali bassi', 'addominali alti', 'addominali a terra'],
     knee_raise: ['hanging knee raise', 'hanging knee raises', 'knee raises'],
     leg_raise: ['hanging leg raise', 'hanging leg raises', 'leg raises', 'toes to bar'],
     squat_bw: ['bodyweight squat', 'air squat', 'bw squat'],
@@ -80,10 +80,6 @@
     side_plank: ['side plank', 'side planks'],
     dead_bug: ['dead bug', 'dead bugs'],
     hollow: ['hollow hold', 'hollow body hold'],
-    squat_bb: ['low bar squat', 'low bar', 'high bar squat', 'high bar', 'squat low bar', 'squat high bar', 'squat bilanciere basso', 'squat bilanciere alto'],
-    bench: ['panca fermo', 'panca con fermo', 'panca ferma', 'panca con pausa', 'panca pausa', 'pause bench', 'paused bench press'],
-    seated_row: ['tirate al petto al cavo', 'tirate al petto cavo', 'tirate al petto ai cavi', 'rematore al petto al cavo', 'cable row al petto'],
-    crunch: ['addome', 'addominali bassi', 'addominali alti', 'addominali a terra'],
     // varianti italiane di affondi (aggiunte dopo il caso "Affondo bulgaro singolo su panca con manubrio")
     walking_lunge: ['affondo indietro', 'affondi indietro', 'affondo frontale', 'affondi frontali', 'affondo con manubri', 'affondo con manubrio', 'affondo con bilanciere', 'affondi con bilanciere', 'affondo al multipower', 'affondi al multipower', 'affondo al smith', 'affondo in camminata', 'affondi in camminata', 'affondo camminato', 'affondi camminati', 'reverse lunge', 'reverse lunges', 'forward lunge', 'forward lunges', 'affondo laterale', 'affondi laterali', 'lateral lunge', 'lateral lunges']
   };
