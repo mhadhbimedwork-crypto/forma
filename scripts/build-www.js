@@ -47,6 +47,14 @@ if (path.basename(out) === '_site') {
     fs.writeFileSync(path.join(ad, f), t);
   }
   fs.cpSync('icons', path.join(ad, 'icons'), { recursive: true }); fs.cpSync('img', path.join(ad, 'img'), { recursive: true }); fs.cpSync('fonts', path.join(ad, 'fonts'), { recursive: true }); fs.cpSync('lib', path.join(ad, 'lib'), { recursive: true, filter: s3 => !/anatomy|three\.min/.test(s3) });
+  /* Area nutrizionista (/nutri/): pagina web separata, stessi dati dell'app */
+  {
+    const nu = path.join(out, 'nutri'); fs.mkdirSync(nu, { recursive: true });
+    fs.writeFileSync(path.join(nu, 'gymcfg.js'), 'window.FORMA_GYM = ' + JSON.stringify({ name: 'FORGIA Nutrizionista', key: 'forgia.nutri.v1', mode: 'nutri', server }) + ';\n');
+    fs.copyFileSync('nutri.html', path.join(nu, 'index.html'));
+    for (const f of ['xlsx.js', 'account.js', 'nutri.js', 'nutri-app.js']) fs.copyFileSync(f, path.join(nu, f));
+    console.log('Area nutrizionista in', nu);
+  }
   console.log('Console amministratore in', ad);
   console.log('Versione palestra in', g);
 }
@@ -55,7 +63,7 @@ console.log('Web app copiata in', out);
 /* indirizzi con numero di versione: dopo un aggiornamento il telefono non può riusare file vecchi in cache */
 {
   const build = (fs.readFileSync('data.js', 'utf8').match(/build:\s*(\d+)/) || [])[1] || Date.now();
-  for (const d of [out, path.join(out, 'gym'), path.join(out, 'admin')]) {
+  for (const d of [out, path.join(out, 'gym'), path.join(out, 'admin'), path.join(out, 'nutri')]) {
     const f = path.join(d, 'index.html'); if (!fs.existsSync(f)) continue;
     fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/(src|href)="((?!https?:|data:|#)[^"?]+\.(?:js|css))"/g, '$1="$2?v=' + build + '"'));
   }
