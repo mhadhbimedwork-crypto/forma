@@ -4,7 +4,8 @@
   F.GUIDE_SOURCES = [
     ['OMS – Healthy diet (scheda informativa)', 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet'],
     ['EFSA – Metalli come contaminanti negli alimenti', 'https://www.efsa.europa.eu/en/topics/topic/metals-contaminants-food'],
-    ['CREA – Linee guida per una sana alimentazione', 'https://www.crea.gov.it/'],
+    ['CREA – Linee guida per una sana alimentazione (edizione 2018, scheda ISS EpiCentro)', 'https://www.epicentro.iss.it/alimentazione/linee-guida-sana-alimentazione-crea-2018'],
+    ['Ministero della Salute – Dieta mediterranea', 'https://www.salute.gov.it/new/it/tema/dieta-mediterranea/dieta-mediterranea/'],
     ['CREA – Tabelle di composizione degli alimenti (dati usati nella ricerca alimenti)', 'https://www.alimentinutrizione.it/tabelle-nutrizionali/'],
     ['FAO – Food-based dietary guidelines', 'https://www.fao.org/nutrition/education/food-dietary-guidelines']
   ];
@@ -18,7 +19,7 @@
     ['Grassi trans', 'meno dell\'1% delle calorie'],
     ['Fibre', 'almeno 25 g al giorno'],
     ['Carboidrati', '45-75% delle calorie, soprattutto da cereali integrali, verdura, frutta e legumi'],
-    ['Proteine', '10-15% delle calorie per la popolazione generale: chi si allena e gli adolescenti ne hanno bisogno di più (l\'app usa 1,8-2 g per kg)']
+    ['Proteine', '10-15% delle calorie per la popolazione generale: chi si allena e gli adolescenti possono avere fabbisogni diversi: ne parla il professionista che ti segue']
   ];
   F.PYRAMID = [
     ['Alla base, ogni giorno', 'Verdura e frutta di stagione, cereali integrali, legumi, acqua, olio extravergine d\'oliva.'],

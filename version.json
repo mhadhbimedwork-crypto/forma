@@ -1,8 +1,8 @@
 {
-  "version": "1.44.0",
-  "build": 116,
+  "version": "1.44.1",
+  "build": 117,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: valori e combinazioni. Confronta gli alimenti per contenuto e componi una combinazione con i totali."
+    "Dieta: tornano le guide con fonti ufficiali (OMS, Ministero della Salute, CREA, EFSA, FAO) con link diretto. Informazioni generali, uguali per tutti."
   ]
 }

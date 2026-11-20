@@ -778,8 +778,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const mine = F.SUPER.filter(x => x.g.indexOf(goal) >= 0), rest = F.SUPER.filter(x => x.g.indexOf(goal) < 0);
     return sec('best', 'Migliori proteine, carboidrati e grassi', F.BEST.map(b => `<h3>${esc(b.t)}</h3><p class="mute small" style="margin:0 0 4px">${esc(b.note)}</p>${li(b.items)}`).join('')) +
       sec('who', 'Linee guida OMS e piramide alimentare', `<h3>Valori OMS per un adulto</h3>${li(F.WHO)}<h3>Piramide alimentare mediterranea</h3>${li(F.PYRAMID)}<p class="mute small">Fonti: ${F.GUIDE_SOURCES.map(s => `<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>`).join(' · ')}. L'app non scarica questi dati ogni volta: sono un riassunto da controllare sulle fonti.</p>`) +
-      sec('safe', 'Sicurezza, tossicità e catena alimentare', li(F.SAFETY)) +
-      sec('super', 'Super food per il tuo obiettivo', `<p class="mute small" style="margin:0 0 6px">${esc(F.SUPER_NOTE)}</p><h3>Per ${esc(GOAL_NAME[goal] || 'il tuo obiettivo')}</h3>${li(mine.map(x => [x.n, x.b]))}${rest.length ? `<h3>Altri alimenti utili</h3>${li(rest.map(x => [x.n, x.b]))}` : ''}`);
+      sec('safe', 'Sicurezza, tossicità e catena alimentare', li(F.SAFETY))
   }
   function intolCard(p) {
     const it = p.intol || {};
@@ -974,6 +973,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${planCard(p, D)}
       ${meals}
       ${cmpCard(p, day, tot, tgt)}
+      <div class="card"><b>Guida e fonti ufficiali</b><p class="mute small" style="margin:4px 0 0">Informazioni generali, uguali per tutti, riprese da fonti ufficiali: ogni sezione indica la fonte con il link. Non sono un consiglio personale: per il tuo caso parla con il tuo medico o professionista.</p></div>
+      ${guideHtml(p, D)}
       ${intolCard(p)}
       ${tgt && tgt.src === 'plan' ? '' : targetsCard(p)}
 
