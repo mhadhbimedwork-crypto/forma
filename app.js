@@ -270,7 +270,7 @@
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team'].includes(ui.tab)) ui.tab = X.homeTab();
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, planrev: viewPlanRev, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, gara: () => G.view(), clients: XV.clients, gyms: XV.gyms, team: XV.team }[ui.tab])();
     $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
@@ -390,7 +390,7 @@
 
   function viewWelcome() {
     return `<div class="card hero"><h1>Benvenuto in ${esc(BRAND)}</h1>
-      <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento e alimentazione su misura per ogni persona: calcola calorie e proteine dai tuoi dati, crea o legge la tua scheda, regola tutto in base ai dolori e segue i tuoi progressi.'}</p>
+      <p>${GYM ? 'La tua scheda di allenamento sempre con te: segui gli esercizi, i recuperi e i tuoi progressi.' : 'Allenamento su misura e diario alimentare: crea o legge la tua scheda, regola tutto in base ai dolori, registra ciò che mangi, importa il piano del tuo nutrizionista e segue i tuoi progressi.'}</p>
       <button class="primary" data-act="newProfile">Crea il primo profilo</button></div>
       ${AC.enabled && ui.legacyMine ? `<div class="card"><b>Trovato il tuo profilo con i tuoi allenamenti</b><p class="mute small">Su questo telefono c'è il profilo «${esc(ui.legacyMine.name)}» con ${ui.legacyMine.n} allenament${ui.legacyMine.n === 1 ? 'o' : 'i'} salvat${ui.legacyMine.n === 1 ? 'o' : 'i'} prima di entrare con un account. Lo unisco al tuo account senza perdere nulla.</p><button class="primary" data-act="legacyMerge">Sì, unisci i miei allenamenti</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}${AC.enabled && ui.legacy ? `<div class="card"><b>Dati trovati su questo dispositivo</b><p class="mute small">Ci sono ${ui.legacy} profil${ui.legacy === 1 ? 'o' : 'i'} salvat${ui.legacy === 1 ? 'o' : 'i'} prima di entrare con un account. Vuoi portarli nel tuo account? Restano comunque sul telefono.</p><button class="primary" data-act="legacyYes">Sì, importa i miei dati</button> <button class="ghost" data-act="legacyNo">Non ora</button></div>` : ''}
       <p class="mute small">${AC.enabled ? 'I tuoi dati sono salvati sul tuo dispositivo, li vedono solo tu e il tuo allenatore.' : 'I dati restano sul tuo telefono. Nessun account, nessun invio a server (salvo che tu non colleghi un server IA tuo).'}</p>`;
@@ -653,6 +653,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <input inputmode="decimal" style="width:70px" data-dg="${mi}:${ii}" value="${it.g}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'} ${esc(fd.name)}"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
   }
   function limitBox(p, fd) {
+    return "";   // nessun limite o consiglio: l'app calcola soltanto
     const l = fd.lim; if (!l) return '';
     const ud = F.usageOf(p, ui.diet.date)[fd.id] || 0, left = F.capLeft(p, fd, ui.diet.date);
     return `<div class="small" style="margin-top:6px"><b>Limite:</b> ${l.d ? 'fino a ' + l.d + ' g al giorno' : ''}${l.w ? (l.d ? ', ' : '') + 'massimo ' + l.w + ' g a settimana' : ''}. ${esc(l.t || '')}<div id="dgwarn" class="mute" data-left="${Math.round(left)}">Oggi ne hai già ${fx(ud)} g: puoi aggiungerne ancora ${fx(left)} g.</div></div>`;
@@ -813,43 +814,104 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const one = (l, v, t) => { const pc = t ? Math.min(100, Math.round(v / t * 100)) : 0, over = t && v > t * 1.05; return `<div class="mcol"><span>${l}</span><div class="bar"><i style="width:${pc}%${over ? ';background:var(--warn)' : ''}"></i></div><b>${fx(v)} / ${fx(t)} g</b></div>`; };
     return `<div class="mcols">${one('Carboidrati', tot.c, c.carbs)}${one('Proteine', tot.p, c.protein)}${one('Grassi', tot.f, c.fat)}</div>`;
   }
+  /* --- piano alimentare del professionista (solo trascrizione e calcolo) e avvertenze --- */
+  function dietTarget(p, date) {
+    const nut = ensureNut(p), pl = nut.plan && nut.plan.active ? nut.plan : null, pd = pl ? F.planDayFor(pl, date, ui.diet && ui.diet.planDay) : null;
+    if (pd) { const t = F.planDayTotals(p, pd); return { src: 'plan', k: t.total.k, p: t.total.p, c: t.total.c, f: t.total.f, meals: t.meals, day: pd }; }
+    const g = nut.targets; if (g && g.k > 0) return { src: 'own', k: g.k, p: g.p || 0, c: g.c || 0, f: g.f || 0 };
+    return null;
+  }
+  const legalBody = () => F.LEGAL.map(x => `<h3 style="margin:10px 0 2px">${esc(x[0])}</h3><p class="small" style="margin:0">${esc(x[1])}</p>`).join('');
+  function legalGate() {
+    return `<h1>Dieta</h1><div class="card"><h2>Prima di iniziare</h2><p class="small">${esc(BRAND)} è solo un motore di calcolo e un diario: non crea né consiglia diete. Leggi e accetta queste avvertenze per usare la sezione Dieta.</p>${legalBody()}
+      <label class="row" style="gap:8px;margin-top:12px;align-items:flex-start"><input type="checkbox" id="legalChk" style="width:auto;margin-top:4px"><span class="small">Ho letto e capisco che la responsabilità di ciò che mangio e di come mi alleno è mia e dei professionisti che mi seguono, non dell'app.</span></label>
+      <button class="primary" style="margin-top:10px" data-act="legalOk">Accetto e continuo</button></div>`;
+  }
+  function legalCard() {
+    const ok = S.settings.legal === F.LEGAL_VERSION;
+    return `<div class="card"><details><summary><b>Avvertenze e responsabilità</b></summary><p class="small mute" style="margin:8px 0 0">${esc(BRAND)} è solo un motore di calcolo: non è un servizio medico, dietetico o di allenamento personale.</p>${legalBody()}${ok && S.settings.legalAt ? `<p class="mute small" style="margin-top:10px">Accettate il ${esc(S.settings.legalAt)}.</p>` : ''}</details></div>`;
+  }
+  function planCard(p, D) {
+    const nut = p.nutrition, pl = nut.plan && nut.plan.active ? nut.plan : null;
+    if (!pl) return `<div class="card"><h2>Piano del tuo nutrizionista</h2><p class="small mute" style="margin:0 0 6px">Hai un piano scritto dal tuo nutrizionista o dietista? Incolla qui il testo o caricalo da file: ${esc(BRAND)} riconosce alimenti e quantità e tu controlli e correggi tutto prima di attivarlo. ${esc(F.PLAN_NOTICE)}</p>
+      <textarea id="pvText" style="min-height:90px;font-family:inherit" placeholder="Colazione&#10;Latte parzialmente scremato 200 ml&#10;Pane integrale 50 g&#10;Pranzo&#10;…" aria-label="Testo del piano alimentare"></textarea>
+      <div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="pvParse">Riconosci alimenti e quantità</button><label for="pvFile" class="sm" style="display:inline-block;padding:8px 12px;border:1px solid var(--line2);border-radius:10px;cursor:pointer">Carica da file di testo</label><input id="pvFile" type="file" accept=".txt,text/plain" style="display:none"></div>
+      <p class="mute small" style="margin:6px 0 0">Se il piano è un PDF, aprilo, copia il testo e incollalo qui.</p></div>`;
+    const cur = F.planDayFor(pl, D.date, D.planDay), ci = pl.days.indexOf(cur), t = F.planDayTotals(p, cur).total;
+    return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">${esc(pl.name)}</h2><span class="chip">attivo</span></div>
+      ${pl.days.length > 1 ? `<div class="row wrap" style="gap:6px;margin:8px 0">${pl.days.map((d, i) => `<button class="sm chiptab${i === ci ? ' on' : ''}" data-act="pvDay" data-i="${i}">${esc(d.name)}</button>`).join('')}</div>` : ''}
+      <p class="small" style="margin:6px 0 0">${esc(cur.name)}: ${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g (somma delle quantità scritte nel piano)</p>
+      <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="pvAddDay">Aggiungi il giorno al diario</button><button class="sm" data-act="pvEdit">Vedi e modifica</button><button class="sm danger" data-act="pvDrop">Rimuovi il piano</button></div>
+      <details style="margin-top:8px"><summary class="mute small">Testo originale del piano</summary><pre class="small" style="white-space:pre-wrap;margin:6px 0 0">${esc(pl.text || '')}</pre></details></div>`;
+  }
+  function targetsCard(p) {
+    const g = p.nutrition.targets || {};
+    return `<div class="card"><details><summary><b>Obiettivi giornalieri (facoltativo)</b></summary><p class="small mute" style="margin:8px 0">Se il tuo professionista ti ha indicato dei valori, scrivili qui: ${esc(BRAND)} non li calcola né li consiglia.</p>
+      <div class="grid2"><input id="tg_k" inputmode="decimal" placeholder="kcal" value="${g.k || ''}" aria-label="kcal"><input id="tg_p" inputmode="decimal" placeholder="proteine g" value="${g.p || ''}" aria-label="proteine"><input id="tg_c" inputmode="decimal" placeholder="carboidrati g" value="${g.c || ''}" aria-label="carboidrati"><input id="tg_f" inputmode="decimal" placeholder="grassi g" value="${g.f || ''}" aria-label="grassi"></div>
+      <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="tgSave">Salva</button>${g.k ? '<button class="sm" data-act="tgClear">Togli obiettivi</button>' : ''}</div></details></div>`;
+  }
+  function pvRow(p, it, d, m, i) {
+    const fd = it.f ? F.getFood(p, it.f) : null;
+    const chip = !fd ? '<span class="chip warn">non riconosciuto</span>' : it.conf === 'check' ? '<span class="chip warn">controlla</span>' : it.pref ? '<span class="chip">tuo marchio</span>' : '';
+    const est = it.est ? ' <span class="chip warn">quantità stimata</span>' : '', noq = fd && !(it.g > 0) ? ' <span class="chip warn">manca la quantità</span>' : '';
+    return `<div style="border-top:1px solid var(--line);padding:6px 0"><div class="row"><div class="grow"><b>${fd ? esc(fd.name) : esc(it.name || it.raw)}</b> ${chip}${est}${noq}<div class="mute small">Scritto: “${esc(it.raw)}”${it.alt ? ' · alternativa: ' + esc(it.alt) : ''}${it.note ? ' · ' + esc(it.note) : ''}</div></div>
+      <input inputmode="decimal" style="width:72px" data-pvg="${d}:${m}:${i}" value="${it.g || ''}" aria-label="Quantità"><span class="mute small">${fd ? F.unitOf(fd) : 'g'}</span></div>
+      <div class="row wrap" style="margin-top:4px;gap:6px"><button class="sm" data-act="pvSwap" data-d="${d}" data-m="${m}" data-i="${i}">${fd ? 'Cambia alimento o marchio' : 'Scegli alimento'}</button><button class="ghost sm danger" data-act="pvRm" data-d="${d}" data-m="${m}" data-i="${i}">✕ Togli</button></div></div>`;
+  }
+  function viewPlanRev() {
+    const p = P(), pl = ui.sub.draft, D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false }, sw = ui.pv && ui.pv.swap;
+    const unk = pl.days.reduce((n, d) => n + d.meals.reduce((a, m) => a + m.filter(x => !x.f || !(x.g > 0)).length, 0), 0);
+    let panel = '';
+    if (sw) { panel = addPanel(p, sw.m).replace(/data-act="dAdd" data-m="\d*">Aggiungi</g, 'data-act="dAdd" data-m="' + sw.m + '">Usa questo<').replace('Aggiungi a ', 'Scegli per '); }
+    return `<div class="row"><button class="ghost" data-act="pvCancel">← Dieta</button></div><h1>Controlla il piano</h1>
+      <div class="card"><p class="small" style="margin:0">Ho riconosciuto gli alimenti dal testo: <b>controlla ogni riga</b> e correggi quantità e alimenti. Verifica anche se i pesi sono da crudo o da cotto. ${esc(F.PLAN_NOTICE)}</p>
+        ${unk ? `<div class="msg warn small" style="margin-top:8px">${unk} voce/i da completare (alimento non riconosciuto o quantità mancante): non entrano nei totali finché non le sistemi.</div>` : ''}
+        <label for="pv_name" style="margin-top:8px">Nome del piano</label><input id="pv_name" value="${esc(pl.name)}"></div>
+      ${panel}
+      ${pl.days.map((d, di) => { const t = F.planDayTotals(p, d).total; return `<div class="card"><h2 style="margin:0">${esc(d.name)}</h2><div class="mute small">${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g</div>
+        ${F.MEALS.map((nm, mi) => `<h3 style="margin:10px 0 2px">${nm}</h3>${(d.meals[mi] || []).map((it, ii) => pvRow(p, it, di, mi, ii)).join('') || '<p class="mute small" style="margin:2px 0">Nessun alimento.</p>'}<button class="sm" style="margin-top:4px" data-act="pvAddItem" data-d="${di}" data-m="${mi}">+ Aggiungi alimento</button>`).join('')}</div>`; }).join('')}
+      <div class="row"><button class="primary grow" data-act="pvSave">Attiva il piano</button><button data-act="pvCancel">Annulla</button></div>`;
+  }
   function viewDiet() {
-    const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
+    if (S.settings.legal !== F.LEGAL_VERSION) return legalGate();
+    const p = P(), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
     const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === localISO(new Date());
-    const rem = { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f };
-    const lims = F.checkLimits(p, D.date), mon = new Date().getMonth() + 1;
+    const tgt = dietTarget(p, D.date), c = tgt ? { kcal: tgt.k, carbs: tgt.c, protein: tgt.p, fat: tgt.f } : null, rem = tgt ? { k: tgt.k - tot.k, p: tgt.p - tot.p, c: tgt.c - tot.c, f: tgt.f - tot.f } : null;
+    const mon = new Date().getMonth() + 1;
     const inSeasonNow = F.allFoods(p).filter(x => (x.grp === 'Frutta' || x.grp === 'Verdura') && x.se && x.se.length < 12 && F.inSeason(x, mon));
+    const pdy = nut.plan && nut.plan.active ? tgt && tgt.day : null;
     const meals = F.MEALS.map((nm, mi) => {
-      const items = day.meals[mi], mt = F.mealTotal(p, items), tg = F.MEAL_SPLIT[mi];
-      const open = !!(D.open && D.open[mi]) || D.addTo === mi, tk = c.kcal * tg, left = tk - mt.k;
-      const pcs = [['P', mt.p, c.protein * tg], ['C', mt.c, c.carbs * tg], ['G', mt.f, c.fat * tg]];
-      return `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)} / ${fx(tk)} kcal</span></div>
-        <div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, Math.round(mt.k / tk * 100))}%${left < -tk * 0.05 ? ';background:var(--warn)' : ''}"></i></div>
-        <div class="small mute">${left > 20 ? 'mancano ' + fx(left) + ' kcal' : left < -tk * 0.05 ? 'sopra di ' + fx(-left) + ' kcal' : 'a target'} · ${pcs.map(([l, v, t]) => `${l} ${fx(v)}/${fx(t)}`).join(' · ')} g</div></button>
-        ${open ? `${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
+      const items = day.meals[mi], mt = F.mealTotal(p, items), tk = tgt && tgt.meals ? tgt.meals[mi].k : 0, left = tk - mt.k;
+      const open = !!(D.open && D.open[mi]) || D.addTo === mi;
+      const pitems = pdy ? (pdy.meals[mi] || []).filter(x => x.f && x.g > 0) : [];
+      return `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)}${tk ? ' / ' + fx(tk) : ''} kcal</span></div>
+        ${tk ? `<div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, Math.round(mt.k / tk * 100))}%${left < -tk * 0.05 ? ';background:var(--warn)' : ''}"></i></div>` : ''}
+        <div class="small mute">P ${fx(mt.p)} · C ${fx(mt.c)} · G ${fx(mt.f)} g</div></button>
+        ${open ? `${pitems.length ? `<div class="msg small" style="margin:8px 0"><b>Dal piano:</b> ${pitems.map(x => { const fd = F.getFood(p, x.f); return fd ? esc(fd.name) + ' ' + x.g + ' ' + F.unitOf(fd) : ''; }).filter(Boolean).join(' · ')}<div class="row wrap" style="margin-top:6px"><button class="sm" data-act="pvAddMeal" data-m="${mi}">Aggiungi al diario</button></div></div>` : ''}
+        ${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
         <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
         ${D.addTo === mi ? addPanel(p, mi) : ''}` : ''}</div>`;
     }).join('');
-    const plan = D.fill ? F.planDay(p, D.date, { mode: D.mode, exclude: D.skip }) : null;
+
     return `<h1>Dieta</h1>
       <div class="card calcard"><div class="row" style="gap:6px;margin-bottom:6px"><button class="sm" data-act="dDay" data-d="-7" aria-label="Settimana prima">«</button><div class="grow" style="text-align:center"><b style="font-size:1.1rem">${isToday ? 'Oggi' : dateLabel(D.date)}</b></div><button class="sm" data-act="dDay" data-d="7" aria-label="Settimana dopo">»</button></div>
         ${weekStrip(p, D.date)}
         <div class="row wrap" style="gap:8px;margin:8px 0 2px;justify-content:center"><label class="small mute" for="dDate">Scegli un giorno</label><input id="dDate" type="date" value="${D.date}" aria-label="Scegli un giorno dal calendario" style="width:auto;min-height:40px">${isToday ? '' : '<button class="sm primary" data-act="dSetDay" data-date="' + localISO(new Date()) + '">Oggi</button>'}</div>
-        <h2 style="margin:14px 0 0">Riepilogo di ${esc(p.name)}</h2>${gauge(tot, c)}${macroCols(tot, c)}
-        <p class="small" style="margin:8px 0 0">${rem.k > 50 ? `Ti mancano ${fx(rem.k)} kcal (P ${fx(Math.max(0, rem.p))} g · C ${fx(Math.max(0, rem.c))} g · G ${fx(Math.max(0, rem.f))} g).` : rem.k < -100 ? `Sei sopra di ${fx(-rem.k)} kcal.` : 'Giornata a target.'}</p>
+        <h2 style="margin:14px 0 0">Riepilogo di ${esc(p.name)}</h2>${tgt ? gauge(tot, c) + macroCols(tot, c) : `<div class="grid3 k4"><div class="kpi"><b>${fx(tot.k)}</b><span>kcal</span></div><div class="kpi"><b>${fx(tot.p)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f)} g</b><span>grassi</span></div></div>`}
+        ${tgt ? `<p class="mute small" style="margin:8px 0 0">${tgt.src === 'plan' ? 'Obiettivo preso dal piano che hai attivato.' : 'Obiettivo impostato da te.'}</p>` : ''}
         ${F.intolWarnings(p, D.date).map(w => `<div class="msg danger small">${esc(w.text)}</div>`).join('')}
-        ${lims.map(w => `<div class="msg warn small">${esc(w.text)}</div>`).join('')}
-        <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dFill">${D.fill ? 'Nascondi suggerimenti' : 'Bilancia la giornata'}</button><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div>
-        ${plan ? planDayHtml(plan) : ''}</div>
+        <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div></div>
+      ${planCard(p, D)}
       ${meals}
       ${intolCard(p)}
-      ${guideHtml(p, D)}
-      <div class="card"><h2>Di stagione a ${F.monthName(mon)}</h2><p class="small mute" style="margin:0 0 6px">Frutta e verdura al meglio adesso: costano meno e hanno più sapore e nutrienti.</p>${inSeasonNow.map(x => `<span class="chip" style="margin:2px">${esc(x.name)}</span>`).join('')}</div>
+      ${tgt && tgt.src === 'plan' ? '' : targetsCard(p)}
+
       <div class="card"><details ${D.imp ? 'open' : ''}><summary>Importa una ricetta ricevuta</summary><p class="mute small" style="margin:6px 0">Incolla qui il testo che ti hanno mandato (inizia con FORGIA-RICETTA). Resta solo sul tuo telefono.</p><textarea id="rcImp" style="min-height:70px;font-family:inherit" aria-label="Testo della ricetta"></textarea><button class="sm primary" style="margin-top:6px" data-act="rImport">Importa</button></details></div>
       ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Modifica</button><button class="sm danger" data-act="rDelList" data-id="${r.id}" aria-label="Elimina ${esc(r.name)}">Elimina</button></div>`; }).join('')}</div>` : ''}
       <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
   }
   function recipeCheck(p, R, tot, n) {
+    return '';   // nessun consiglio: l'app calcola soltanto
     const c = F.calc(p), date = F.todayISO(), day = F.dayTotal(p, F.dayOf(p, date));
     const ud = F.usageOf(p, date), uw = F.weekUsage(p, date), w = [];
     R.items.forEach(([id, g]) => { const fd = F.getFood(p, id); if (!fd || !fd.lim) return; const per = g / n, left = F.capLeft(p, fd, date, ud, uw); if (per > left + 1) w.push(`${fd.name}: ${fx(per)} g a porzione, oggi ne puoi ancora mangiare ${fx(left)} g. ${fd.lim.t}`); });
@@ -1096,13 +1158,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
         <button class="sm" data-act="editProfile">Modifica</button></div>${c.minor ? '<div class="msg tip">Profilo minorenne: regole di tutela attive. Programma da condividere con l\'allenatore.</div>' : ''}</div>
       ${GYM ? '' : `
-      <div class="card"><h2>Alimentazione su misura</h2><div class="grid3 k4"><div class="kpi"><b>${fmt(c.kcal)}</b><span>kcal/giorno</span></div><div class="kpi"><b>${c.protein} g</b><span>proteine</span></div><div class="kpi"><b>${c.carbs} g</b><span>carboidrati</span></div><div class="kpi"><b>${c.fat} g</b><span>grassi</span></div></div>
-      <p class="small">Metabolismo basale ${fmt(c.bmr)} kcal · fabbisogno stimato ${fmt(c.tdee)} kcal (${c.delta > 0 ? '+' : ''}${c.delta} per l'obiettivo).</p>${msgs(c.notes.map(t => ({ t })))}
-      <h3>Come distribuirle</h3><p class="small">4 pasti con circa <b>${pm} g di proteine</b> ciascuno, carboidrati attorno all'allenamento, verdure ad ogni pasto, acqua ${fmt(c.water, 1)} l.</p>
-      <h3>Equivalenze di circa 30 g di proteine</h3><p class="small mute">130 g petto di pollo crudo · 125 g tonno al naturale · 5 albumi + 1 uovo · 250 g yogurt greco · 40 g proteine in polvere · 170 g pesce bianco.</p>
-      ${c.minor ? '<div class="msg warn">Per i minorenni: niente integratori e niente bruciagrassi. Le proteine si coprono con il cibo.</div>' : '<div class="msg">Integratori con evidenza: creatina monoidrato 3-5 g/giorno, proteine in polvere solo se non arrivi col cibo. Maltodestrine, destrosio e BCAA non servono per questo obiettivo.</div>'}</div>
+      <div class="card"><h2>Alimentazione</h2><p class="small">${esc(BRAND)} non calcola né consiglia diete: nella scheda Dieta registri ciò che mangi e puoi importare il piano che ti ha dato il tuo nutrizionista. Qui sotto segni solo le intolleranze.</p></div>
       ${intolCard(p)}
 `}
+      ${legalCard()}
       <div class="card"><h2>${GYM ? 'Aggiornamenti' : 'Aggiornamenti e richieste'}</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${NATIVE ? ' · app Android' + (APKB ? ' ' + APKB : '') : ''}</p>
       <p class="small" role="status">${esc(ui.updMsg || '')}</p>${ui.updStuck ? '<div class="msg warn small">L\'aggiornamento non è ancora arrivato su questo telefono. Chiudi del tutto l\'app, riaprila e tocca di nuovo Aggiorna. I tuoi dati non si perdono.</div>' : ''}
@@ -1179,6 +1238,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     dPickR(t) { ui.diet.pick = { r: t.dataset.id, n: 1 }; render(); },
     dUnit(t) { const e = $('#dg'); if (e) e.value = t.dataset.g; },
     dAdd(t) {
+      if (ui.pv && ui.pv.swap && ui.sub && ui.sub.type === 'planrev') return act.pvApply();
       const p = P(), D = ui.diet, pk = D.pick, mi = +t.dataset.m, day = F.dayOf(p, D.date); if (!pk) return;
       if (pk.r) { const n = parseFloat(String($('#dn').value).replace(',', '.')); if (!(n > 0)) return toast('Inserisci le porzioni'); day.meals[mi].push({ r: pk.r, n }); }
       else { const g = parseFloat(String($('#dg').value).replace(',', '.')); if (!(g > 0)) return toast('Inserisci i grammi'); day.meals[mi].push({ f: pk.f, g }); }
@@ -1268,6 +1328,51 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       save(); render(); toast('Ricetta importata: ' + d.name);
     },
     rCancel() { ui.sub = null; render(); },
+    legalOk() { const c = $('#legalChk'); if (!c || !c.checked) return toast('Spunta la casella per continuare'); S.settings.legal = F.LEGAL_VERSION; S.settings.legalAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
+    async pvParse() {
+      const t = ($('#pvText').value || '').trim(); if (t.length < 5) return toast('Incolla il testo del piano');
+      await F.loadCrea(); const p = P(); ensureNut(p); const pl = F.parsePlanText(p, t);
+      if (!pl.days.length) return toast('Non trovo alimenti: scrivi un alimento per riga, ad esempio "Pane 50 g"');
+      ui.pv = {}; ui.sub = { type: 'planrev', draft: pl }; render(); window.scrollTo(0, 0);
+    },
+    pvDay(t) { ui.diet.planDay = +t.dataset.i; render(); },
+    pvEdit() { ui.pv = {}; ui.sub = { type: 'planrev', draft: JSON.parse(JSON.stringify(P().nutrition.plan)) }; render(); window.scrollTo(0, 0); },
+    async pvDrop() { if (!(await ask({ title: 'Rimuovere il piano?', text: 'Il testo originale e le correzioni si perdono. I pasti già scritti nel diario restano.' }))) return; P().nutrition.plan = null; ui.diet.planDay = null; save(); render(); },
+    pvCancel() { ui.sub = null; ui.pv = null; if (ui.diet) { ui.diet.addTo = null; ui.diet.pick = null; } render(); window.scrollTo(0, 0); },
+    pvSwap(t) { ui.pv = { swap: { d: +t.dataset.d, m: +t.dataset.m, i: +t.dataset.i } }; ui.diet.pick = null; render(); window.scrollTo(0, 0); },
+    pvAddItem(t) { ui.pv = { swap: { d: +t.dataset.d, m: +t.dataset.m, i: -1 } }; ui.diet.pick = null; render(); window.scrollTo(0, 0); },
+    pvRm(t) { ui.sub.draft.days[+t.dataset.d].meals[+t.dataset.m].splice(+t.dataset.i, 1); render(); },
+    pvApply() {
+      const p = P(), nut = ensureNut(p), pk = ui.diet.pick, sw = ui.pv.swap, dr = ui.sub.draft; if (!pk || !pk.f) return;
+      const g = parseFloat(String($('#dg') ? $('#dg').value : '').replace(',', '.')); if (!(g > 0)) return toast('Inserisci la quantità');
+      const fd = F.getFood(p, pk.f), d = dr.days[sw.d];
+      if (sw.i < 0) d.meals[sw.m].push({ raw: fd.name, f: pk.f, g, conf: 'ok', base: pk.f });
+      else {
+        const it = d.meals[sw.m][sw.i], base = it.base || it.f || pk.f; Object.assign(it, { f: pk.f, g, conf: 'ok', est: false, noq: false, base }); delete it.pref;
+        // marchio scelto: la prossima volta che nel piano compare lo stesso alimento generico, l'app usa questo prodotto
+        const mine = (nut.foods || []).some(x => x.id === pk.f); dr.prefs = dr.prefs || {};
+        if (base !== pk.f) dr.prefs[base] = mine ? pk.f : null;
+      }
+      ui.pv = null; ui.diet.pick = null; render();
+    },
+    pvSave() {
+      const p = P(), nut = ensureNut(p), pl = ui.sub.draft, nm = $('#pv_name'); if (nm && nm.value.trim()) pl.name = nm.value.trim().slice(0, 80);
+      if (pl.prefs) { nut.brandPref = nut.brandPref || {}; Object.keys(pl.prefs).forEach(k => { if (pl.prefs[k]) nut.brandPref[k] = pl.prefs[k]; else delete nut.brandPref[k]; }); delete pl.prefs; }
+      pl.active = true; nut.plan = pl; save(); ui.sub = null; ui.pv = null; ui.diet.planDay = null; render(); window.scrollTo(0, 0); toast('Piano attivato: lo trovi nella scheda Dieta');
+    },
+    pvAddMeal(t) {
+      const p = P(), D = ui.diet, mi = +t.dataset.m, pd = F.planDayFor(p.nutrition.plan, D.date, D.planDay), day = F.dayOf(p, D.date); let n = 0;
+      (pd.meals[mi] || []).forEach(it => { if (it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } });
+      save(); render(); toast(n ? n + ' alimenti aggiunti: puoi cambiare le quantità' : 'Niente da aggiungere');
+    },
+    async pvAddDay() {
+      const p = P(), D = ui.diet, pd = F.planDayFor(p.nutrition.plan, D.date, D.planDay), day = F.dayOf(p, D.date);
+      if (day.meals.some(m => m.length) && !(await ask({ title: 'Aggiungere il piano a questo giorno?', text: 'Nel diario ci sono già degli alimenti: quelli del piano si aggiungono, non li sostituiscono.' }))) return;
+      let n = 0; pd.meals.forEach((m, mi) => m.forEach(it => { if (it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } }));
+      save(); render(); toast(n + ' alimenti aggiunti: puoi cambiare le quantità');
+    },
+    tgSave() { const v = id => parseFloat(String($(id).value).replace(',', '.')) || 0, k = v('#tg_k'); if (!(k > 0)) return toast('Scrivi almeno le kcal'); ensureNut(P()).targets = { k, p: v('#tg_p'), c: v('#tg_c'), f: v('#tg_f') }; save(); render(); toast('Obiettivi salvati'); },
+    tgClear() { ensureNut(P()).targets = null; save(); render(); },
     tab(t) { ui.tab = t.dataset.tab; ui.sub = null; render(); window.scrollTo(0, 0); },
     newProfile() { ui.sub = { type: 'profile', id: null }; render(); },
     legacyYes() { const l = legacyRead(); if (l && l.profiles && l.profiles.length) { const mine = l.profiles.filter(isMine); S.profiles = mine.length ? mine : l.profiles; l.active = mine.length ? mine[0].id : l.active; S.active = l.active && l.profiles.some(x => x.id === l.active) ? l.active : l.profiles[0].id; Object.assign(S.settings, l.settings || {}); save(); toast('Dati importati nel tuo account'); } ui.legacy = 0; render(); },
@@ -1560,6 +1665,9 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   document.addEventListener('change', e => {
     const t = e.target, p = P(); if (X && X.onChange(t)) return; if (G && G.onChange(t)) return;
     if (t.id === 'dDate' && /^\d{4}-\d{2}-\d{2}$/.test(t.value)) { const D = ui.diet; D.skip = {}; D.date = t.value; D.addTo = null; D.pick = null; render(); return; }
+    if (t.id === 'pvFile' && t.files.length) { const fl = t.files[0]; t.value = ''; fl.text().then(x => { const ta = $('#pvText'); if (ta) ta.value = x; toast('File caricato: ora tocca "Riconosci alimenti"'); }); return; }
+    if (t.id === 'pv_name' && ui.sub && ui.sub.type === 'planrev') { ui.sub.draft.name = t.value.slice(0, 80); return; }
+    if (t.dataset.pvg && ui.sub && ui.sub.type === 'planrev') { const [dd, mm, ii] = t.dataset.pvg.split(':').map(Number), it = ui.sub.draft.days[dd].meals[mm][ii]; if (it) { it.g = parseFloat(String(t.value).replace(',', '.')) || 0; it.est = false; it.noq = false; render(); } return; }
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
     if (t.dataset.ddate && p && p.draft) { p.draft.date = t.value && t.value <= F.todayISO() ? t.value : undefined; save(); render(); return; }
