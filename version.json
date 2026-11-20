@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 105,
+  "build": 106,
   "date": "2026-11-20",
   "notes": [
-    "Timer di recupero: visibile e gestibile dal blocca schermo con conto alla rovescia, −30 s, +30 s e Stop; continua anche a schermo spento."
+    "Timer di recupero nel blocca schermo: su Android (APK) notifica con conto alla rovescia, −30 s, +30 s, Stop e avviso a fine recupero; su iPhone e browser controlli multimediali."
   ]
 }

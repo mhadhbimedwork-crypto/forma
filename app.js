@@ -328,8 +328,24 @@
   }
   function timerSet(n) {
     const t = ui.timer; if (!t) return; t.left = Math.max(1, n); t.end = Date.now() + t.left * 1000; t.total = Math.max(t.total, t.left);
-    const el = $('#tleft'); if (el) el.textContent = t.left; lkStart();
+    const el = $('#tleft'); if (el) el.textContent = t.left; tmUpdate();
   }
+
+  /* --- timer nativo (APK Android): notifica con conto alla rovescia, comandi e sveglia a fine recupero --- */
+  function RT() { try { const C = window.Capacitor; return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.RestTimer || null; } catch (e) { return null; } }
+  let ntWarned = false;
+  function ntPush() { const rt = RT(), t = ui.timer; if (!rt || !t) return; try { rt.start({ end: t.end, label: t.label, total: t.total }).catch(() => { }); } catch (e) { } }
+  function tmStart() {
+    const rt = RT(); if (!rt) { lkStart(); return; }
+    try { rt.ensure().then(r => { if (r && r.granted === false && !ntWarned) { ntWarned = true; toast('Attiva le notifiche di FORGIA nelle impostazioni del telefono per vedere il timer nel blocca schermo'); } ntPush(); }).catch(() => ntPush()); } catch (e) { ntPush(); }
+  }
+  function tmUpdate() { if (RT()) ntPush(); else lkStart(); }
+  function tmStop(quiet) { const rt = RT(); if (rt) { try { rt.stop().catch(() => { }); } catch (e) { } } else if (!quiet) lkStop(); }
+  function ntSync() {
+    const rt = RT(), t = ui.timer; if (!rt || !t) return;
+    try { rt.getState().then(st => { const u = ui.timer; if (!u || !st) return; if (!st.on) { if (Date.now() < u.end - 1500) act.timerStop(true); } else if (Math.abs(st.end - u.end) > 1500) { u.end = st.end; u.left = Math.max(1, Math.ceil((st.end - Date.now()) / 1000)); u.total = Math.max(u.total, u.left); const el = $('#tleft'); if (el) el.textContent = u.left; } }).catch(() => { }); } catch (e) { }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ntSync(); });
   function timerBar() {
     if (!ui.timer) return '';
     return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerSub">−30 s</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
@@ -337,12 +353,13 @@
   const setCount = (d, i, x, early) => d.count && d.count[i] != null ? d.count[i] : Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
   const repDefault = (x, si) => { const m = String(si.target).match(/(\d+)(?:\D+(\d+))?/); return si.max || !m ? '' : (m[2] || m[1]); };
   function startTimer(sec, label, onEnd) {
-    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero', end: Date.now() + sec * 1000, total: sec }; audio(); lkStart();
+    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero', end: Date.now() + sec * 1000, total: sec }; audio(); tmStart(); let tk = 0;
     ui.tick = setInterval(() => {
       const t = ui.timer; if (!t) return;
+      if (++tk % 4 === 0 && !document.hidden) ntSync();
       const nl = Math.max(0, Math.ceil((t.end - Date.now()) / 1000));
-      if (nl !== t.left) { t.left = nl; const el = $('#tleft'); if (el) el.textContent = nl; if (nl > 0) lkMeta(); if (nl > 0 && nl <= 3 && !document.hidden) playTick(); }
-      if (nl <= 0) { clearInterval(ui.tick); ui.timer = null; if (!document.hidden) playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } setTimeout(lkStop, 1500); const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
+      if (nl !== t.left) { t.left = nl; const el = $('#tleft'); if (el) el.textContent = nl; if (nl > 0 && !RT()) lkMeta(); if (nl > 0 && nl <= 3 && !document.hidden) playTick(); }
+      if (nl <= 0) { clearInterval(ui.tick); ui.timer = null; if (!document.hidden) playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } if (!RT()) setTimeout(lkStop, 1500); else if (!document.hidden) tmStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
     }, 500);
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
@@ -1329,7 +1346,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
     timerSub() { if (ui.timer) timerSet(ui.timer.left - 30); },
     timerAdd() { if (ui.timer) timerSet(ui.timer.left + 30); },
-    timerStop() { clearInterval(ui.tick); ui.timer = null; lkStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; },
+    timerStop(local) { clearInterval(ui.tick); ui.timer = null; if (local !== true) tmStop(); else lkStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; },
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
     whyOpen(t) { ui.whyOpen = ui.whyOpen === t.dataset.k ? null : t.dataset.k; render(); },
     whyPick(t) { const c = whyCell(t.dataset.k); if (!c) return; c.why = c.why === t.dataset.v ? undefined : t.dataset.v; if (c.why !== 'Dolore') { delete c.wz; delete c.ws; delete c.wl; } ui.whyOpen = t.dataset.k; save(); render(); },
