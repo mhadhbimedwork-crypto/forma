@@ -1,8 +1,9 @@
 {
-  "version": "1.37.0",
-  "build": 102,
+  "version": "1.38.0",
+  "build": 103,
   "date": "2026-11-20",
   "notes": [
-    "Alimenti: scansione codice a barre e QR anche sui telefoni senza lettore integrato; un prodotto non trovato si salva col suo codice e viene riconosciuto la volta dopo."
+    "Dieta: aggiunta alimento più semplice (ricerca in evidenza, riquadri, Frequenti/Recenti/Preferiti, niente lista lunga).",
+    "Recensioni pubbliche degli utenti nel Profilo."
   ]
 }

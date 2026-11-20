@@ -183,3 +183,15 @@ table.cmp td{vertical-align:middle}
 @media (min-width:900px){.exgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:12px;align-items:start}.exgrid>.card{margin:0}.exgrid>*:not(.card){grid-column:1/-1}}
 
 .dlg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}.dlgbox{background:var(--card);border:1px solid var(--line2);border-radius:var(--radius);padding:16px;max-width:420px;width:100%}.dlgbox h2{margin:0 0 6px}.dlgr{display:block;width:100%;margin:6px 0;text-align:left}
+
+/* Dieta: aggiunta alimento */
+.bigsearch{font-size:1.05rem;min-height:52px;border-radius:14px;padding:12px 16px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 4px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;font-size:.78rem;font-weight:600;min-height:76px;line-height:1.15;text-align:center}
+.tile .ic{font-size:1.6rem;line-height:1}
+.tile.on{border-color:var(--ion);background:#0b2a30}
+.chiptab{border-radius:999px;padding:6px 14px}
+.chiptab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.frow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 2px;min-height:56px}
+.frow .kc{color:var(--mute);font-size:.9rem;white-space:nowrap}
+.frow .plus{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:2px solid var(--ion);border-radius:50%;color:var(--ion);font-size:1.3rem;line-height:1}

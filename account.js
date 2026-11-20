@@ -40,6 +40,13 @@
   }
   const rest = (p, o) => api('/rest/v1/' + p, o);
   A._rest = rest;
+  /* Recensioni dell'app: lettura pubblica (anche senza accesso), scrittura solo per l'utente con account. */
+  A.reviews = {
+    list: (all) => rest('app_reviews?select=id,user_id,display_name,gym_name,rating,title,body,status,hidden_reason,created_at' + (all ? '' : '&status=eq.visible') + '&order=created_at.desc&limit=100'),
+    save: async r => { const b = await rest('app_reviews?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(Object.assign({ user_id: tok.user.id }, r)) }); return b && b[0]; },
+    remove: () => rest('app_reviews?user_id=eq.' + tok.user.id, { method: 'DELETE' }),
+    setHidden: (id, hidden, reason) => rest('app_reviews?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ status: hidden ? 'hidden' : 'visible', hidden_reason: hidden ? (reason || null) : null }) })
+  };
 
   async function loadMe() {
     const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all,rm_enabled');

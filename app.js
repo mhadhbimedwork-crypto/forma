@@ -569,6 +569,19 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   function seasonTag(fd) { return fd.se && fd.se.length < 12 ? ' <span class="chip">stagione</span>' : ''; }
   const foodBtn = (x, mo) => `<button class="sm fooditem" style="margin:2px" data-act="dPick" data-id="${x.id}">${esc(x.name)}</button>`;
+  function foodStats(p) {
+    const days = (p.nutrition && p.nutrition.days) || {}, cnt = {}, last = {};
+    Object.keys(days).sort().forEach(d => (days[d].meals || []).forEach(m => (m || []).forEach(it => { if (it.f) { cnt[it.f] = (cnt[it.f] || 0) + 1; last[it.f] = d; } })));
+    const ids = Object.keys(cnt).filter(id => F.getFood(p, id));
+    return { freq: ids.slice().sort((x, y) => cnt[y] - cnt[x]).slice(0, 10), recent: ids.slice().sort((x, y) => last[y] < last[x] ? -1 : last[y] > last[x] ? 1 : 0).slice(0, 10), fav: ((p.nutrition && p.nutrition.fav) || []).filter(id => F.getFood(p, id)) };
+  }
+  function quickList(p, D) {
+    const st = foodStats(p), tab = D.tab || 'freq', ids = st[tab] || [];
+    const tabs = [['freq', 'Frequenti'], ['recent', 'Recenti'], ['fav', 'Preferiti']].map(t => `<button class="sm chiptab${t[0] === tab ? ' on' : ''}" data-act="dTab" data-t="${t[0]}">${t[1]}</button>`).join('');
+    const rows = ids.map(id => { const fd = F.getFood(p, id); return `<button class="frow" data-act="dPick" data-id="${id}"><span class="grow"><b>${esc(fd.name)}</b><br><span class="mute small">per 100 ${F.unitOf(fd)}</span></span><span class="kc">${fd.k} kcal</span><span class="plus" aria-hidden="true">+</span></button>`; }).join('');
+    const empty = tab === 'fav' ? 'Apri un alimento e tocca la stella: lo ritrovi qui.' : 'Qui compariranno gli alimenti che usi di più. Intanto scrivi sopra cosa hai mangiato: la ricerca copre tutto il database (più di 900 alimenti CREA e la tua lista).';
+    return `<div class="row wrap" style="margin:10px 0 4px;gap:6px">${tabs}</div>${rows || `<p class="mute small" style="margin:10px 2px">${empty}</p>`}`;
+  }
   function foodList(p, D, mo) {
     const foods = F.allFoods(p);
     return F.FOOD_GROUPS.concat(['I miei']).map(g => { const arr = foods.filter(x => x.grp === g && true); if (!arr.length) return ''; return `<div class="grp"><div class="mute small" style="margin:8px 0 2px">${esc(g)}</div>${arr.map(x => foodBtn(x, mo)).join('')}</div>`; }).join('');
@@ -618,18 +631,18 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (pk) {
       if (pk.r) { const rec = F.getRecipe(p, pk.r); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(rec.name)}</b><div class="row wrap" style="margin-top:6px"><input id="dn" inputmode="decimal" style="width:80px" value="${pk.n || 1}" aria-label="Porzioni"><span>porzioni</span><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
       else { const fd = F.getFood(p, pk.f); pickBox = `<div class="card" style="border-color:var(--accent2)"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">per 100 ${F.unitOf(fd)}: ${fd.k} kcal · P ${fd.p} · C ${fd.c} · G ${fd.f}${fd.note ? ' · ' + esc(fd.note) : ''}</div>${fd.src === 'CREA' ? `<div class="mute small">Fonte: CREA, Tabelle di composizione degli alimenti 2019 · <a href="${F.creaLink(fd)}" target="_blank" rel="noopener">scheda completa</a>${fd.cat ? ' · ' + esc(fd.cat) : ''}</div>` : ''}${fd.custom ? `<div class="row small" style="margin-top:6px"><span class="mute grow">Misurato in <b>${F.unitOf(fd)}</b></span><button class="sm" data-act="foodUnit" data-id="${fd.id}">Cambia in ${fd.liq ? 'grammi' : 'millilitri'}</button></div>` : ''}${F.isAvoided(p, fd) ? '<div class="msg danger small" style="margin-top:6px">Hai segnato che questo alimento ti dà fastidio.</div>' : ''}${limitBox(p, fd)}
-        <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'}"><span>${F.unitOf(fd)}</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
+        <div class="row wrap" style="margin-top:6px"><input id="dg" inputmode="decimal" style="width:90px" value="${pk.g || 100}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'}"><span>${F.unitOf(fd)}</span>${(fd.units || []).map(u => `<button class="sm" data-act="dUnit" data-g="${u[1]}">${esc(u[0])}</button>`).join('')}<button class="sm" data-act="dFav" data-id="${pk.f}" aria-label="Preferito">${((nut.fav || []).indexOf(pk.f) >= 0) ? '★ Preferito' : '☆ Preferito'}</button><button class="sm primary" data-act="dAdd" data-m="${mi}">Aggiungi</button></div></div>`; }
     }
     const rec = nut.recipes;
     const mo = new Date(D.date + 'T12:00:00').getMonth() + 1;
-    const list = foodList(p, D, mo);
+    const list = quickList(p, D);
     return `<div class="card" style="border-color:var(--ion)"><div class="row"><b class="grow">Aggiungi a ${F.MEALS[mi].toLowerCase()}</b><button class="ghost sm" data-act="dClose">Chiudi</button></div>
       ${pickBox}
-      <input id="dq" placeholder="Scrivi un alimento: pollo, latte, gallette…" autocomplete="off" aria-label="Cerca alimento" style="margin:8px 0"><div class="row" style="margin-bottom:6px"><button class="sm" data-act="dSeason">Frutta e verdura di stagione: ${F.monthName(new Date().getMonth() + 1)}</button></div>
-      ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
+      <input id="dq" class="bigsearch" placeholder="Cosa hai mangiato? Scrivi: pollo, latte, gallette…" autocomplete="off" aria-label="Cerca alimento" style="margin:8px 0">
+      <div class="tiles"><button class="tile on" data-act="dFocus"><span class="ic">🔍</span>Ricerca</button><button class="tile" data-act="scan"><span class="ic">▥</span>Codice a barre</button><button class="tile${D.recView ? ' on' : ''}" data-act="dRecView"><span class="ic">🍽️</span>Ricette</button><button class="tile" data-act="dSeason"><span class="ic">🍎</span>Stagione</button></div>
+      ${D.recView ? (rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : '<p class="mute small">Non hai ancora ricette salvate.</p>') : ''}
       ${D.sheet ? seasonSheet(p) : ''}<div id="dres"></div><div id="donl" class="small" style="margin:6px 0"></div><div id="dlist">${list}</div>
       <p class="mute small" style="margin:8px 0 0">Valori nutrizionali: tua lista, <a href="${F.CREA_URL}" target="_blank" rel="noopener">Tabelle di composizione degli alimenti CREA</a> (Centro Alimenti e Nutrizione, aggiornamento 2019, per 100 g di parte edibile) e Open Food Facts per i prodotti confezionati. Sono valori medi: per i prodotti di marca vale l'etichetta.</p>
-      <div class="row" style="margin-top:8px"><button class="sm primary" data-act="scan">Scansiona codice a barre</button></div>
       <details style="margin-top:10px" ${D.scanned ? 'open' : ''}><summary>Cerca online o aggiungi un alimento nuovo</summary>
         <div class="row" style="margin:8px 0"><input id="offq" placeholder="Nome o codice a barre" aria-label="Cerca online"><button class="sm" data-act="offSearch">Cerca</button></div>
         <div id="offRes" class="small mute">La ricerca usa Open Food Facts (database aperto): invia solo il testo che scrivi, nessun dato personale.</div>
@@ -930,8 +943,38 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${l.map(x => `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:8px 0"><div class="grow"><b>${esc(x.name)}</b> ${x.birth ? '<span class="mute small">' + esc(x.birth) + '</span>' : ''}<div class="mute small">${x.n} allenament${x.n === 1 ? 'o' : 'i'} · ultimo ${esc(x.last)}</div></div><button class="sm primary" data-act="recAdd" data-k="${esc(x.k || '')}" data-j="${x.j}" ${x.f ? 'data-f="1"' : ''}>Aggiungi</button></div>`).join('')}
       <div class="row wrap" style="gap:6px;margin-top:8px"><label class="btn sm" style="margin:0;display:inline-flex;align-items:center">Carica un file di backup<input type="file" id="recFile" accept=".zip,.json" multiple hidden></label><button class="ghost sm" data-act="recClose">Chiudi</button></div></div>`;
   }
+  /* Recensioni: bacheca pubblica + modulo (solo con account, 18+). Si mostrano tutte, senza selezione: l'amministratore può nascondere solo contenuti offensivi, spam o dati personali. */
+  function reviewsCard() {
+    const A = F.Account; if (!A.enabled) return '';
+    const R = ui.rev = ui.rev || {};
+    if (R.list === undefined && !R.loading) { R.loading = true; A.reviews.list(A.isAdmin()).then(l => { R.list = l; }).catch(() => { R.list = null; }).then(() => { R.loading = false; if (ui.tab === 'me') render(); }); }
+    const list = R.list || [], vis = list.filter(x => x.status === 'visible'), avg = vis.length ? vis.reduce((a, x) => a + x.rating, 0) / vis.length : 0;
+    const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+    const mine = A.me ? list.find(x => x.user_id === A.me.id) : null;
+    const age = A.me && A.me.birth ? (Date.now() - new Date(A.me.birth).getTime()) / 31557600000 : 99;
+    const nm = A.me ? String(A.me.full_name || A.me.username || '').trim().split(/\s+/) : [];
+    const defName = nm.length > 1 ? nm[0] + ' ' + nm[nm.length - 1][0].toUpperCase() + '.' : (nm[0] || '');
+    let form = '';
+    if (R.open) {
+      const f = R.f || {};
+      form = `<div class="card" style="border-color:var(--ion);margin-top:10px"><h3 style="margin-top:0">${mine ? 'Modifica la tua recensione' : 'Scrivi la tua recensione'}</h3>
+        <div class="row wrap" role="group" aria-label="Valutazione" style="gap:4px">${[1, 2, 3, 4, 5].map(n => `<button class="sm${(f.rating || 0) >= n ? ' primary' : ''}" data-act="revStar" data-n="${n}" aria-label="${n} su 5">★</button>`).join('')}<span class="mute small">${f.rating ? f.rating + ' su 5' : 'scegli da 1 a 5'}</span></div>
+        <input id="rv_name" maxlength="40" placeholder="Nome mostrato (es. Marco R.)" value="${esc(f.display_name != null ? f.display_name : defName)}" aria-label="Nome mostrato" style="margin-top:8px">
+        <input id="rv_title" maxlength="80" placeholder="Titolo (facoltativo)" value="${esc(f.title || '')}" aria-label="Titolo" style="margin-top:6px">
+        <textarea id="rv_body" maxlength="1500" style="min-height:130px;font-family:inherit;font-size:.95rem;margin-top:6px" placeholder="Racconta com'è andata: cosa usi di più, cosa ti ha aiutato, cosa miglioreresti. Sii onesto (minimo 20 caratteri)." aria-label="Recensione">${esc(f.body || '')}</textarea>
+        ${A.gym ? `<label class="row small" style="gap:8px;margin-top:6px"><input type="checkbox" id="rv_gym"${f.gym_name ? ' checked' : ''} style="width:auto;min-height:0"> Mostra il nome della mia palestra (${esc(A.gym.name)})</label>` : ''}
+        <label class="row small" style="gap:8px;margin-top:6px;align-items:flex-start"><input type="checkbox" id="rv_ok"${f.ok ? ' checked' : ''} style="width:auto;min-height:0;margin-top:4px"> <span>Capisco che nome mostrato, valutazione e testo saranno visibili pubblicamente a chiunque (anche a chi non usa l'app). Posso modificarla o cancellarla quando voglio.</span></label>
+        <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="revSave">Pubblica</button><button class="sm" data-act="revClose">Annulla</button></div></div>`;
+    }
+    let mineBtn = '';
+    if (!A.me) mineBtn = '<p class="mute small">Per scrivere una recensione accedi con il tuo account.</p>';
+    else if (age < 18) mineBtn = '<p class="mute small">Le recensioni pubbliche sono disponibili dai 18 anni.</p>';
+    else if (!R.open) mineBtn = `<div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="revOpen">${mine ? 'Modifica la mia recensione' : 'Scrivi una recensione'}</button>${mine ? '<button class="sm" data-act="revDel">Elimina la mia</button>' : ''}</div>`;
+    const items = list.slice(0, 20).map(x => `<div style="border-top:1px solid var(--line);padding:10px 0${x.status === 'hidden' ? ';opacity:.55' : ''}"><div class="row wrap" style="gap:6px"><b class="grow">${esc(x.display_name)}${x.gym_name ? ' · ' + esc(x.gym_name) : ''}</b><span style="color:var(--accent2)" aria-label="${x.rating} su 5">${stars(x.rating)}</span></div>${x.title ? `<div><b>${esc(x.title)}</b></div>` : ''}<div class="small">${esc(x.body)}</div><div class="mute small">${esc(String(x.created_at).slice(0, 10))}${x.status === 'hidden' ? ' · nascosta' : ''}</div>${A.isAdmin() ? `<button class="sm" data-act="revHide" data-id="${x.id}" data-h="${x.status === 'hidden' ? 0 : 1}">${x.status === 'hidden' ? 'Mostra di nuovo' : 'Nascondi (offensiva/spam)'}</button>` : ''}</div>`).join('');
+    return `<div class="card"><h2>Recensioni</h2>${vis.length ? `<div class="row" style="gap:8px"><b style="font-size:1.6rem">${fmt(avg, 1)}</b><span style="color:var(--accent2);font-size:1.2rem">${stars(Math.round(avg))}</span><span class="mute small">${vis.length} recension${vis.length === 1 ? 'e' : 'i'}</span></div>` : '<p class="mute small">Ancora nessuna recensione. Sii il primo a raccontare la tua esperienza.</p>'}${mineBtn}${form}${R.list === null ? '<p class="mute small">Recensioni non raggiungibili ora: serve internet.</p>' : ''}${items}</div>`;
+  }
   function viewMe() {
-    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${bioCard()}${recoverCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
+    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${bioCard()}${recoverCard()}${reviewsCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
     const c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
@@ -964,6 +1007,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
 </div>
       ${X.dataCard(p)}
       ${X.advancedCard()}${bioCard()}${recoverCard()}
+      ${reviewsCard()}
       ${AC.enabled ? '' : `<div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
         <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>`}
@@ -995,6 +1039,24 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   const act = {
     dDay(t) { ui.diet.skip = {}; const d = new Date(ui.diet.date + 'T12:00:00'); d.setDate(d.getDate() + +t.dataset.d); ui.diet.date = d.toISOString().slice(0, 10); ui.diet.addTo = null; ui.diet.pick = null; render(); },
     dOpen(t) { ui.diet.addTo = +t.dataset.m; ui.diet.pick = null; render(); },
+    revOpen() { const R = ui.rev, A = F.Account, m = (R.list || []).find(x => A.me && x.user_id === A.me.id); R.open = true; R.f = m ? { rating: m.rating, display_name: m.display_name, title: m.title, body: m.body, gym_name: m.gym_name } : {}; render(); },
+    revClose() { ui.rev.open = false; render(); },
+    revStar(t) { const R = ui.rev; R.f = Object.assign(R.f || {}, { ok: ($('#rv_ok') || {}).checked, display_name: ($('#rv_name') || {}).value, title: ($('#rv_title') || {}).value, body: ($('#rv_body') || {}).value, rating: +t.dataset.n }); const g = $('#rv_gym'); if (g) R.f.gym_name = g.checked ? 'x' : null; render(); },
+    async revSave() {
+      const A = F.Account, R = ui.rev, f = R.f || {}, rating = f.rating, name = ($('#rv_name').value || '').trim(), title = ($('#rv_title').value || '').trim(), body = ($('#rv_body').value || '').trim(), g = $('#rv_gym');
+      if (!rating) return toast('Scegli da 1 a 5 stelle');
+      if (name.length < 2) return toast('Scrivi il nome da mostrare');
+      if (body.length < 20) return toast('La recensione deve avere almeno 20 caratteri');
+      if (!$('#rv_ok').checked) return toast('Conferma che la recensione sarà pubblica');
+      try { await A.reviews.save({ rating, display_name: name, title: title || null, body, gym_name: g && g.checked && A.gym ? A.gym.name : null, status: 'visible' }); R.open = false; R.list = undefined; toast('Recensione pubblicata. Grazie!'); render(); }
+      catch (e) { toast(e.offline ? e.message : 'Non riesco a pubblicare: ' + e.message); }
+    },
+    async revDel() { if (!(await ask({ title: 'Eliminare la tua recensione?' }))) return; try { await F.Account.reviews.remove(); ui.rev.list = undefined; toast('Recensione eliminata'); render(); } catch (e) { toast(e.message); } },
+    async revHide(t) { const h = t.dataset.h === '1'; let why = null; if (h) { if (!(await ask({ title: 'Nascondere questa recensione? Solo se è offensiva, spam o contiene dati personali.' }))) return; why = 'moderazione'; } try { await F.Account.reviews.setHidden(t.dataset.id, h, why); ui.rev.list = undefined; render(); } catch (e) { toast(e.message); } },
+    dFocus() { const e = $('#dq'); if (e) e.focus(); },
+    dRecView() { ui.diet.recView = !ui.diet.recView; render(); },
+    dTab(t) { ui.diet.tab = t.dataset.t; render(); },
+    dFav(t) { const p = P(), n = p.nutrition; n.fav = n.fav || []; const i = n.fav.indexOf(t.dataset.id); if (i >= 0) n.fav.splice(i, 1); else n.fav.push(t.dataset.id); save(); render(); },
     dClose() { ui.diet.addTo = null; ui.diet.pick = null; render(); },
     dPick(t) { const fd = F.getFood(P(), t.dataset.id); ui.diet.pick = { f: t.dataset.id, g: fd.units && fd.units[0] ? fd.units[0][1] : 100 }; render(); const e = $('#dg'); if (e) { e.scrollIntoView({ block: 'center' }); } },
     dPickR(t) { ui.diet.pick = { r: t.dataset.id, n: 1 }; render(); },
