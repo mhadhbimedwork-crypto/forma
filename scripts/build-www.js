@@ -1,7 +1,7 @@
 // Copia i file web dell'app in una cartella di output (default: www). Usato da Pages e da Capacitor.
 const fs = require('fs'), path = require('path');
 const out = path.resolve(process.argv[2] || 'www');
-const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'crea.js', 'crea.json', 'guide.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
+const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'crea.js', 'crea.json', 'crea_micro.json', 'guide.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 for (const f of FILES) fs.copyFileSync(f, path.join(out, f));
 fs.cpSync('icons', path.join(out, 'icons'), { recursive: true });
@@ -26,9 +26,10 @@ if (path.basename(out) === '_site') {
   let server = null, gymServer = null; try { const gc = JSON.parse(fs.readFileSync('gym-config.json', 'utf8')); server = gc.server || null; gymServer = gc.enableOnGym ? server : null; } catch (e) { }   // la console admin usa sempre il server; l'app /gym/ solo quando enableOnGym è true
   const cfgJs = 'window.FORMA_GYM = ' + JSON.stringify({ name: 'THE LIFTING ZONE', tag: 'NO PAIN NO GAIN', key: 'tlz.v1', server: gymServer }) + ';\n'; const cfg = '<script src="gymcfg.js"></script>\n'; fs.writeFileSync(path.join(g, 'gymcfg.js'), cfgJs);
   for (const f of FILES) {
+    if (f === 'crea_micro.json') continue;   // solo FORGIA
     let t = fs.readFileSync(f, 'utf8');
     if (f === 'index.html') t = t.replace('<script src="data.js">', cfg + '<script src="data.js">').replace(/<title>.*?<\/title>/, '<title>THE LIFTING ZONE</title>').replace('content="#05070c"', 'content="#0b0b0d"').replace('icons/icon.svg', 'icons/gym/icon.svg').replace('icons/apple-touch-icon.png', 'icons/gym/apple-touch-icon.png');
-    if (f === 'sw.js') t = t.replace("'app.js',", "'app.js', 'gymcfg.js',").replace("'forgia-", "'tlz-").replace("'icons/icon.svg'", "'icons/gym/icon.svg'").replace("'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png'", "'icons/gym/mark.png', 'icons/gym/icon-192.png', 'icons/gym/icon-512.png'");
+    if (f === 'sw.js') t = t.replace(" 'crea_micro.json',", '').replace("'app.js',", "'app.js', 'gymcfg.js',").replace("'forgia-", "'tlz-").replace("'icons/icon.svg'", "'icons/gym/icon.svg'").replace("'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png'", "'icons/gym/mark.png', 'icons/gym/icon-192.png', 'icons/gym/icon-512.png'");
     if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'THE LIFTING ZONE'; m.short_name = 'THE LIFTING ZONE'; m.description = 'La tua scheda di allenamento'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: 'icons/gym/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }, { src: 'icons/gym/icon.svg', sizes: 'any', type: 'image/svg+xml' }]; t = JSON.stringify(m, null, 1); }
     fs.writeFileSync(path.join(g, f), t);
   }
@@ -38,9 +39,10 @@ if (path.basename(out) === '_site') {
   const ad = path.join(out, 'admin'); fs.mkdirSync(ad, { recursive: true });
   const acfgJs = 'window.FORMA_GYM = ' + JSON.stringify({ name: 'TLZ CONSOLE', tag: 'AMMINISTRAZIONE', key: 'tlz.admin.v1', mode: 'admin', server }) + ';\n'; const acfg = '<script src="gymcfg.js"></script>\n'; fs.writeFileSync(path.join(ad, 'gymcfg.js'), acfgJs);
   for (const f of FILES) {
+    if (f === 'crea_micro.json') continue;   // solo FORGIA
     let t = fs.readFileSync(f, 'utf8');
     if (f === 'index.html') t = t.replace('<script src="data.js">', acfg + '<script src="data.js">').replace(/<title>.*?<\/title>/, '<title>TLZ Console</title>').replace('<meta name="viewport"', '<meta name="robots" content="noindex,nofollow">\n<meta name="viewport"').replace('content="#05070c"', 'content="#0b0b0d"').replace('icons/icon.svg', 'icons/gym/icon.svg').replace('icons/apple-touch-icon.png', 'icons/gym/apple-touch-icon.png');
-    if (f === 'sw.js') t = t.replace("'app.js',", "'app.js', 'gymcfg.js',").replace("'forgia-", "'tlzadm-").replace("'icons/icon.svg'", "'icons/gym/icon.svg'").replace("'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png'", "'icons/gym/mark.png', 'icons/gym/icon-192.png', 'icons/gym/icon-512.png'");
+    if (f === 'sw.js') t = t.replace(" 'crea_micro.json',", '').replace("'app.js',", "'app.js', 'gymcfg.js',").replace("'forgia-", "'tlzadm-").replace("'icons/icon.svg'", "'icons/gym/icon.svg'").replace("'icons/mark.png', 'icons/icon-192.png', 'icons/icon-512.png'", "'icons/gym/mark.png', 'icons/gym/icon-192.png', 'icons/gym/icon-512.png'");
     if (f === 'manifest.webmanifest') { const m = JSON.parse(t); m.name = 'TLZ Console'; m.short_name = 'TLZ Console'; m.description = 'Amministrazione'; m.background_color = '#0b0b0d'; m.theme_color = '#e11d2e'; m.icons = [{ src: 'icons/gym/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icons/gym/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: 'icons/gym/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }]; t = JSON.stringify(m, null, 1); }
     fs.writeFileSync(path.join(ad, f), t);
   }
