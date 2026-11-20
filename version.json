@@ -1,8 +1,8 @@
 {
-  "version": "1.36.0",
-  "build": 100,
+  "version": "1.36.1",
+  "build": 101,
   "date": "2026-11-20",
   "notes": [
-    "Alimenti: ricerca anche nelle Tabelle di composizione degli alimenti CREA (900 alimenti)."
+    "Alimenti: indicata la fonte CREA nella ricerca e nelle fonti della guida."
   ]
 }

@@ -622,6 +622,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <input id="dq" placeholder="Scrivi un alimento: pollo, latte, gallette…" autocomplete="off" aria-label="Cerca alimento" style="margin:8px 0"><div class="row" style="margin-bottom:6px"><button class="sm" data-act="dSeason">Frutta e verdura di stagione: ${F.monthName(new Date().getMonth() + 1)}</button></div>
       ${rec.length ? `<div class="mute small">Le mie ricette</div><div>${rec.map(r => `<button class="sm" style="margin:2px" data-act="dPickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>` : ''}
       ${D.sheet ? seasonSheet(p) : ''}<div id="dres"></div><div id="donl" class="small" style="margin:6px 0"></div><div id="dlist">${list}</div>
+      <p class="mute small" style="margin:8px 0 0">Valori nutrizionali: tua lista, <a href="${F.CREA_URL}" target="_blank" rel="noopener">Tabelle di composizione degli alimenti CREA</a> (Centro Alimenti e Nutrizione, aggiornamento 2019, per 100 g di parte edibile) e Open Food Facts per i prodotti confezionati. Sono valori medi: per i prodotti di marca vale l'etichetta.</p>
       <div class="row" style="margin-top:8px"><button class="sm primary" data-act="scan">Scansiona codice a barre</button></div>
       <details style="margin-top:10px" ${D.scanned ? 'open' : ''}><summary>Cerca online o aggiungi un alimento nuovo</summary>
         <div class="row" style="margin:8px 0"><input id="offq" placeholder="Nome o codice a barre" aria-label="Cerca online"><button class="sm" data-act="offSearch">Cerca</button></div>

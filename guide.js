@@ -5,6 +5,7 @@
     ['OMS – Healthy diet (scheda informativa)', 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet'],
     ['EFSA – Metalli come contaminanti negli alimenti', 'https://www.efsa.europa.eu/en/topics/topic/metals-contaminants-food'],
     ['CREA – Linee guida per una sana alimentazione', 'https://www.crea.gov.it/'],
+    ['CREA – Tabelle di composizione degli alimenti (dati usati nella ricerca alimenti)', 'https://www.alimentinutrizione.it/tabelle-nutrizionali/'],
     ['FAO – Food-based dietary guidelines', 'https://www.fao.org/nutrition/education/food-dietary-guidelines']
   ];
   // valori di riferimento OMS per adulti (scheda "Healthy diet")
