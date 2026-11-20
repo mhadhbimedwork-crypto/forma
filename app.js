@@ -278,9 +278,13 @@
     o.type = type || 'square'; o.frequency.value = freq; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol || 0.25, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.05);
   }
-  const soundOn = () => S.settings.sound !== false;
-  function playTick() { if (soundOn()) tone(660, 0, 0.09, 0.2); }
-  function playEnd() { if (!soundOn()) return; [0, 0.2, 0.4].forEach(t => tone(740, t, 0.12, 0.16)); }
+  /* suono del timer: «Avviso finale» (ultimi 3 secondi + fine), «Tabata» (come i timer da allenamento: via, conto alla rovescia crescente, tono lungo) o «Muto» */
+  const soundMode = () => S.settings.soundMode || (S.settings.sound === false ? 'off' : 'end');
+  const soundOn = () => soundMode() !== 'off';
+  const SOUND_LBL = { end: 'Avviso finale', tabata: 'Tabata', off: 'Muto' };
+  function playTick(n) { if (!soundOn()) return; tone(soundMode() === 'tabata' ? ({ 3: 660, 2: 760, 1: 880 }[n] || 660) : 660, 0, 0.09, 0.2); }
+  function playStart() { if (soundMode() === 'tabata') [0, 0.14].forEach(t => tone(520, t, 0.09, 0.18)); }
+  function playEnd() { if (!soundOn()) return; if (soundMode() === 'tabata') { tone(1046, 0, 0.6, 0.2, 'sine'); return; } [0, 0.2, 0.4].forEach(t => tone(740, t, 0.12, 0.16)); }
 
   /* --- timer sempre vivo: audio silenzioso + Media Session (icona grande e comandi nel blocca schermo) --- */
   const LK = { el: null, url: null };
@@ -348,17 +352,17 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) ntSync(); });
   function timerBar() {
     if (!ui.timer) return '';
-    return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerSub">−30 s</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
+    return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">Suono: ${SOUND_LBL[soundMode()]}</button> <button data-act="timerSub">−30 s</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
   }
   const setCount = (d, i, x, early) => d.count && d.count[i] != null ? d.count[i] : Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
   const repDefault = (x, si) => { const m = String(si.target).match(/(\d+)(?:\D+(\d+))?/); return si.max || !m ? '' : (m[2] || m[1]); };
   function startTimer(sec, label, onEnd) {
-    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero', end: Date.now() + sec * 1000, total: sec }; audio(); tmStart(); let tk = 0;
+    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero', end: Date.now() + sec * 1000, total: sec }; audio(); playStart(); tmStart(); let tk = 0;
     ui.tick = setInterval(() => {
       const t = ui.timer; if (!t) return;
       if (++tk % 4 === 0 && !document.hidden) ntSync();
       const nl = Math.max(0, Math.ceil((t.end - Date.now()) / 1000));
-      if (nl !== t.left) { t.left = nl; const el = $('#tleft'); if (el) el.textContent = nl; if (nl > 0 && !RT()) lkMeta(); if (nl > 0 && nl <= 3 && !document.hidden) playTick(); }
+      if (nl !== t.left) { t.left = nl; const el = $('#tleft'); if (el) el.textContent = nl; if (nl > 0 && !RT()) lkMeta(); if (nl > 0 && nl <= 3 && !document.hidden) playTick(nl); }
       if (nl <= 0) { clearInterval(ui.tick); ui.timer = null; if (!document.hidden) playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } if (!RT()) setTimeout(lkStop, 1500); else if (!document.hidden) tmStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
     }, 500);
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
@@ -1343,7 +1347,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       const sd = d.date && d.date <= F.todayISO() ? d.date : F.todayISO(), bw = parseFloat(($('#bw') || {}).value); if (bw > 20) { p.weights.push({ date: sd, kg: bw }); if (sd === F.todayISO()) p.weight = bw; }
       p.sessions.push({ id: 's' + uid(), date: sd, at: Date.now(), planId: plan.id, dayName: day.name, ex }); p.sessions.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : (x.at || 0) - (y.at || 0)); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
     },
-    timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
+    timerSound() { const m = soundMode(); S.settings.soundMode = m === 'end' ? 'tabata' : m === 'tabata' ? 'off' : 'end'; S.settings.sound = S.settings.soundMode !== 'off'; save(); if (S.settings.soundMode === 'tabata') playStart(); else playTick(3); if (ui.timer) tmUpdate(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
     timerSub() { if (ui.timer) timerSet(ui.timer.left - 30); },
     timerAdd() { if (ui.timer) timerSet(ui.timer.left + 30); },
     timerStop(local) { clearInterval(ui.tick); ui.timer = null; if (local !== true) tmStop(); else lkStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; },
