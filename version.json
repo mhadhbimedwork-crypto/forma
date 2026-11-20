@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 109,
+  "build": 110,
   "date": "2026-11-20",
   "notes": [
-    "Avviso di aggiornamento app Android una volta al giorno finché non è installato."
+    "Suoni del timer più dolci: fine recupero morbido e nessun ssibilo di fondo."
   ]
 }

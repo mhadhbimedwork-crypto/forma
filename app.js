@@ -280,19 +280,19 @@
   }
   const soundOn = () => S.settings.sound !== false;
   function playTick() { if (soundOn()) tone(660, 0, 0.09, 0.2); }
-  function playEnd() { if (!soundOn()) return; [0, 0.16, 0.32].forEach(t => tone(880, t, 0.11, 0.3)); tone(1320, 0.5, 0.55, 0.35, 'sawtooth'); }
+  function playEnd() { if (!soundOn()) return; [0, 0.2, 0.4].forEach(t => tone(740, t, 0.12, 0.16)); }
 
   /* --- timer sempre vivo: audio silenzioso + Media Session (icona grande e comandi nel blocca schermo) --- */
   const LK = { el: null, url: null };
   function lkWav(sec, beep) {
-    const R = 8000, n = Math.max(1, Math.round(sec * R)), tail = beep ? Math.round(1.2 * R) : 0, N = n + tail;
+    const R = 8000, n = Math.max(1, Math.round(sec * R)), tail = beep ? Math.round(0.8 * R) : 0, N = n + tail;
     const b = new Uint8Array(44 + N), dv = new DataView(b.buffer);
     const w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
     w(0, 'RIFF'); dv.setUint32(4, 36 + N, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
     dv.setUint32(24, R, true); dv.setUint32(28, R, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); w(36, 'data'); dv.setUint32(40, N, true);
     for (let i = 0; i < N; i++) {
-      let v = 128 + (i % 2 ? 1 : -1);
-      if (i >= n) { const t = (i - n) / R, on = (t % 0.3) < 0.15 && t < 1.0; if (on) v = 128 + Math.round(90 * Math.sin(2 * Math.PI * 880 * t)); }
+      let v = 128;
+      if (i >= n) { const t = (i - n) / R, on = (t % 0.3) < 0.12 && t < 0.6; if (on) v = 128 + Math.round(40 * Math.sin(2 * Math.PI * 880 * t)); }
       b[44 + i] = v;
     }
     return new Blob([b], { type: 'audio/wav' });
