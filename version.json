@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 111,
+  "build": 112,
   "date": "2026-11-20",
   "notes": [
-    "Suono del timer a scelta: Avviso finale, Tabata o Muto."
+    "Timer con voce del coach in italiano: segnala il tempo e dà la carica sopra la tua musica."
   ]
 }
