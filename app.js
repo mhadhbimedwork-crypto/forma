@@ -281,6 +281,55 @@
   const soundOn = () => S.settings.sound !== false;
   function playTick() { if (soundOn()) tone(660, 0, 0.09, 0.2); }
   function playEnd() { if (!soundOn()) return; [0, 0.16, 0.32].forEach(t => tone(880, t, 0.11, 0.3)); tone(1320, 0.5, 0.55, 0.35, 'sawtooth'); }
+
+  /* --- timer sempre vivo: audio silenzioso + Media Session (icona grande e comandi nel blocca schermo) --- */
+  const LK = { el: null, url: null };
+  function lkWav(sec, beep) {
+    const R = 8000, n = Math.max(1, Math.round(sec * R)), tail = beep ? Math.round(1.2 * R) : 0, N = n + tail;
+    const b = new Uint8Array(44 + N), dv = new DataView(b.buffer);
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + N, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, R, true); dv.setUint32(28, R, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); w(36, 'data'); dv.setUint32(40, N, true);
+    for (let i = 0; i < N; i++) {
+      let v = 128 + (i % 2 ? 1 : -1);
+      if (i >= n) { const t = (i - n) / R, on = (t % 0.3) < 0.15 && t < 1.0; if (on) v = 128 + Math.round(90 * Math.sin(2 * Math.PI * 880 * t)); }
+      b[44 + i] = v;
+    }
+    return new Blob([b], { type: 'audio/wav' });
+  }
+  function lkStart() {
+    try {
+      const t = ui.timer; if (!t) return;
+      if (!LK.el) { LK.el = new Audio(); LK.el.setAttribute('playsinline', ''); }
+      if (LK.url) URL.revokeObjectURL(LK.url);
+      LK.url = URL.createObjectURL(lkWav(Math.min(t.left, 900), soundOn()));
+      LK.el.src = LK.url; LK.el.loop = false; LK.el.volume = 1;
+      const p = LK.el.play(); if (p && p.catch) p.catch(() => { });
+      lkMeta();
+      const ms = navigator.mediaSession; if (!ms) return;
+      const set = (a, f) => { try { ms.setActionHandler(a, f); } catch (e) { } };
+      set('previoustrack', () => act.timerSub()); set('seekbackward', () => act.timerSub());
+      set('nexttrack', () => act.timerAdd()); set('seekforward', () => act.timerAdd());
+      set('stop', () => act.timerStop()); set('pause', () => act.timerStop()); set('play', () => { });
+    } catch (e) { }
+  }
+  function lkArt() { const l = document.querySelector('link[rel="apple-touch-icon"]'), b = l ? l.href.replace(/apple-touch-icon\.png.*/, '') : 'icons/'; return [{ src: b + 'icon-512.png', sizes: '512x512', type: 'image/png' }, { src: b + 'icon-192.png', sizes: '192x192', type: 'image/png' }]; }
+  function lkMeta() {
+    try {
+      const ms = navigator.mediaSession, t = ui.timer; if (!ms || !t) return;
+      const m = Math.floor(t.left / 60), sc = t.left % 60, txt = m + ':' + String(sc).padStart(2, '0');
+      if (window.MediaMetadata) ms.metadata = new MediaMetadata({ title: txt + ' · ' + t.label, artist: (F.APP_NAME || document.title || 'FORGIA') + ' · −30 / +30 s nei tasti', artwork: lkArt() });
+      ms.playbackState = 'playing';
+      if (ms.setPositionState) ms.setPositionState({ duration: Math.max(t.total, 1), position: Math.min(Math.max(t.total - t.left, 0), t.total), playbackRate: 1 });
+    } catch (e) { }
+  }
+  function lkStop() {
+    try { if (LK.el) { LK.el.pause(); LK.el.removeAttribute('src'); } const ms = navigator.mediaSession; if (ms) { ms.playbackState = 'none'; ms.metadata = null; } } catch (e) { }
+  }
+  function timerSet(n) {
+    const t = ui.timer; if (!t) return; t.left = Math.max(1, n); t.end = Date.now() + t.left * 1000; t.total = Math.max(t.total, t.left);
+    const el = $('#tleft'); if (el) el.textContent = t.left; lkStart();
+  }
   function timerBar() {
     if (!ui.timer) return '';
     return `<div class="timer" role="timer"><span>${esc(ui.timer.label)} <span id="tleft">${ui.timer.left}</span> s</span><span><button data-act="timerSound" aria-label="Suono del timer">${soundOn() ? 'Suono sì' : 'Suono no'}</button> <button data-act="timerSub">−30 s</button> <button data-act="timerAdd">+30 s</button> <button data-act="timerStop">Stop</button></span></div>`;
@@ -288,13 +337,13 @@
   const setCount = (d, i, x, early) => d.count && d.count[i] != null ? d.count[i] : Math.max(d.data[i] ? d.data[i].length : 0, early && x.setsEarly ? x.setsEarly : x.sets);
   const repDefault = (x, si) => { const m = String(si.target).match(/(\d+)(?:\D+(\d+))?/); return si.max || !m ? '' : (m[2] || m[1]); };
   function startTimer(sec, label, onEnd) {
-    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero' }; audio();
+    clearInterval(ui.tick); ui.timer = { left: sec, label: label || 'Recupero', end: Date.now() + sec * 1000, total: sec }; audio(); lkStart();
     ui.tick = setInterval(() => {
-      ui.timer.left--;
-      const el = $('#tleft'); if (el) el.textContent = ui.timer.left;
-      if (ui.timer.left > 0 && ui.timer.left <= 3) playTick();
-      if (ui.timer.left <= 0) { clearInterval(ui.tick); ui.timer = null; playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
-    }, 1000);
+      const t = ui.timer; if (!t) return;
+      const nl = Math.max(0, Math.ceil((t.end - Date.now()) / 1000));
+      if (nl !== t.left) { t.left = nl; const el = $('#tleft'); if (el) el.textContent = nl; if (nl > 0) lkMeta(); if (nl > 0 && nl <= 3 && !document.hidden) playTick(); }
+      if (nl <= 0) { clearInterval(ui.tick); ui.timer = null; if (!document.hidden) playEnd(); try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) { } setTimeout(lkStop, 1500); const th = $('#timerHost'); if (th) th.innerHTML = ''; if (onEnd) onEnd(); else toast('Recupero finito: prossima serie'); }
+    }, 500);
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
   }
 
@@ -1278,9 +1327,9 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       p.sessions.push({ id: 's' + uid(), date: sd, at: Date.now(), planId: plan.id, dayName: day.name, ex }); p.sessions.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : (x.at || 0) - (y.at || 0)); p.draft = null; save(); ui.sub = null; ui.tab = 'prog'; clearInterval(ui.tick); ui.timer = null; render(); toast('Seduta salvata. Ottimo lavoro!');
     },
     timerSound() { S.settings.sound = !soundOn(); save(); if (soundOn()) playTick(); const th = $('#timerHost'); if (th) th.innerHTML = timerBar(); },
-    timerSub() { if (ui.timer) { ui.timer.left = Math.max(1, ui.timer.left - 30); const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
-    timerAdd() { if (ui.timer) { ui.timer.left += 30; const el = $('#tleft'); if (el) el.textContent = ui.timer.left; } },
-    timerStop() { clearInterval(ui.tick); ui.timer = null; const th = $('#timerHost'); if (th) th.innerHTML = ''; },
+    timerSub() { if (ui.timer) timerSet(ui.timer.left - 30); },
+    timerAdd() { if (ui.timer) timerSet(ui.timer.left + 30); },
+    timerStop() { clearInterval(ui.tick); ui.timer = null; lkStop(); const th = $('#timerHost'); if (th) th.innerHTML = ''; },
     zoneOpen(t) { ui.zone = t.dataset.zone; ui.msgs = []; render(); },
     whyOpen(t) { ui.whyOpen = ui.whyOpen === t.dataset.k ? null : t.dataset.k; render(); },
     whyPick(t) { const c = whyCell(t.dataset.k); if (!c) return; c.why = c.why === t.dataset.v ? undefined : t.dataset.v; if (c.why !== 'Dolore') { delete c.wz; delete c.ws; delete c.wl; } ui.whyOpen = t.dataset.k; save(); render(); },

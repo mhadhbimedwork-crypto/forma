@@ -1,8 +1,8 @@
 {
-  "version": "1.39.0",
-  "build": 104,
+  "version": "1.40.0",
+  "build": 105,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: riepilogo largo con indicatore ad arco, macro in tre colonne e calendario settimanale per compilare altri giorni."
+    "Timer di recupero: visibile e gestibile dal blocca schermo con conto alla rovescia, −30 s, +30 s e Stop; continua anche a schermo spento."
   ]
 }
