@@ -1,8 +1,8 @@
 {
-  "version": "1.36.1",
-  "build": 101,
+  "version": "1.37.0",
+  "build": 102,
   "date": "2026-11-20",
   "notes": [
-    "Alimenti: indicata la fonte CREA nella ricerca e nelle fonti della guida."
+    "Alimenti: scansione codice a barre e QR anche sui telefoni senza lettore integrato; un prodotto non trovato si salva col suo codice e viene riconosciuto la volta dopo."
   ]
 }

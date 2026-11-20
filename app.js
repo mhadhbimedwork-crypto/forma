@@ -578,13 +578,19 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return res.length ? `<div class="mute small" style="margin:6px 0 2px">${res.length} risultati (tua lista e tabelle CREA)</div>${res.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><span class="grow small"><b>${esc(x.name)}</b>${x.src === 'CREA' ? ' <span class="chip">CREA</span>' : ''}<br><span class="mute">${x.k} kcal · P ${x.p} · C ${x.c} · G ${x.f} per 100 ${F.unitOf(x)}</span></span><button class="sm primary" data-act="dPick" data-id="${x.id}">Scegli</button></div>`).join('')}${res.some(x => x.src === 'CREA') ? `<div class="mute small" style="margin-top:6px">${esc(F.CREA_FONTE)} · <a href="https://www.alimentinutrizione.it" target="_blank" rel="noopener">alimentinutrizione.it</a>. Valori per 100 g di parte edibile.</div>` : ''}` : '';
   }
   async function offFetch(q, out) {
+    const isBc = /^\d{8,14}$/.test(q);
+    if (isBc) {
+      ui.newBc = q;
+      const mine = ((P().nutrition || {}).foods || []).find(f => f.bc === q);
+      if (mine) { ui.diet.pick = { f: mine.id, g: 100 }; render(); return toast('Alimento già nel tuo catalogo'); }
+    }
     out.innerHTML = 'Cerco online…';
     try {
       const fields = 'code,product_name,brands,nutriments,categories_tags';
       const url = /^\d{8,14}$/.test(q) ? `https://world.openfoodfacts.org/api/v2/product/${q}.json?fields=${fields}` : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=8&fields=${fields}&lc=it`;
       const r = await fetch(url); if (!r.ok) throw 0; const d = await r.json(); const list = d.products || (d.product ? [d.product] : []);
       ui.offList = list.filter(x => x.product_name && x.nutriments && x.nutriments['energy-kcal_100g'] != null).slice(0, 8);
-      out.innerHTML = ui.offList.length ? `<div class="mute small" style="margin:6px 0 2px">Trovati online (Open Food Facts)</div>` + ui.offList.map((x, i) => `<div class="row" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow small">${esc(x.product_name)}${x.brands ? ' · ' + esc(x.brands) : ''}<br><span class="mute">${fx(x.nutriments['energy-kcal_100g'])} kcal · P ${fx(x.nutriments.proteins_100g || 0)} · C ${fx(x.nutriments.carbohydrates_100g || 0)} · G ${fx(x.nutriments.fat_100g || 0)} (per 100 g)</span></span><button class="sm" data-act="offUse" data-i="${i}">Usa</button></div>`).join('') : '<span class="mute">Nessun risultato online. Puoi inserire i valori dall\'etichetta qui sotto.</span>';
+      out.innerHTML = ui.offList.length ? `<div class="mute small" style="margin:6px 0 2px">Trovati online (Open Food Facts)</div>` + ui.offList.map((x, i) => `<div class="row" style="padding:4px 0;border-top:1px solid var(--line)"><span class="grow small">${esc(x.product_name)}${x.brands ? ' · ' + esc(x.brands) : ''}<br><span class="mute">${fx(x.nutriments['energy-kcal_100g'])} kcal · P ${fx(x.nutriments.proteins_100g || 0)} · C ${fx(x.nutriments.carbohydrates_100g || 0)} · G ${fx(x.nutriments.fat_100g || 0)} (per 100 g)</span></span><button class="sm" data-act="offUse" data-i="${i}">Usa</button></div>`).join('') : (isBc ? '<span class="mute">Prodotto non trovato online. Inserisci qui sotto i valori dall\'etichetta: lo salvo con questo codice e la prossima volta lo riconosco da solo.</span>' : '<span class="mute">Nessun risultato online. Puoi inserire i valori dall\'etichetta qui sotto.</span>');
     } catch (e) { out.innerHTML = '<span class="mute">Ricerca online non riuscita: serve internet. Puoi inserire i valori dall\'etichetta qui sotto.</span>'; }
   }
   let offTimer = null;
@@ -1004,23 +1010,30 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     dGuide(t) { const D = ui.diet; D.guide = D.guide || {}; D.guide[t.dataset.k] = !D.guide[t.dataset.k]; render(); },
     async scan() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('Fotocamera non disponibile: scrivi il codice a barre nella ricerca');
-      if (!('BarcodeDetector' in window)) { ui.diet.scanned = true; render(); return toast('Questo browser non legge i codici: scrivi le cifre nella ricerca'); }
       const ov = document.createElement('div'); ov.id = 'scanov'; ov.style.cssText = 'position:fixed;inset:0;background:#000d;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
-      ov.innerHTML = '<video id="scanv" playsinline muted style="width:100%;max-width:420px;border-radius:12px;border:2px solid var(--accent)"></video><div class="small">Inquadra il codice a barre del prodotto</div><button class="sm" id="scanx">Annulla</button>';
+      ov.innerHTML = '<video id="scanv" playsinline muted style="width:100%;max-width:420px;border-radius:12px;border:2px solid var(--accent)"></video><div class="small">Inquadra il codice a barre (o QR) del prodotto</div><button class="sm" id="scanx">Annulla</button>';
       document.body.appendChild(ov);
-      let stream, stop = false; const done = () => { stop = true; if (stream) stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+      let stream, reader, stop = false;
+      const done = () => { stop = true; try { if (reader) reader.reset(); } catch (e) { } if (stream) stream.getTracks().forEach(t => t.stop()); ov.remove(); };
+      const onCode = code => { if (stop) return; done(); ui.diet.scanned = true; render(); const q = $('#offq'); if (q) { q.value = code; act.offSearch(); } };
       $('#scanx').onclick = done;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        const v = $('#scanv'); v.srcObject = stream; await v.play();
-        const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
-        const loop = async () => {
-          if (stop) return;
-          try { const r = await det.detect(v); if (r.length) { const code = r[0].rawValue; done(); ui.diet.scanned = true; render(); const q = $('#offq'); if (q) { q.value = code; act.offSearch(); } return; } } catch (e) {}
-          setTimeout(loop, 250);
-        };
-        loop();
-      } catch (e) { done(); toast('Permesso alla fotocamera negato o non disponibile'); }
+        if ('BarcodeDetector' in window) {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+          const v = $('#scanv'); v.srcObject = stream; await v.play();
+          const det = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'] });
+          const loop = async () => {
+            if (stop) return;
+            try { const r = await det.detect(v); if (r.length) return onCode(r[0].rawValue); } catch (e) { }
+            setTimeout(loop, 250);
+          };
+          loop();
+        } else {
+          if (!window.ZXing) await new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'lib/zxing.min.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+          reader = new ZXing.BrowserMultiFormatReader();
+          await reader.decodeFromConstraints({ video: { facingMode: 'environment' }, audio: false }, 'scanv', (res) => { if (res) onCode(res.getText()); });
+        }
+      } catch (e) { done(); ui.diet.scanned = true; render(); toast('Fotocamera non disponibile o permesso negato: scrivi il codice nella ricerca'); }
     },
     dSkip(t) { const D = ui.diet; D.skip = D.skip || {}; D.skip[t.dataset.id] = true; render(); },
     foodUnit(t) { const p = P(), f = p.nutrition.foods.find(x => x.id === t.dataset.id); if (!f) return; f.liq = f.liq ? 0 : 1; save(); render(); },
@@ -1044,10 +1057,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     dNewFood() {
       const n = ($('#nf_name').value || '').trim(), v = id => parseFloat(String($('#' + id).value).replace(',', '.')) || 0;
       if (!n || !(v('nf_k') > 0 || v('nf_p') > 0)) return toast('Scrivi nome e valori per 100 g');
-      const p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: n, k: v('nf_k'), p: v('nf_p'), c: v('nf_c'), f: v('nf_f') }); ui.diet.pick = { f: id, g: 100 }; save(); render(); toast('Alimento salvato');
+      const p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: n, k: v('nf_k'), p: v('nf_p'), c: v('nf_c'), f: v('nf_f'), bc: ui.newBc || undefined }); ui.newBc = null; ui.diet.pick = { f: id, g: 100 }; save(); render(); toast('Alimento salvato');
     },
     async offSearch() { const q = ($('#offq').value || '').trim(); if (!q) return toast('Scrivi cosa cercare'); return offFetch(q, $('#offRes')); },
-    offUse(t) { const x = (ui.offList || [])[+t.dataset.i]; if (!x) return; const n = x.nutriments, p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, name: x.product_name + (x.brands ? ' (' + x.brands.split(',')[0] + ')' : ''), k: Math.round(n['energy-kcal_100g']), p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), liq: (x.categories_tags || []).some(c => /^en:(beverages|non-alcoholic-beverages|alcoholic-beverages|waters|juices-and-nectars|fruit-juices|sodas|teas|coffees|plant-based-beverages|milks|dairy-drinks)$/.test(c)) ? 1 : 0 }); ui.diet.pick = { f: id, g: 100 }; save(); render(); },
+    offUse(t) { const x = (ui.offList || [])[+t.dataset.i]; if (!x) return; const n = x.nutriments, p = P(), id = 'c' + uid(); p.nutrition.foods.push({ id, bc: x.code || undefined, name: x.product_name + (x.brands ? ' (' + x.brands.split(',')[0] + ')' : ''), k: Math.round(n['energy-kcal_100g']), p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), liq: (x.categories_tags || []).some(c => /^en:(beverages|non-alcoholic-beverages|alcoholic-beverages|waters|juices-and-nectars|fruit-juices|sodas|teas|coffees|plant-based-beverages|milks|dairy-drinks)$/.test(c)) ? 1 : 0 }); ui.diet.pick = { f: id, g: 100 }; save(); render(); },
     newRecipe() { ui.sub = { type: 'recipe', id: null, draft: { name: '', portions: 1, items: [], note: '' } }; render(); window.scrollTo(0, 0); },
     editRecipe(t) { const r = P().nutrition.recipes.find(x => x.id === t.dataset.id); ui.sub = { type: 'recipe', id: r.id, draft: JSON.parse(JSON.stringify(r)) }; render(); window.scrollTo(0, 0); },
     rIngAdd() { readRecipe(); const typed = ($('#rc_add').value || '').trim(), p0 = P(), hit = F.allFoods(p0).find(x => x.name === typed) || F.searchFoods(p0, typed, 1)[0], id = hit && hit.id, g = parseFloat(String($('#rc_g').value).replace(',', '.')); if (!id || !(g > 0)) return toast('Scegli un ingrediente e i grammi'); ui.sub.draft.items.push([id, g]); render(); },
