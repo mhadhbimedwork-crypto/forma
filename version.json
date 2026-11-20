@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 107,
+  "build": 108,
   "date": "2026-11-20",
   "notes": [
-    "Aggiornamento dell'app Android da dentro l'app: scarica e installa la nuova versione senza passare dal browser."
+    "Aggiornamenti: avviso in app all'apertura e pulsante nel Profilo (anche TLZ) per installare la nuova versione dell'app Android."
   ]
 }

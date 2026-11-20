@@ -1079,7 +1079,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${c.minor ? '<div class="msg warn">Per i minorenni: niente integratori e niente bruciagrassi. Le proteine si coprono con il cibo.</div>' : '<div class="msg">Integratori con evidenza: creatina monoidrato 3-5 g/giorno, proteine in polvere solo se non arrivi col cibo. Maltodestrine, destrosio e BCAA non servono per questo obiettivo.</div>'}</div>
       ${intolCard(p)}
 `}
-      ${GYM ? '<div hidden>' : '<div class="card">'}<h2>Aggiornamenti e richieste</h2>
+      <div class="card"><h2>${GYM ? 'Aggiornamenti' : 'Aggiornamenti e richieste'}</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${NATIVE ? ' · app Android' + (APKB ? ' ' + APKB : '') : ''}</p>
       <p class="small" role="status">${esc(ui.updMsg || '')}</p>${ui.updStuck ? '<div class="msg warn small">L\'aggiornamento non è ancora arrivato su questo telefono. Chiudi del tutto l\'app, riaprila e tocca di nuovo Aggiorna. I tuoi dati non si perdono.</div>' : ''}
       <div class="row wrap"><button class="sm" data-act="checkUpdate">Controlla aggiornamenti</button>${ui.update ? '<button class="sm primary" data-act="applyUpdate">Aggiorna ora</button>' : ''}${ui.apkNew ? '<button class="sm primary" data-act="apkInstall">Scarica il nuovo APK</button>' : ''}</div>
@@ -1640,8 +1640,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   if (AC.enabled) bio.check().then(() => AC.restore()).then(me => { if (me && bio.ok && bio.id) ui.locked = true; return me ? onSignIn() : render(); });
   else autoBackup();
   if (NATIVE) setTimeout(async () => {   // nuova versione dell'APK: si propone da dentro l'app, una volta per versione
-    if (navigator.onLine === false || !idleNow()) return;
-    const a = await checkApk(); if (!a || S.settings.apkAsked === a.build) return;
+    if (navigator.onLine === false) return;
+    const a = await checkApk(); if (a) render(); if (!a || S.settings.apkAsked === a.build || !idleNow()) return;
     S.settings.apkAsked = a.build; save();
     const r = await ask({ title: 'Nuova versione dell\'app', text: 'Si scarica e si installa da qui, senza altre app. I tuoi dati restano.' });
     if (r && r.ok) act.apkInstall(); else render();
