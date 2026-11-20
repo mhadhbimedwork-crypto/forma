@@ -1,9 +1,8 @@
 {
-  "version": "1.38.0",
-  "build": 103,
+  "version": "1.39.0",
+  "build": 104,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: aggiunta alimento più semplice (ricerca in evidenza, riquadri, Frequenti/Recenti/Preferiti, niente lista lunga).",
-    "Recensioni pubbliche degli utenti nel Profilo."
+    "Dieta: riepilogo largo con indicatore ad arco, macro in tre colonne e calendario settimanale per compilare altri giorni."
   ]
 }

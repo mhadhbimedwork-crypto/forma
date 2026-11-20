@@ -195,3 +195,19 @@ table.cmp td{vertical-align:middle}
 .frow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 2px;min-height:56px}
 .frow .kc{color:var(--mute);font-size:.9rem;white-space:nowrap}
 .frow .plus{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:2px solid var(--ion);border-radius:50%;color:var(--ion);font-size:1.3rem;line-height:1}
+
+/* Dieta: riepilogo largo con calendario */
+.calcard{padding:14px 12px}
+.weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.wday{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;min-height:60px;border-radius:12px;font-size:.72rem}
+.wday b{font-size:1.05rem}
+.wday i{width:6px;height:6px;border-radius:50%;background:transparent}
+.wday i.dot{background:var(--ion)}
+.wday.today{border-color:var(--ion)}
+.wday.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.gauge{display:grid;grid-template-columns:1fr minmax(150px,2fr) 1fr;align-items:center;margin-top:4px}
+.gside{text-align:center}.gside b{display:block;font-size:1.5rem}.gside span{color:var(--mute);font-size:.85rem}
+.gmid{position:relative}.gmid svg{display:block;width:100%;height:auto}
+.gnum{position:absolute;left:0;right:0;top:34%;text-align:center}.gnum b{display:block;font-size:2.4rem;line-height:1}.gnum span{color:var(--mute);font-size:.9rem}
+.mcols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+.mcol{text-align:center}.mcol span{display:block;color:var(--mute);font-size:.85rem;margin-bottom:6px}.mcol b{display:block;font-size:.85rem;margin-top:6px}

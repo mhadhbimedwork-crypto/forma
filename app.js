@@ -699,9 +699,33 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="small" style="margin-top:6px">Totale proposto: <b>${fx(plan.added.k)} kcal</b> · P ${fx(plan.added.p)} · C ${fx(plan.added.c)} · G ${fx(plan.added.f)}.${short.length ? ` Con i limiti di salute restano scoperti ${short.join(', ')}: ripeti dopo il prossimo pasto o aggiungi altri alimenti.` : ' Il fabbisogno è coperto.'}</div>
       <div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="dPlanAll">Aggiungi tutto ai pasti</button></div>`;
   }
+  const pad2 = n => String(n).padStart(2, '0');
+  const localISO = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  const GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+  function dateLabel(iso) { const q = new Date(iso + 'T12:00:00'); return q.getDate() + ' ' + MESI[q.getMonth()] + ' ' + q.getFullYear(); }
+  function weekStrip(p, date) {
+    const d0 = new Date(date + 'T12:00:00'), off = (d0.getDay() + 6) % 7, today = localISO(new Date()), days = (p.nutrition && p.nutrition.days) || {};
+    return `<div class="weekstrip" role="group" aria-label="Giorni della settimana">${GIORNI.map((g, i) => {
+      const d = new Date(d0); d.setDate(d0.getDate() - off + i); const iso = localISO(d), has = days[iso] && (days[iso].meals || []).some(m => m && m.length);
+      return `<button class="wday${iso === date ? ' on' : ''}${iso === today ? ' today' : ''}" data-act="dSetDay" data-date="${iso}" aria-label="${d.getDate()} ${MESI[d.getMonth()]}"${iso === date ? ' aria-current="date"' : ''}><span>${g}</span><b>${d.getDate()}</b><i class="${has ? 'dot' : ''}"></i></button>`;
+    }).join('')}</div>`;
+  }
+  function gauge(tot, c) {
+    const rem = c.kcal - tot.k, over = rem < 0, pct = c.kcal ? Math.max(0, Math.min(100, tot.k / c.kcal * 100)) : 0;
+    const path = 'M 43.4 156.6 A 80 80 0 1 1 156.6 156.6';
+    return `<div class="gauge"><div class="gside"><b>${fx(tot.k)}</b><span>Mangiate</span></div>
+      <div class="gmid"><svg viewBox="0 0 200 180" role="img" aria-label="${fx(tot.k)} kcal su ${fx(c.kcal)}"><path d="${path}" pathLength="100" fill="none" stroke="var(--line2)" stroke-width="14" stroke-linecap="round"/><path d="${path}" pathLength="100" fill="none" stroke="${over ? 'var(--warn)' : 'var(--ion)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${pct.toFixed(1)} 100"${pct <= 0 ? ' opacity="0"' : ''}/></svg>
+      <div class="gnum"><b>${fx(Math.abs(rem))}</b><span>${over ? 'Sopra di' : 'Rimanenti'}</span></div></div>
+      <div class="gside"><b>${fx(c.kcal)}</b><span>Obiettivo</span></div></div>`;
+  }
+  function macroCols(tot, c) {
+    const one = (l, v, t) => { const pc = t ? Math.min(100, Math.round(v / t * 100)) : 0, over = t && v > t * 1.05; return `<div class="mcol"><span>${l}</span><div class="bar"><i style="width:${pc}%${over ? ';background:var(--warn)' : ''}"></i></div><b>${fx(v)} / ${fx(t)} g</b></div>`; };
+    return `<div class="mcols">${one('Carboidrati', tot.c, c.carbs)}${one('Proteine', tot.p, c.protein)}${one('Grassi', tot.f, c.fat)}</div>`;
+  }
   function viewDiet() {
-    const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: F.todayISO(), addTo: null, pick: null, fill: false };
-    const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === F.todayISO();
+    const p = P(), c = F.calc(p), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
+    const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === localISO(new Date());
     const rem = { k: c.kcal - tot.k, p: c.protein - tot.p, c: c.carbs - tot.c, f: c.fat - tot.f };
     const lims = F.checkLimits(p, D.date), mon = new Date().getMonth() + 1;
     const inSeasonNow = F.allFoods(p).filter(x => (x.grp === 'Frutta' || x.grp === 'Verdura') && x.se && x.se.length < 12 && F.inSeason(x, mon));
@@ -718,8 +742,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     }).join('');
     const plan = D.fill ? F.planDay(p, D.date, { mode: D.mode, exclude: D.skip }) : null;
     return `<h1>Dieta</h1>
-      <div class="row" style="margin-bottom:8px"><button class="sm" data-act="dDay" data-d="-1" aria-label="Giorno prima">←</button><div class="grow" style="text-align:center"><b>${isToday ? 'Oggi' : esc(D.date)}</b></div><button class="sm" data-act="dDay" data-d="1" aria-label="Giorno dopo">→</button></div>
-      <div class="card"><h2>Fabbisogno di ${esc(p.name)}</h2>${bar('Calorie', tot.k, c.kcal, 'kcal')}${bar('Proteine', tot.p, c.protein, 'g')}${bar('Carboidrati', tot.c, c.carbs, 'g')}${bar('Grassi', tot.f, c.fat, 'g')}
+      <div class="card calcard"><div class="row" style="gap:6px;margin-bottom:6px"><button class="sm" data-act="dDay" data-d="-7" aria-label="Settimana prima">«</button><div class="grow" style="text-align:center"><b style="font-size:1.1rem">${isToday ? 'Oggi' : dateLabel(D.date)}</b></div><button class="sm" data-act="dDay" data-d="7" aria-label="Settimana dopo">»</button></div>
+        ${weekStrip(p, D.date)}
+        <div class="row wrap" style="gap:8px;margin:8px 0 2px;justify-content:center"><label class="small mute" for="dDate">Scegli un giorno</label><input id="dDate" type="date" value="${D.date}" aria-label="Scegli un giorno dal calendario" style="width:auto;min-height:40px">${isToday ? '' : '<button class="sm primary" data-act="dSetDay" data-date="' + localISO(new Date()) + '">Oggi</button>'}</div>
+        <h2 style="margin:14px 0 0">Riepilogo di ${esc(p.name)}</h2>${gauge(tot, c)}${macroCols(tot, c)}
         <p class="small" style="margin:8px 0 0">${rem.k > 50 ? `Ti mancano ${fx(rem.k)} kcal (P ${fx(Math.max(0, rem.p))} g · C ${fx(Math.max(0, rem.c))} g · G ${fx(Math.max(0, rem.f))} g).` : rem.k < -100 ? `Sei sopra di ${fx(-rem.k)} kcal.` : 'Giornata a target.'}</p>
         ${F.intolWarnings(p, D.date).map(w => `<div class="msg danger small">${esc(w.text)}</div>`).join('')}
         ${lims.map(w => `<div class="msg warn small">${esc(w.text)}</div>`).join('')}
@@ -1053,6 +1079,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     },
     async revDel() { if (!(await ask({ title: 'Eliminare la tua recensione?' }))) return; try { await F.Account.reviews.remove(); ui.rev.list = undefined; toast('Recensione eliminata'); render(); } catch (e) { toast(e.message); } },
     async revHide(t) { const h = t.dataset.h === '1'; let why = null; if (h) { if (!(await ask({ title: 'Nascondere questa recensione? Solo se è offensiva, spam o contiene dati personali.' }))) return; why = 'moderazione'; } try { await F.Account.reviews.setHidden(t.dataset.id, h, why); ui.rev.list = undefined; render(); } catch (e) { toast(e.message); } },
+    dSetDay(t) { const D = ui.diet; D.skip = {}; D.date = t.dataset.date; D.addTo = null; D.pick = null; render(); },
     dFocus() { const e = $('#dq'); if (e) e.focus(); },
     dRecView() { ui.diet.recView = !ui.diet.recView; render(); },
     dTab(t) { ui.diet.tab = t.dataset.t; render(); },
@@ -1432,6 +1459,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   document.addEventListener('change', e => {
     const t = e.target, p = P(); if (X && X.onChange(t)) return; if (G && G.onChange(t)) return;
+    if (t.id === 'dDate' && /^\d{4}-\d{2}-\d{2}$/.test(t.value)) { const D = ui.diet; D.skip = {}; D.date = t.value; D.addTo = null; D.pick = null; render(); return; }
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
     if (t.dataset.ddate && p && p.draft) { p.draft.date = t.value && t.value <= F.todayISO() ? t.value : undefined; save(); render(); return; }
