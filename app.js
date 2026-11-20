@@ -901,6 +901,47 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         ${F.MEALS.map((nm, mi) => `<h3 style="margin:10px 0 2px">${nm}</h3>${(d.meals[mi] || []).map((it, ii) => pvRow(p, it, di, mi, ii)).join('') || '<p class="mute small" style="margin:2px 0">Nessun alimento.</p>'}<button class="sm" style="margin-top:4px" data-act="pvAddItem" data-d="${di}" data-m="${mi}">+ Aggiungi alimento</button>`).join('')}</div>`; }).join('')}
       <div class="row"><button class="primary grow" data-act="pvSave">Attiva il piano</button><button data-act="pvCancel">Annulla</button></div>`;
   }
+  /* Strumento di calcolo: valori degli alimenti e totali della combinazione composta dall'utente. Non indica cosa mangiare. */
+  const CMP_N = { p: 'Proteine', c: 'Carboidrati', f: 'Grassi', k: 'kcal' };
+  const cmpS = () => (ui.cmp = ui.cmp || { open: false, nut: 'p', q: '', combo: [], meal: 1 });
+  function cmpFoods(p) {
+    const S = cmpS(); let arr = S.q.trim().length >= 2 ? F.searchFoods(p, S.q, 120) : F.allFoods(p).concat(F.CREA || []);
+    return arr.filter(x => x && x[S.nut] > 0).sort((a, b) => b[S.nut] - a[S.nut]).slice(0, 12);
+  }
+  function cmpListHtml(p) {
+    const S = cmpS(), arr = cmpFoods(p);
+    return arr.length ? arr.map(fd => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b><div class="mute small">per 100 ${F.unitOf(fd)}: <b>${fmt(fd[S.nut], 1)}${S.nut === 'k' ? ' kcal' : ' g'}</b> ${CMP_N[S.nut].toLowerCase()} · ${fx(fd.k)} kcal · P ${fmt(fd.p, 1)} · C ${fmt(fd.c, 1)} · G ${fmt(fd.f, 1)}</div></div><button class="sm" data-act="cmpPut" data-f="${esc(fd.id)}">Aggiungi alla combinazione</button></div>`).join('') : '<p class="mute small">Nessun alimento trovato.</p>';
+  }
+  function cmpSum(p) { const t = { k: 0, p: 0, c: 0, f: 0 }; cmpS().combo.forEach(it => { const fd = F.getFood(p, it.f); if (fd && it.g > 0) { const m = F.foodMacros(fd, it.g); t.k += m.k; t.p += m.p; t.c += m.c; t.f += m.f; } }); return t; }
+  function cmpTotHtml(p, tot, tgt) {
+    const S = cmpS(), t = cmpSum(p); if (!S.combo.length) return '';
+    const day = { k: tot.k + t.k, p: tot.p + t.p, c: tot.c + t.c, f: tot.f + t.f };
+    const dl = (a, b, u) => { const d = Math.round(a - b); return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + u; };
+    return `<div class="msg small"><b>Combinazione:</b> ${fx(t.k)} kcal · P ${fmt(t.p, 1)} · C ${fmt(t.c, 1)} · G ${fmt(t.f, 1)} g<div style="margin-top:4px"><b>Giornata con la combinazione:</b> ${fx(day.k)} kcal · P ${fx(day.p)} · C ${fx(day.c)} · G ${fx(day.f)} g</div>${tgt ? `<div style="margin-top:4px" class="mute">Differenza dai tuoi obiettivi: ${dl(day.k, tgt.k, ' kcal')} · P ${dl(day.p, tgt.p, ' g')} · C ${dl(day.c, tgt.c, ' g')} · G ${dl(day.f, tgt.f, ' g')}</div>` : ''}</div>`;
+  }
+  function whereFrom(p, day, tot) {
+    const lines = ['p', 'c', 'f', 'k'].map(key => {
+      const by = {}; day.meals.forEach(m => (m || []).forEach(it => { const mc = F.itemMacros(p, it), rec = it.r ? F.getRecipe(p, it.r) : null, fd = it.f ? F.getFood(p, it.f) : null, nm = (rec && rec.name) || (fd && fd.name) || '?'; by[nm] = (by[nm] || 0) + (mc[key] || 0); }));
+      const top = Object.keys(by).map(n => [n, by[n]]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 3), T = tot[key];
+      return top.length && T > 0 ? `<div class="small" style="margin:3px 0"><b>${CMP_N[key]} ${fx(T)}${key === 'k' ? ' kcal' : ' g'}:</b> ${top.map(x => esc(x[0]) + ' ' + fx(x[1]) + ' (' + Math.round(x[1] / T * 100) + '%)').join(' · ')}</div>` : '';
+    }).join('');
+    return lines ? `<h3 style="margin:10px 0 4px">Da dove arrivano oggi</h3>${lines}` : '';
+  }
+  function cmpCard(p, day, tot, tgt) {
+    const S = cmpS();
+    if (!S.open) return `<div class="card"><div class="row"><div class="grow"><b>Valori e combinazioni</b><div class="mute small">Confronta gli alimenti per contenuto e componi una combinazione con i totali.</div></div><button class="sm" data-act="cmpOpen">Apri</button></div></div>`;
+    return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Valori e combinazioni</h2><button class="ghost sm" data-act="cmpOpen">Chiudi</button></div>
+      <p class="mute small" style="margin:6px 0">Strumento di calcolo: mostra i valori delle tabelle e i totali della combinazione che componi tu. Non indica cosa mangiare né quanto.</p>
+      ${whereFrom(p, day, tot)}
+      <h3 style="margin:12px 0 4px">Alimenti in ordine di contenuto</h3>
+      <div class="row wrap" style="gap:6px">${['p', 'c', 'f', 'k'].map(k => `<button class="sm${S.nut === k ? ' primary' : ''}" data-act="cmpNut" data-k="${k}">${CMP_N[k]}</button>`).join('')}</div>
+      <input id="cmpq" placeholder="Filtra per nome (facoltativo)" autocomplete="off" aria-label="Filtra alimenti" style="margin:8px 0" value="${esc(S.q)}">
+      <div id="cmpList">${cmpListHtml(p)}</div>
+      <h3 style="margin:12px 0 4px">La tua combinazione</h3>
+      <div id="cmpCombo">${S.combo.length ? S.combo.map((it, i) => { const fd = F.getFood(p, it.f); return fd ? `<div class="row" style="padding:4px 0"><div class="grow"><b>${esc(fd.name)}</b></div><input inputmode="decimal" style="width:80px" data-cg="${i}" value="${it.g}" aria-label="Quantità"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="cmpRm" data-i="${i}" aria-label="Togli">✕</button></div>` : ''; }).join('') : '<p class="mute small" style="margin:2px 0">Vuota: aggiungi alimenti dall\'elenco e scegli tu le quantità.</p>'}</div>
+      <div id="cmpTot">${cmpTotHtml(p, tot, tgt)}</div>
+      ${S.combo.length ? `<div class="row wrap" style="margin-top:8px;gap:6px"><select id="cmpMeal" aria-label="Pasto" style="width:auto">${F.MEALS.map((n, i) => `<option value="${i}"${i === S.meal ? ' selected' : ''}>${n}</option>`).join('')}</select><button class="sm primary" data-act="cmpAdd">Aggiungi al diario</button><button class="sm" data-act="cmpClear">Svuota</button></div>` : ''}</div>`;
+  }
   function viewDiet() {
     if (S.settings.legal !== F.LEGAL_VERSION) return legalGate();
     const p = P(), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
@@ -932,6 +973,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div></div>
       ${planCard(p, D)}
       ${meals}
+      ${cmpCard(p, day, tot, tgt)}
       ${intolCard(p)}
       ${tgt && tgt.src === 'plan' ? '' : targetsCard(p)}
 
@@ -1357,6 +1399,12 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       save(); render(); toast('Ricetta importata: ' + d.name);
     },
     rCancel() { ui.sub = null; render(); },
+    async cmpOpen() { const S = cmpS(); S.open = !S.open; if (S.open && F.loadCrea) { try { await F.loadCrea(); } catch (e) { } } render(); },
+    cmpNut(t) { cmpS().nut = t.dataset.k; render(); },
+    cmpPut(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' nella combinazione'); render(); },
+    cmpRm(t) { cmpS().combo.splice(+t.dataset.i, 1); render(); },
+    cmpClear() { cmpS().combo = []; render(); },
+    cmpAdd() { const S = cmpS(), p = P(), day = F.dayOf(p, ui.diet.date), mi = +($('#cmpMeal') || { value: S.meal }).value; const ok = S.combo.filter(x => x.g > 0); if (!ok.length) return toast('Inserisci le quantità'); ok.forEach(x => day.meals[mi].push({ f: x.f, g: x.g })); S.combo = []; S.meal = mi; save(); toast('Aggiunto al diario'); render(); },
     async nlAccept(t) { const id = t.dataset.id, d = $('#nl_d' + id), tr = $('#nl_t' + id); try { await AC._rest('nutri_links?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'active', scope_diary: !!(d && d.checked), scope_training: !!(tr && tr.checked), decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Consensi salvati'); render(); } catch (e) { toast(/row-level|policy|violat/i.test(e.message) ? 'Per i minorenni serve il consenso di un genitore: chiedi all\'allenatore di registrarlo' : e.message); } },
     async nlRevoke(t) { if (!(await ask({ title: 'Revocare il collegamento con il nutrizionista?', text: 'Non potrà più vedere i tuoi dati. I dati che ha già scritto restano nella sua scheda.' }))) return; try { await AC._rest('nutri_links?id=eq.' + t.dataset.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'revoked', scope_diary: false, scope_training: false, decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Collegamento revocato'); render(); } catch (e) { toast(e.message); } },
     legalOk() { const c = $('#legalChk'); if (!c || !c.checked) return toast('Spunta la casella per continuare'); S.settings.legal = F.LEGAL_VERSION; S.settings.legalAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
@@ -1726,6 +1774,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { liveSearch(t.value); return; }
+    if (t.id === 'cmpq') { const S = cmpS(); S.q = t.value; const l = $('#cmpList'); if (l) l.innerHTML = cmpListHtml(P()); return; }
+    if (t.dataset.cg != null && t.dataset.cg !== '') { const S = cmpS(), it = S.combo[+t.dataset.cg]; if (it) { it.g = parseFloat(String(t.value).replace(',', '.')) || 0; const D = ui.diet, p0 = P(), tot0 = F.dayTotal(p0, F.dayOf(p0, D.date)), tg = dietTarget(p0, D.date), el = $('#cmpTot'); if (el) el.innerHTML = cmpTotHtml(p0, tot0, tg); } return; }
     if (t.classList && t.classList.contains('whyq')) { const r = document.querySelector('.whyres[data-k="' + t.dataset.k + '"]'); if (r) r.innerHTML = F.pxSearch(t.value, 6).map(o => `<button class="sm" style="display:block;width:100%;text-align:left;margin:3px 0" data-act="whyPainPick" data-k="${t.dataset.k}" data-id="${o.id}">${esc(o.name)}</button>`).join(''); return; }
     if (t.classList && t.classList.contains('whyl')) { const c = whyCell(t.dataset.k); if (c) { c.wl = +t.value; const sv = $('#whyV' + t.dataset.k.replace(':', '_')); if (sv) sv.textContent = t.value; save(); } return; }
     if (t.id === 'pxQ') { ui.pxQ = t.value; const r = $('#pxRes'); if (r) r.innerHTML = pxResHtml(t.value); return; }

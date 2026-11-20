@@ -1,8 +1,8 @@
 {
-  "version": "1.43.0",
-  "build": 115,
+  "version": "1.44.0",
+  "build": 116,
   "date": "2026-11-20",
   "notes": [
-    "Collegamento con il nutrizionista: decidi tu cosa vede e puoi revocarlo. Avvertenze aggiornate."
+    "Dieta: valori e combinazioni. Confronta gli alimenti per contenuto e componi una combinazione con i totali."
   ]
 }
