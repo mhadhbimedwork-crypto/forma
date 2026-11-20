@@ -1414,7 +1414,17 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ui.updMsg = r === 'err' ? 'Non riesco a controllare: verifica la connessione.' : r === 'new' ? 'C\'è un aggiornamento: tocca «Aggiorna ora». I tuoi dati restano.' : a ? 'L\'app è aggiornata, ma c\'è una nuova versione dell\'app Android: tocca «Scarica il nuovo APK», aprilo e conferma. Non serve disinstallare: i tuoi dati restano.' : 'L\'app è già aggiornata all\'ultima versione.';
       toast(ui.updMsg); render();
     },
-    apkInstall() { if (ui.apkNew && ui.apkNew.url) { toast('Scarico il nuovo APK: aprilo e conferma l\'installazione sopra a quello attuale.'); window.open(ui.apkNew.url, '_blank'); } },
+    async apkInstall() {
+      if (!ui.apkNew || !ui.apkNew.url) return;
+      const up = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ApkUpdater;
+      if (!up) { toast('Scarico il nuovo APK: aprilo e conferma l\'installazione sopra a quello attuale.'); window.open(ui.apkNew.url, '_blank'); return; }
+      try {
+        const c = await up.canInstall();
+        if (!c.ok) { toast('Consenti a questa app di installare aggiornamenti, poi torna qui e riprova'); await up.openSettings(); return; }
+        toast('Scarico l\'aggiornamento… tra poco Android chiede di confermare. I tuoi dati restano.');
+        await up.install({ url: ui.apkNew.url });
+      } catch (e) { toast('Aggiornamento non riuscito: ' + ((e && e.message) || 'riprova')); }
+    },
     async applyUpdate() { applyUpdateNow(false); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
     sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
@@ -1629,6 +1639,13 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   setTimeout(() => { if (F.loadCrea) F.loadCrea().then(l => { if (l.length && !ui.sub && /diet|nutri|food/i.test(String(ui.tab))) render(); }); }, 2000);
   if (AC.enabled) bio.check().then(() => AC.restore()).then(me => { if (me && bio.ok && bio.id) ui.locked = true; return me ? onSignIn() : render(); });
   else autoBackup();
+  if (NATIVE) setTimeout(async () => {   // nuova versione dell'APK: si propone da dentro l'app, una volta per versione
+    if (navigator.onLine === false || !idleNow()) return;
+    const a = await checkApk(); if (!a || S.settings.apkAsked === a.build) return;
+    S.settings.apkAsked = a.build; save();
+    const r = await ask({ title: 'Nuova versione dell\'app', text: 'Si scarica e si installa da qui, senza altre app. I tuoi dati restano.' });
+    if (r && r.ok) act.apkInstall(); else render();
+  }, 6000);
   checkVersion().then(r => {
     if (r === 'new' && !updTried() && !(P() && P().draft) && !(ui.sub && ui.sub.type === 'session')) return applyUpdateNow(true);   // aggiornamento automatico all'apertura, mai durante una seduta
     if (r === 'new' && updTried()) ui.updStuck = true;

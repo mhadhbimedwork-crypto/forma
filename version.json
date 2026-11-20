@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 106,
+  "build": 107,
   "date": "2026-11-20",
   "notes": [
-    "Timer di recupero nel blocca schermo: su Android (APK) notifica con conto alla rovescia, −30 s, +30 s, Stop e avviso a fine recupero; su iPhone e browser controlli multimediali."
+    "Aggiornamento dell'app Android da dentro l'app: scarica e installa la nuova versione senza passare dal browser."
   ]
 }
