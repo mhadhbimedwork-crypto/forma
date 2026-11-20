@@ -3,7 +3,7 @@
 (function (F) {
   'use strict';
   const cfg = (window.FORMA_GYM && window.FORMA_GYM.server) || (window.FORMA_SERVER && window.FORMA_SERVER.server) || null;
-  const KEY = 'tlz.acct', ROLES = { client: 'Cliente', coach: 'Allenatore', head: 'Allenatore principale', admin: 'Amministratore' };
+  const KEY = 'tlz.acct', ROLES = { nutri: 'Nutrizionista', client: 'Cliente', coach: 'Allenatore', head: 'Allenatore principale', admin: 'Amministratore' };
   F.ROLE_LABEL = ROLES;
   const A = F.Account = { enabled: !!(cfg && cfg.url && cfg.anonKey), roles: ROLES, me: null };
   const slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');

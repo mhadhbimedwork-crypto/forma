@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>FORGIA Nutrizionista</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#14171c;--mut:#5b6572;--line:#dfe3e9;--ac:#0f766e;--acd:#0b5a54;--bad:#b42318;--ok:#067647;--warn:#b54708}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1115;--card:#171b21;--ink:#e8ebef;--mut:#95a0ae;--line:#2a313a;--ac:#2dd4bf;--acd:#5eead4;--bad:#f97066;--ok:#47cd89;--warn:#fdb022}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;flex:1}main{max-width:1060px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px}h3{font-size:14px;margin:12px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 13px;cursor:pointer}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}button.dan{color:var(--bad)}button:disabled{opacity:.5}
+input,select,textarea{font:inherit;width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--bg);color:var(--ink)}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}th{font-size:12px;color:var(--mut);font-weight:600}
+tr.click{cursor:pointer}tr.click:hover{background:var(--bg)}.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:99px;padding:1px 9px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.save{display:flex;gap:8px;align-items:center;margin-top:10px}.msg{font-size:13px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}.modal>div{background:var(--card);border-radius:12px;padding:18px;max-width:420px;width:100%}
+.login{max-width:380px;margin:12vh auto}.der{background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px}
+@media print{header,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0}}
+</style>
+</head>
+<body>
+<header><h1>FORGIA · Area nutrizionista</h1><span id="who" class="mut"></span><button id="out" hidden>Esci</button></header>
+<main id="app"></main>
+<script>window.FORMA=window.FORMA||{};</script>
+<script src="gymcfg.js"></script>
+<script src="xlsx.js"></script>
+<script src="account.js"></script>
+<script src="nutri.js"></script>
+<script src="nutri-app.js"></script>
+</body>
+</html>

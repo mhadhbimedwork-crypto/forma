@@ -1,8 +1,8 @@
 {
-  "version": "1.42.0",
-  "build": 114,
+  "version": "1.43.0",
+  "build": 115,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: importa il piano del tuo nutrizionista e scegli il marchio degli alimenti."
+    "Collegamento con il nutrizionista: decidi tu cosa vede e puoi revocarlo. Avvertenze aggiornate."
   ]
 }

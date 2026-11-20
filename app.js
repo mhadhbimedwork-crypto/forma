@@ -61,6 +61,7 @@
         if (d && d.name && p.name && d.birth && p.birth && String(d.name).trim().toLowerCase() !== String(p.name).trim().toLowerCase() && d.birth !== p.birth) { ui.syncErr = 'Il profilo su questo dispositivo non è quello del tuo account: non sincronizzato'; return; }
         ui.pushOkFor = AC.me.id + p.id;
       }
+      pushDiary();
       let merged = false;
       if (srv && d && d.name && srv.version != null && String(srv.version) !== lsGet(vkey())) {   // un altro dispositivo ha scritto: unione, senza perdere nulla
         const sn = F.normalizeProfile(Object.assign({}, d, { id: p.id })), m = F.mergeProfiles(sn, p);
@@ -418,12 +419,40 @@
       <p class="mute small">Sotto i 18 anni l'app attiva automaticamente regole di tutela: niente deficit calorico, niente integratori, carichi moderati.</p>`;
   }
 
+  /* Collegamento con il nutrizionista: lo decide il cliente (consenso separato per diario e allenamenti), revocabile in ogni momento */
+  function nutriLinkCard() {
+    const L = ui.nl || []; if (!L.length) return '';
+    return L.map(l => {
+      const pend = l.status === 'pending';
+      return `<div class="card" style="border-color:var(--${pend ? 'warn' : 'accent'})"><b>${pend ? 'Richiesta del nutrizionista' : 'Nutrizionista collegato'}: ${esc(l.nutri_name)}</b>
+      <p class="small mute" style="margin:6px 0">${pend ? 'Se accetti, vedrà il tuo peso e le tue misure. Il diario e gli allenamenti restano privati se non li consenti qui sotto.' : 'Vede il tuo peso e le tue misure. Puoi cambiare i consensi o revocare quando vuoi.'}</p>
+      <label class="row" style="gap:8px;align-items:flex-start"><input type="checkbox" id="nl_d${l.id}" style="width:auto;margin-top:4px" ${l.scope_diary ? 'checked' : ''}><span class="small">Consento di vedere il mio diario alimentare</span></label>
+      <label class="row" style="gap:8px;align-items:flex-start;margin-top:6px"><input type="checkbox" id="nl_t${l.id}" style="width:auto;margin-top:4px" ${l.scope_training ? 'checked' : ''}><span class="small">Consento di vedere i miei allenamenti e movimenti</span></label>
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">${pend ? `<button class="sm primary" data-act="nlAccept" data-id="${l.id}">Accetta</button><button class="sm" data-act="nlRevoke" data-id="${l.id}">Rifiuta</button>` : `<button class="sm primary" data-act="nlAccept" data-id="${l.id}">Salva consensi</button><button class="sm" data-act="nlRevoke" data-id="${l.id}">Revoca il collegamento</button>`}</div></div>`;
+    }).join('');
+  }
+  /* Diario condiviso solo con il consenso del cliente: una copia riassunta (alimento, grammi, valori) negli ultimi 90 giorni, cancellata se il consenso viene tolto. */
+  async function pushDiary() {
+    const p = P(); if (!p || !(AC.enabled && AC.me) || navigator.onLine === false || (AC.imp && AC.imp() && !AC.imp().write)) return;
+    const on = (ui.nl || []).some(l => l.status === 'active' && l.scope_diary);
+    try {
+      if (!on) { if (ui.diaryShared) { await AC._rest('client_diary_share?user_id=eq.' + AC.me.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); ui.diaryShared = false; } return; }
+      if (F.loadCrea) { try { await F.loadCrea(); } catch (e) { } }
+      const days = {}, lim = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10), r1 = x => Math.round(x * 10) / 10;
+      Object.keys((p.nutrition && p.nutrition.days) || {}).filter(d => d >= lim).forEach(d => {
+        days[d] = { meals: (p.nutrition.days[d].meals || []).map(m => (m || []).map(it => { const mc = F.itemMacros(p, it), rec = it.r ? F.getRecipe(p, it.r) : null, fd = it.f ? F.getFood(p, it.f) : null; return { n: (rec && rec.name) || (fd && fd.name) || it.n || '?', g: it.g || null, q: it.r ? (it.n || 1) : null, k: Math.round(mc.k), p: r1(mc.p), c: r1(mc.c), f: r1(mc.f) }; })) };
+      });
+      await AC._rest('client_diary_share?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ user_id: AC.me.id, data: { days }, updated_at: new Date().toISOString() }) });
+      ui.diaryShared = true;
+    } catch (e) { /* riprova alla prossima sincronizzazione */ }
+  }
+  async function loadNutriLinks() { try { ui.nl = await AC._rest('rpc/my_nutri_links', { method: 'POST', body: '{}' }); } catch (e) { ui.nl = []; } }
   /* --- home --- */
   function viewHome() {
     const p = P(), c = F.calc(p), plan = planOf(p), adv = F.weightAdvice(p);
     const done = (p.sessions || []).length;
     const offers = (p ? p.plans : []).filter(x => x.offer).map(x => `<div class="card" style="border-color:var(--accent)"><b>Hai ricevuto una nuova scheda dal tuo allenatore</b><div class="small">${esc(x.title)} · caricata il ${esc(x.createdAt)}</div><p class="mute small" style="margin:6px 0 0">È già salvata tra le tue schede. Vuoi usarla subito o continuare con quella che hai?</p><div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="offerYes" data-id="${x.id}">Attiva ora</button><button class="sm" data-act="offerNo" data-id="${x.id}">Continuo con la mia</button></div></div>`).join('');
-    const inbox = offers + (ui.inbox || []).map(m => `<div class="card" style="border-color:var(--warn)"><b>Scheda dal tuo allenatore da controllare</b><div class="small">${esc(m.title)}</div><button class="sm primary" style="margin-top:8px" data-act="inboxImport" data-id="${m.id}">Controlla e importa</button></div>`).join('');
+    const inbox = nutriLinkCard() + offers + (ui.inbox || []).map(m => `<div class="card" style="border-color:var(--warn)"><b>Scheda dal tuo allenatore da controllare</b><div class="small">${esc(m.title)}</div><button class="sm primary" style="margin-top:8px" data-act="inboxImport" data-id="${m.id}">Controlla e importa</button></div>`).join('');
     let next = '';
     if (plan && plan.days.length) {
       const cnt = (p.sessions || []).filter(s => s.planId === plan.id).length, ls = (p.sessions || []).filter(s => s.planId === plan.id).slice(-1)[0], li = ls ? plan.days.findIndex(x => x.name === ls.dayName) : -1, auto = li >= 0 ? (li + 1) % plan.days.length : cnt % plan.days.length;
@@ -1328,6 +1357,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       save(); render(); toast('Ricetta importata: ' + d.name);
     },
     rCancel() { ui.sub = null; render(); },
+    async nlAccept(t) { const id = t.dataset.id, d = $('#nl_d' + id), tr = $('#nl_t' + id); try { await AC._rest('nutri_links?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'active', scope_diary: !!(d && d.checked), scope_training: !!(tr && tr.checked), decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Consensi salvati'); render(); } catch (e) { toast(/row-level|policy|violat/i.test(e.message) ? 'Per i minorenni serve il consenso di un genitore: chiedi all\'allenatore di registrarlo' : e.message); } },
+    async nlRevoke(t) { if (!(await ask({ title: 'Revocare il collegamento con il nutrizionista?', text: 'Non potrà più vedere i tuoi dati. I dati che ha già scritto restano nella sua scheda.' }))) return; try { await AC._rest('nutri_links?id=eq.' + t.dataset.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'revoked', scope_diary: false, scope_training: false, decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Collegamento revocato'); render(); } catch (e) { toast(e.message); } },
     legalOk() { const c = $('#legalChk'); if (!c || !c.checked) return toast('Spunta la casella per continuare'); S.settings.legal = F.LEGAL_VERSION; S.settings.legalAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
     async pvParse() {
       const t = ($('#pvText').value || '').trim(); if (t.length < 5) return toast('Incolla il testo del piano');
@@ -1736,6 +1767,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         else if (m && nSess(m) > nSess(P())) ui.legacyMine = { name: m.name, n: nSess(m) };
       } }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
+    await loadNutriLinks(); pushDiary();
     if (!imp || imp.write) await autoImportAssigned();
     render();
   }
