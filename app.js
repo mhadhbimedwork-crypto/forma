@@ -1641,9 +1641,9 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   else autoBackup();
   if (NATIVE) setTimeout(async () => {   // nuova versione dell'APK: si propone da dentro l'app, una volta per versione
     if (navigator.onLine === false) return;
-    const a = await checkApk(); if (a) render(); if (!a || S.settings.apkAsked === a.build || !idleNow()) return;
-    S.settings.apkAsked = a.build; save();
-    const r = await ask({ title: 'Nuova versione dell\'app', text: 'Si scarica e si installa da qui, senza altre app. I tuoi dati restano.' });
+    const a = await checkApk(); if (a) render(); const day = localISO(new Date()); if (!a || S.settings.apkAsked === a.build + '@' + day || !idleNow()) return;
+    S.settings.apkAsked = a.build + '@' + day; save();
+    const r = await ask({ title: 'Aggiornamento disponibile', text: 'Installalo per avere tutte le ultime novità. Si fa da qui in pochi secondi e i tuoi dati restano.' });
     if (r && r.ok) act.apkInstall(); else render();
   }, 6000);
   checkVersion().then(r => {

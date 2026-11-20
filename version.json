@@ -1,8 +1,8 @@
 {
   "version": "1.40.0",
-  "build": 108,
+  "build": 109,
   "date": "2026-11-20",
   "notes": [
-    "Aggiornamenti: avviso in app all'apertura e pulsante nel Profilo (anche TLZ) per installare la nuova versione dell'app Android."
+    "Avviso di aggiornamento app Android una volta al giorno finché non è installato."
   ]
 }
