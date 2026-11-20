@@ -7,6 +7,7 @@
   F.CREA = []; F.CREAMAP = {};
   F.CREA_FONTE = 'CREA – Centro di ricerca Alimenti e Nutrizione, Tabelle di composizione degli alimenti, Aggiornamento 2019 (a cura di L. Marletta e E. Camilli)';
   F.CREA_URL = 'https://www.alimentinutrizione.it/tabelle-nutrizionali/';
+  F.CREAMICRO = null;   // vitamine e minerali per codice (file facoltativo crea_micro.json): { codice: { m: [[nome, unità, valore]], v: [[...]] } }
   let loading = null;
   // riga: [codice, nome, categoria, % edibile, kcal, proteine, lipidi, carboidrati disponibili, zuccheri solubili, fibra, sodio mg]
   const num = v => (v == null || v === '' ? 0 : +v || 0);
@@ -20,6 +21,7 @@
       F.CREA.forEach(x => { x.nn = F.normText ? F.normText(x.name + ' ' + x.cat) : x.name.toLowerCase(); });
       return F.CREA;
     }).catch(() => { loading = null; return []; });
+    if (!F.CREAMICRO && !window.FORMA_GYM) fetch('crea_micro.json').then(r => r.ok ? r.json() : null).then(d => { if (d && d.dati) F.CREAMICRO = d.dati; }).catch(() => { });
     return loading;
   };
   /** cerca nelle tabelle CREA: tutte le parole devono comparire; prima chi inizia con la ricerca */
