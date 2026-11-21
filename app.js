@@ -916,7 +916,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const S = cmpS(), t = cmpSum(p); if (!S.combo.length) return '';
     const day = { k: tot.k + t.k, p: tot.p + t.p, c: tot.c + t.c, f: tot.f + t.f };
     const dl = (a, b, u) => { const d = Math.round(a - b); return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + u; };
-    return `<div class="msg small"><b>Combinazione:</b> ${fx(t.k)} kcal · P ${fmt(t.p, 1)} · C ${fmt(t.c, 1)} · G ${fmt(t.f, 1)} g<div style="margin-top:4px"><b>Giornata con la combinazione:</b> ${fx(day.k)} kcal · P ${fx(day.p)} · C ${fx(day.c)} · G ${fx(day.f)} g</div>${tgt ? `<div style="margin-top:4px" class="mute">Differenza dai tuoi obiettivi: ${dl(day.k, tgt.k, ' kcal')} · P ${dl(day.p, tgt.p, ' g')} · C ${dl(day.c, tgt.c, ' g')} · G ${dl(day.f, tgt.f, ' g')}</div>` : ''}</div>`;
+    return `<div class="msg small"><b>Combinazione:</b> ${fx(t.k)} kcal · P ${fmt(t.p, 1)} · C ${fmt(t.c, 1)} · G ${fmt(t.f, 1)} g<div style="margin-top:4px"><b>Giornata con la combinazione:</b> ${fx(day.k)} kcal · P ${fx(day.p)} · C ${fx(day.c)} · G ${fx(day.f)} g</div>${tgt ? `<div style="margin-top:4px" class="mute">Differenza dai tuoi obiettivi: ${dl(day.k, tgt.k, ' kcal')} · P ${dl(day.p, tgt.p, ' g')} · C ${dl(day.c, tgt.c, ' g')} · G ${dl(day.f, tgt.f, ' g')}</div>${(() => { const T = F.CLOSE_TOL, bad = ['k', 'p', 'c', 'f'].filter(k => Math.abs(day[k] - tgt[k]) > tgt[k] * T[k]); return `<div style="margin-top:4px"><b class="${bad.length ? 'warn' : 'ok'}">${bad.length ? 'Fuori dal range: ' + bad.map(k => CMP_N[k].toLowerCase()).join(', ') : 'Giornata dentro il range'}</b> <span class="mute">(±3% kcal, ±5% macro)</span></div>`; })()}` : ''}</div>`;
   }
   function whereFrom(p, day, tot) {
     const lines = ['p', 'c', 'f', 'k'].map(key => {
@@ -939,6 +939,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <h3 style="margin:12px 0 4px">La tua combinazione</h3>
       <div id="cmpCombo">${S.combo.length ? S.combo.map((it, i) => { const fd = F.getFood(p, it.f); return fd ? `<div class="row" style="padding:4px 0"><div class="grow"><b>${esc(fd.name)}</b></div><input inputmode="decimal" style="width:80px" data-cg="${i}" value="${it.g}" aria-label="Quantità"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="cmpRm" data-i="${i}" aria-label="Togli">✕</button></div>` : ''; }).join('') : '<p class="mute small" style="margin:2px 0">Vuota: aggiungi alimenti dall\'elenco e scegli tu le quantità.</p>'}</div>
       <div id="cmpTot">${cmpTotHtml(p, tot, tgt)}</div>
+      ${S.combo.length && tgt ? `<div class="row wrap" style="margin-top:8px;gap:6px"><button class="sm primary" data-act="cmpClose">Calcola le quantità per chiudere la giornata</button></div><p class="mute small" style="margin:4px 0 0">Calcolo sugli alimenti che hai scelto tu e su quanto manca ai tuoi obiettivi (${fx(tgt.k - tot.k)} kcal · P ${fx(tgt.p - tot.p)} · C ${fx(tgt.c - tot.c)} · G ${fx(tgt.f - tot.f)} g). I valori sono quelli delle tabelle: l'etichetta del prodotto può differire.</p>${S.closeMsg ? `<div class="msg small" style="margin-top:6px">${esc(S.closeMsg)}</div>` : ''}` : ''}
       ${S.combo.length ? `<div class="row wrap" style="margin-top:8px;gap:6px"><select id="cmpMeal" aria-label="Pasto" style="width:auto">${F.MEALS.map((n, i) => `<option value="${i}"${i === S.meal ? ' selected' : ''}>${n}</option>`).join('')}</select><button class="sm primary" data-act="cmpAdd">Aggiungi al diario</button><button class="sm" data-act="cmpClear">Svuota</button></div>` : ''}</div>`;
   }
   function viewDiet() {
@@ -1402,9 +1403,19 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     rCancel() { ui.sub = null; render(); },
     async cmpOpen() { const S = cmpS(); S.open = !S.open; if (S.open && F.loadCrea) { try { await F.loadCrea(); } catch (e) { } } render(); },
     cmpNut(t) { cmpS().nut = t.dataset.k; render(); },
-    cmpPut(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' nella combinazione'); render(); },
+    cmpPut(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; S.closeMsg = ''; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' nella combinazione'); render(); },
     cmpRm(t) { cmpS().combo.splice(+t.dataset.i, 1); render(); },
-    cmpClear() { cmpS().combo = []; render(); },
+    cmpClose() {
+      const S = cmpS(), p = P(), D = ui.diet, day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), tg = dietTarget(p, D.date); if (!tg || !S.combo.length) return;
+      const foods = S.combo.map(it => F.getFood(p, it.f)).filter(Boolean); if (foods.length !== S.combo.length) return toast('Alimento non trovato');
+      const need = { k: tg.k - tot.k, p: tg.p - tot.p, c: tg.c - tot.c, f: tg.f - tot.f };
+      const r = F.closeDay(foods, need, { k: tg.k, p: tg.p, c: tg.c, f: tg.f }, { step: 5, max: 800 });
+      S.combo.forEach((it, i) => { it.g = r.g[i]; });
+      const names = { k: 'kcal', p: 'proteine', c: 'carboidrati', f: 'grassi' }, off = ['k', 'p', 'c', 'f'].filter(k => !r.okBy[k]);
+      S.closeMsg = r.ok ? 'Con queste quantità la giornata chiude dentro il range.' : (r.g.every(v => v === 0) ? 'Gli obiettivi di oggi sono già raggiunti o superati: nessuna quantità da aggiungere.' : 'Con questi alimenti non si chiude del tutto: restano fuori ' + off.map(k => names[k] + ' (' + (r.miss[k] > 0 ? 'mancano ' : 'in più ') + fx(Math.abs(r.miss[k])) + (k === 'k' ? ' kcal' : ' g') + ')').join(', ') + '. Puoi cambiare gli alimenti o le quantità.');
+      render();
+    },
+    cmpClear() { cmpS().combo = []; cmpS().closeMsg = ''; render(); },
     cmpAdd() { const S = cmpS(), p = P(), day = F.dayOf(p, ui.diet.date), mi = +($('#cmpMeal') || { value: S.meal }).value; const ok = S.combo.filter(x => x.g > 0); if (!ok.length) return toast('Inserisci le quantità'); ok.forEach(x => day.meals[mi].push({ f: x.f, g: x.g })); S.combo = []; S.meal = mi; save(); toast('Aggiunto al diario'); render(); },
     async nlAccept(t) { const id = t.dataset.id, d = $('#nl_d' + id), tr = $('#nl_t' + id); try { await AC._rest('nutri_links?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'active', scope_diary: !!(d && d.checked), scope_training: !!(tr && tr.checked), decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Consensi salvati'); render(); } catch (e) { toast(/row-level|policy|violat/i.test(e.message) ? 'Per i minorenni serve il consenso di un genitore: chiedi all\'allenatore di registrarlo' : e.message); } },
     async nlRevoke(t) { if (!(await ask({ title: 'Revocare il collegamento con il nutrizionista?', text: 'Non potrà più vedere i tuoi dati. I dati che ha già scritto restano nella sua scheda.' }))) return; try { await AC._rest('nutri_links?id=eq.' + t.dataset.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'revoked', scope_diary: false, scope_training: false, decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Collegamento revocato'); render(); } catch (e) { toast(e.message); } },
@@ -1747,7 +1758,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.id === 'dDate' && /^\d{4}-\d{2}-\d{2}$/.test(t.value)) { const D = ui.diet; D.skip = {}; D.date = t.value; D.addTo = null; D.pick = null; render(); return; }
     if (t.id === 'pvFile' && t.files.length) { const fl = t.files[0]; t.value = ''; fl.text().then(x => { const ta = $('#pvText'); if (ta) ta.value = x; toast('File caricato: ora tocca "Riconosci alimenti"'); }); return; }
     if (t.id === 'pv_name' && ui.sub && ui.sub.type === 'planrev') { ui.sub.draft.name = t.value.slice(0, 80); return; }
-    if (t.dataset.pvg && ui.sub && ui.sub.type === 'planrev') { const [dd, mm, ii] = t.dataset.pvg.split(':').map(Number), it = ui.sub.draft.days[dd].meals[mm][ii]; if (it) { it.g = parseFloat(String(t.value).replace(',', '.')) || 0; it.est = false; it.noq = false; render(); } return; }
+    if (t.dataset.pvg && ui.sub && ui.sub.type === 'planrev') { const [dd, mm, ii] = t.dataset.pvg.split(':').map(Number), it = ui.sub.draft.days[dd].meals[mm][ii]; if (it) { it.g = parseFloat(String(t.value).replace(',', '.')) || 0; S.closeMsg = ''; it.est = false; it.noq = false; render(); } return; }
     if (t.id === 'recFile' && t.files.length) { const fl = Array.from(t.files); t.value = ''; F.readBackupFiles(fl).then(r => { const files = r.map(x => x.profile), list = files.map((q, j) => { const ss = (q.sessions || []).map(x => x.date).sort(); return { f: true, j, name: q.name, birth: q.birth, n: (q.sessions || []).length, last: ss.length ? ss[ss.length - 1] : '-', mine: isMine(q) }; }); list.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0)); ui.rec = { list, files }; if (!list.length) toast('Nel file non ho trovato profili di allenamento'); render(); }); return; }
     if (t.id === 'pxShort' || t.id === 'pxFull') { if (t.value) act.pxPick({ dataset: { id: t.value } }); return; }
     if (t.dataset.ddate && p && p.draft) { p.draft.date = t.value && t.value <= F.todayISO() ? t.value : undefined; save(); render(); return; }

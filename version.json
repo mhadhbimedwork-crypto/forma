@@ -1,8 +1,8 @@
 {
-  "version": "1.44.3",
-  "build": 119,
+  "version": "1.45.0",
+  "build": 120,
   "date": "2026-11-20",
   "notes": [
-    "Nutrizionista: nell'app compare la scheda Nutrizione con l'accesso all'area del professionista."
+    "Dieta: 'Calcola le quantità per chiudere la giornata'. Scegli tu gli alimenti, l'app calcola le grammature per rientrare nel range dei tuoi obiettivi."
   ]
 }
