@@ -1,8 +1,10 @@
 {
   "version": "1.48.1",
-  "build": 127,
+  "build": 128,
   "date": "2026-11-21",
   "notes": [
+    "Allenatori e responsabili: il profilo atleta personale è nella lista Clienti (senza altra password); se crei un cliente con il tuo nome lo attiva da solo e avvisa dei doppioni.",
+    "Nutrizionista: scrivi nome o cognome e scegli l'atleta della tua palestra dall'elenco per inviare la richiesta di collegamento.",
     "Ricerca alimenti e ricette: nuovi elenchi a schede grandi e chiare, con calorie e macro e tasto +, al posto del menù scuro di sistema.",
     "Accessi: allenatore, nutrizionista e amministratore scelgono per ogni cliente i servizi attivi (solo allenamento, solo dieta, entrambi); l'app mostra solo le sezioni abilitate.",
     "Dieta: le fasce attorno all'allenamento ora si chiamano Pre workout e Post workout (il testo \"prima/dopo l'allenamento\" viene riconosciuto lo stesso).",

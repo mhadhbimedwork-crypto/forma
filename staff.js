@@ -154,6 +154,13 @@
         try { const r = await A.createGym({ gym_name: fd.gym, name: fd.name, surname: fd.surname, password: fd.password, birth: fd.birth || null }); ui.sub = null; ui.tab = 'gyms'; ui.admLoaded = false; toast('Palestra creata. Accesso: ' + r.username); c.render(); } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
       }
       if (form.id === 'newClientForm') {
+        const fd0 = Object.fromEntries(new FormData(form).entries());
+        if (fd0.role === 'client') {
+          const nm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(), full = nm(fd0.name + ' ' + fd0.surname);
+          if (['head', 'coach'].includes(A.me.role) && full === nm(A.me.full_name)) { toast('È il tuo nome: creo il tuo profilo atleta personale, senza altra password'); acts.ownCreate(); return true; }
+          const dup = (ui.cl || []).find(p => nm(p.name) === full);
+          if (dup && !confirm(dup.name + ' è già tra i clienti. Creare comunque un altro profilo con lo stesso nome?')) return true;
+        }
         const fd = Object.fromEntries(new FormData(form).entries()), minor = fd.role === 'client' && fd.birth && F.ageOf(fd.birth) < 18, back = ui.sub && ui.sub.back || 'clients';
         if (minor && (!fd.guardian || !fd.guardianOk)) { toast('Per un minorenne servono nome del genitore e conferma del consenso'); return true; }
         try {
@@ -961,6 +968,13 @@
       try { const r = await A.createOwn(); ui.own = (ui.own || []).concat(r.id); ui.cl = null; ui.clLoaded = false; ui.accts = null; ui.admLoaded = false; ui.ownBusy = false; toast('Profilo atleta creato'); await A.impersonate(r.id, A.me.full_name); ui.menu = false; await c.onSignIn(); }
       catch (e) { ui.ownBusy = false; ui.ownErr = e.message; c.render(); }
     };
+    /* Il profilo atleta personale di allenatori e responsabili: ben visibile nella lista clienti, non solo nel menù. */
+    { const _vc = views.clients;
+      views.clients = function () {
+        const me = A.me, show = me && ['head', 'coach'].includes(me.role) && !(ui.sub);
+        if (show && !ui.ownLoaded) { ui.ownLoaded = true; A.listOwn().then(l => { ui.own = l; c.render(); }).catch(() => { ui.own = ui.own || []; }); }
+        return (show ? `<div class="card">${ownSection()}</div>` : '') + _vc.apply(this, arguments);
+      }; }
     X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
     X.menu = function () {
       const me = A.me, r = me.role, links = A.links();

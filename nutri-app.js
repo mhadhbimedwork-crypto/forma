@@ -89,11 +89,25 @@
     $app.innerHTML = '<div class="card"><div class="row"><h2 style="flex:1;margin:0">I tuoi clienti</h2><button id="xall" class="noprint">Scarica Excel (tutti)</button><button id="pall" class="noprint">PDF (tutti)</button></div>' +
       (st.clients.length ? '<table><tr><th>Cliente</th><th>Stato</th><th>Peso</th><th>Variazione</th><th>Ultima pesata</th></tr>' + rows + '</table>' : '<p class="mut">Nessun cliente collegato. Chiedi il collegamento qui sotto: il cliente deve accettarlo nella sua app.</p>') +
       (msg ? '<p class="msg bad">' + esc(msg) + '</p>' : '') + '</div>' +
-      '<div class="card noprint"><h2>Collega un cliente</h2><div class="row"><input id="rn" placeholder="Nome" style="max-width:200px"><input id="rs" placeholder="Cognome" style="max-width:200px"><button class="pri" id="rgo">Invia richiesta</button></div><p class="mut" style="font-size:13px">Il cliente riceve la richiesta nella sua app e sceglie se consentire anche diario alimentare e allenamenti. Pesi e misure sono visibili dopo l\'accettazione.</p><span id="rmsg" class="msg"></span></div>';
+      '<div class="card noprint"><h2>Collega un cliente</h2><input id="rq" placeholder="Scrivi nome o cognome dell\'atleta…" autocomplete="off" style="width:100%"><div id="rsug" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="pri" id="rgo">Invia richiesta</button></div><p class="mut" style="font-size:13px">Il cliente riceve la richiesta nella sua app e sceglie se consentire anche diario alimentare e allenamenti. Pesi e misure sono visibili dopo l\'accettazione.</p><span id="rmsg" class="msg"></span></div>';
     $app.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => openClient(tr.dataset.id));
-    document.getElementById('rgo').onclick = async () => {
-      const u = (v('rn').trim() + '.' + v('rs').trim()).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9.]+/g, '');
-      try { const r = await rest('rpc/nutri_request', { method: 'POST', body: JSON.stringify({ uname: u }) }); await loadClients('Richiesta inviata a ' + r.name + '.'); } catch (e) { document.getElementById('rmsg').className = 'msg bad'; document.getElementById('rmsg').textContent = e.message; }
+    const ask = async uname => {
+      try { const r = await rest('rpc/nutri_request', { method: 'POST', body: JSON.stringify({ uname }) }); await loadClients('Richiesta inviata a ' + r.name + '.'); } catch (e) { document.getElementById('rmsg').className = 'msg bad'; document.getElementById('rmsg').textContent = e.message; }
+    };
+    let qT = null;
+    document.getElementById('rq').oninput = e => {
+      clearTimeout(qT); const q = e.target.value.trim(), box = document.getElementById('rsug'); if (q.length < 2) { box.innerHTML = ''; return; }
+      qT = setTimeout(async () => {
+        try {
+          const l = await rest('rpc/nutri_search', { method: 'POST', body: JSON.stringify({ q }) });
+          box.innerHTML = l.length ? l.map(x => '<button type="button" class="sugbtn" data-u="' + esc(x.username) + '" ' + (x.linked ? 'disabled' : '') + '><b>' + esc(x.full_name) + '</b><span>' + (x.linked === 'active' ? 'già collegato' : x.linked === 'pending' ? 'richiesta in attesa' : 'Tocca per inviare la richiesta') + '</span></button>').join('') : '<p class="mut" style="margin:0;font-size:13px">Nessun atleta della tua palestra con questo nome. Se è di un\'altra palestra scrivi nome e cognome completi e premi "Invia richiesta".</p>';
+          box.querySelectorAll('button[data-u]:not([disabled])').forEach(b => b.onclick = () => ask(b.dataset.u));
+        } catch (er) { box.innerHTML = ''; }
+      }, 250);
+    };
+    document.getElementById('rgo').onclick = () => {
+      const t = v('rq').trim().split(/\s+/); if (t.length < 2) { document.getElementById('rmsg').className = 'msg bad'; document.getElementById('rmsg').textContent = 'Scegli un atleta dall\'elenco o scrivi nome e cognome completi.'; return; }
+      ask((t[0] + '.' + t.slice(1).join('')).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9.]+/g, ''));
     };
     document.getElementById('xall').onclick = () => exportExcel(null);
     document.getElementById('pall').onclick = () => exportPdf(null);
