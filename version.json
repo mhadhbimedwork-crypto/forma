@@ -1,8 +1,8 @@
 {
-  "version": "1.44.2",
-  "build": 118,
+  "version": "1.44.3",
+  "build": 119,
   "date": "2026-11-20",
   "notes": [
-    "Nutrizionista: puoi segnare un allenatore esistente come nutrizionista (spunta 'anche nutrizionista') o creare un nuovo nutrizionista da Team."
+    "Nutrizionista: nell'app compare la scheda Nutrizione con l'accesso all'area del professionista."
   ]
 }

@@ -16,7 +16,7 @@
     X.tabs = I => {
       if (!staffMode()) return [];
       if (!A.enabled) return [['clients', 'Clienti', I.user]];
-      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head' || r === 'admin') t.push(['team', 'Team', I.plan]); return t;
+      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head' || r === 'admin') t.push(['team', 'Team', I.plan]); if (A.isNutri()) t.push(['nutri', 'Nutrizione', I.plan]); return t;
     };
     X.homeTab = () => (A.enabled && A.me && A.me.role === 'admin' ? 'gyms' : 'clients');
 
@@ -710,6 +710,10 @@
         <h3>Allenatore principale</h3><label for="ng_n">Nome</label><input id="ng_n" name="name" required><label for="ng_s">Cognome</label><input id="ng_s" name="surname" required>
         <label for="ng_p">Password iniziale (min. 8 caratteri)</label><input id="ng_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso sceglierà la sua password.</p>
         <button class="primary" style="margin-top:12px;width:100%">Crea palestra e accesso</button></form>`;
+    };
+    views.nutri = function () {
+      const url = /\/gym\/?/.test(location.pathname) ? location.pathname.replace(/\/gym\/.*$/, '/nutri/') : new URL('nutri/', location.href).href;
+      return `<h1>Area nutrizionista</h1><div class="card"><p class="small" style="margin-top:0">Qui trovi gli strumenti del professionista: elenco clienti collegati, visite e misure (plicometria, bioimpedenza, circonferenze, esami), calcolo del metabolismo, importazione dati e download Excel/PDF di tutto.</p><p class="small mute">Vedi solo i clienti che accettano il collegamento dalla loro app, e solo i dati per cui danno il consenso.</p><a class="btn primary" style="display:block;text-align:center;text-decoration:none;padding:12px" href="${esc(url)}" target="_blank" rel="noopener">Apri l'area nutrizionista</a></div>`;
     };
     views.team = function () {
       X.ensureAdmin(); const adm = A.me.role === 'admin', coaches = (ui.accts || []).filter(a => (adm ? (a.role === 'coach' || a.role === 'head' || a.role === 'nutri') && inLens(a) : (a.role === 'coach' || a.role === 'nutri')));
