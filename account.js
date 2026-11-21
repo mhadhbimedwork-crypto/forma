@@ -178,6 +178,7 @@
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
   A.setRm = (uid, on) => rest('rpc/set_rm_enabled', { method: 'POST', body: JSON.stringify({ target: uid, enabled: !!on }) });
+  A.addRole = (uid, add) => admin({ action: 'add_role', user_id: uid, add });
   A.setNutri = (uid, is_nutri) => admin({ action: 'set_nutri', user_id: uid, is_nutri });
   A.isNutri = () => !!(A.me && (A.me.role === 'nutri' || A.me.is_nutri));
   A.setPerms = (uid, can_see_all) => admin({ action: 'set_perms', user_id: uid, can_see_all });
@@ -199,9 +200,17 @@
   A.clientPlans = uid => rest('assigned_plans?user_id=eq.' + uid + '&select=id,title,body,created_at,imported_at,coach:profiles!coach_id(full_name)&order=created_at.asc');
   A.myPlans = () => rest('assigned_plans?user_id=eq.' + A.me.id + '&kind=eq.scheda&imported_at=is.null&select=id,title,body,created_at&order=created_at.desc');
   /* Diete inviate dal nutrizionista: il cliente le attiva o resta con la sua */
+  /* Pagamenti (solo amministratore): stato per palestra/nutrizionista e pagamenti mensili */
+  const UP = { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' } };
+  A.billingList = () => rest('billing?select=*');
+  A.billingSet = (type, id, patch) => rest('billing?on_conflict=subject_type,subject_id', Object.assign({}, UP, { body: JSON.stringify(Object.assign({ subject_type: type, subject_id: id, updated_at: new Date().toISOString() }, patch)) }));
+  A.payList = () => rest('billing_payments?select=*&order=month.desc&limit=2000');
+  A.paySet = (type, id, month, amount) => rest('billing_payments?on_conflict=subject_type,subject_id,month', Object.assign({}, UP, { body: JSON.stringify({ subject_type: type, subject_id: id, month, amount: amount == null ? null : amount, paid_at: new Date().toISOString().slice(0, 10) }) }));
+  A.payDel = (type, id, month) => rest('billing_payments?subject_type=eq.' + type + '&subject_id=eq.' + id + '&month=eq.' + month, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   A.myDiets = () => rest('assigned_plans?user_id=eq.' + A.me.id + '&kind=eq.dieta&resp=is.null&select=id,title,body,created_at&order=created_at.desc');
   A.respondDiet = (id, resp) => rest('assigned_plans?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ resp, resp_at: new Date().toISOString(), imported_at: new Date().toISOString() }) });
   A.sentDiets = cid => rest('assigned_plans?user_id=eq.' + cid + '&kind=eq.dieta&select=id,title,created_at,resp,resp_at&order=created_at.desc');
+  A.activeDiet = cid => rest('assigned_plans?user_id=eq.' + cid + '&kind=eq.dieta&resp=eq.activated&select=id,title,body,resp_at&order=resp_at.desc&limit=1');
   A.sendDiet = (cid, title, payload) => rest('assigned_plans', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: cid, coach_id: A.me.id, title, body: JSON.stringify(payload), kind: 'dieta' }) });
   A.markPlanImported = id => rest('assigned_plans?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ imported_at: new Date().toISOString() }) });
   A.audit = (n) => rest('audit_log?select=at,actor,action,target,detail&order=at.desc&limit=' + (n || 100));

@@ -874,7 +874,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (sb.id) { const m = (ui.diets || []).find(x => String(x.id) === String(sb.id)), d = m && dietOf(m); if (!d) { ui.sub = null; return viewDiet(); } src = { title: m.title, by: d.by, at: m.created_at, text: d.text, plan: d.plan, foods: d.foods || [], inbox: m.id }; }
     else { const pl = nut.plan; if (!pl) { ui.sub = null; return viewDiet(); } src = { title: pl.name, by: pl.by, at: pl.created, text: pl.text, plan: pl, foods: nut.foods || [] }; }
     const pp = { nutrition: { foods: src.foods } };
-    const days = (src.plan.days || []).map(d => { const t = F.planDayTotals(pp, d).total; return `<h3 style="margin:12px 0 2px">${esc(d.name)} <span class="mute small" style="font-weight:400">${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g</span></h3>` + (d.meals || []).map((m, mi) => m.length ? `<div class="small"><b>${F.MEALS[mi]}</b>: ${m.map(it => { const fd = F.getFood(pp, it.f); return esc(fd ? fd.name : (it.raw || '?')) + ' ' + fx(it.g) + (fd && fd.liq ? ' ml' : ' g'); }).join(' · ')}</div>` : '').join(''); }).join('');
+    const days = (src.plan.days || []).map(d => { const t = F.planDayTotals(pp, d).total; return `<h3 style="margin:12px 0 2px">${esc(d.name)} <span class="mute small" style="font-weight:400">${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g</span></h3>` + F.planSections(pp, d).map(sc => `<div class="small" style="margin-top:8px"><b>${esc(sc.lab)}</b> <span class="mute">${sc.supp ? '' : fx(sc.tot.k) + ' kcal · P ' + fx(sc.tot.p) + ' · C ' + fx(sc.tot.c) + ' · G ' + fx(sc.tot.f)}</span>${sc.groups.map(g => `<div style="margin:2px 0 0 8px">${g.head ? `<span class="mute">${g.head}: </span>` : ''}${g.rows.map(r => { const it = r[0], fd = F.getFood(pp, it.f), alts = (it.alts || []).length ? ' <span class="mute">(oppure ' + esc(F.altText(it)) + ')</span>' : ''; return it.kind ? esc(it.name || it.raw) + ' ' + esc(it.q || '') + alts : esc(fd ? fd.name : (it.raw || '?')) + (it.g > 0 ? ' ' + fx(it.g) + (fd && fd.liq ? ' ml' : ' g') : '') + alts; }).join(' · ')}</div>`).join('')}</div>`).join(''); }).join('') + (src.plan.water ? `<p class="small" style="margin:12px 0 0"><b>Acqua:</b> ${esc(String(src.plan.water).replace('.', ','))} litri al giorno</p>` : '') + (src.plan.notes ? `<p class="small mute" style="white-space:pre-wrap;margin:6px 0 0">${esc(src.plan.notes)}</p>` : '');
     return `<div class="row"><button class="ghost" data-act="dietBack">← Dieta</button></div><h1>${esc(src.title)}</h1><p class="mute small" style="margin-top:0">${src.by ? 'Dieta scritta da ' + esc(src.by) : 'Dieta del tuo nutrizionista'}${src.at ? ' · ' + esc(String(src.at).slice(0, 10)) : ''}</p>
       <div class="card"><h2>Versione scritta</h2><p class="mute small" style="margin-top:0">Il testo identico a come l'ha scritto il nutrizionista.</p>${src.text ? `<pre style="white-space:pre-wrap;font-family:inherit;margin:0;line-height:1.5">${esc(src.text)}</pre>` : '<p class="mute">Testo non disponibile.</p>'}</div>
       <div class="card"><h2>Versione digitale</h2><p class="mute small" style="margin-top:0">Alimenti e quantità con i valori delle tabelle CREA.</p>${days}</div>
@@ -891,6 +891,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${pl.days.length > 1 ? `<div class="row wrap" style="gap:6px;margin:8px 0">${pl.days.map((d, i) => `<button class="sm chiptab${i === ci ? ' on' : ''}" data-act="pvDay" data-i="${i}">${esc(d.name)}</button>`).join('')}</div>` : ''}
       <p class="small" style="margin:6px 0 0">${esc(cur.name)}: ${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g (somma delle quantità scritte nel piano)</p>
       <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="pvAddDay">Aggiungi il giorno al diario</button><button class="sm" data-act="pvEdit">Vedi e modifica</button>${pl.src === 'nutrizionista' && pl.text ? '<button class="sm" data-act="dietOpen">Dieta scritta del nutrizionista</button>' : ''}<button class="sm danger" data-act="pvDrop">Rimuovi il piano</button></div>
+      ${pl.water ? `<p class="small" style="margin:6px 0 0"><b>Acqua:</b> ${esc(String(pl.water).replace('.', ','))} litri al giorno</p>` : ''}
       <details style="margin-top:8px"><summary class="mute small">Testo originale del piano</summary><pre class="small" style="white-space:pre-wrap;margin:6px 0 0">${esc(pl.text || '')}</pre></details></div>`;
   }
   function targetsCard(p) {
@@ -900,16 +901,17 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="row wrap" style="margin-top:8px"><button class="sm primary" data-act="tgSave">Salva</button>${g.k ? '<button class="sm" data-act="tgClear">Togli obiettivi</button>' : ''}</div></details></div>`;
   }
   function pvRow(p, it, d, m, i) {
-    const fd = it.f ? F.getFood(p, it.f) : null;
-    const chip = !fd ? '<span class="chip warn">non riconosciuto</span>' : it.conf === 'check' ? '<span class="chip warn">controlla</span>' : it.pref ? '<span class="chip">tuo marchio</span>' : '';
-    const est = it.est ? ' <span class="chip warn">quantità stimata</span>' : '', noq = fd && !(it.g > 0) ? ' <span class="chip warn">manca la quantità</span>' : '';
-    return `<div style="border-top:1px solid var(--line);padding:6px 0"><div class="row"><div class="grow"><b>${fd ? esc(fd.name) : esc(it.name || it.raw)}</b> ${chip}${est}${noq}<div class="mute small">Scritto: “${esc(it.raw)}”${it.alt ? ' · alternativa: ' + esc(it.alt) : ''}${it.note ? ' · ' + esc(it.note) : ''}</div></div>
-      <input inputmode="decimal" style="width:72px" data-pvg="${d}:${m}:${i}" value="${it.g || ''}" aria-label="Quantità"><span class="mute small">${fd ? F.unitOf(fd) : 'g'}</span></div>
-      <div class="row wrap" style="margin-top:4px;gap:6px"><button class="sm" data-act="pvSwap" data-d="${d}" data-m="${m}" data-i="${i}">${fd ? 'Cambia alimento o marchio' : 'Scegli alimento'}</button><button class="ghost sm danger" data-act="pvRm" data-d="${d}" data-m="${m}" data-i="${i}">✕ Togli</button></div></div>`;
+    const fd = it.f ? F.getFood(p, it.f) : null, kind = it.kind;
+    const chip = kind ? `<span class="chip">${kind === 'supp' ? 'integratore' : 'a piacere'}</span>` : !fd ? '<span class="chip warn">non riconosciuto</span>' : it.conf === 'check' ? '<span class="chip warn">controlla</span>' : it.pref ? '<span class="chip">tuo marchio</span>' : '';
+    const est = it.est ? ' <span class="chip warn">quantità stimata</span>' : '', noq = !kind && fd && !(it.g > 0) ? ' <span class="chip warn">manca la quantità</span>' : '';
+    const altT = (it.alts || []).length ? F.altText(it) : it.alt, swaps = (it.alts || []).map((a, k) => `<button class="sm" data-act="pvAlt" data-d="${d}" data-m="${m}" data-i="${i}" data-k="${k}">Usa ${esc((a.name || '').slice(0, 20))}</button>`).join('');
+    return `<div style="border-top:1px solid var(--line);padding:6px 0"><div class="row"><div class="grow"><b>${fd ? esc(fd.name) : esc(it.name || it.raw)}</b> ${chip}${est}${noq}<div class="mute small">Scritto: “${esc(it.raw)}”${altT ? ' · oppure: ' + esc(altT) : ''}${it.note ? ' · ' + esc(it.note) : ''}</div></div>
+      ${kind ? `<span class="mute small">${esc(it.q || (kind === 'free' ? 'a piacere' : ''))}</span>` : `<input inputmode="decimal" style="width:72px" data-pvg="${d}:${m}:${i}" value="${it.g || ''}" aria-label="Quantità"><span class="mute small">${fd ? F.unitOf(fd) : 'g'}</span>`}</div>
+      <div class="row wrap" style="margin-top:4px;gap:6px">${kind ? '' : `<button class="sm" data-act="pvSwap" data-d="${d}" data-m="${m}" data-i="${i}">${fd ? 'Cambia alimento o marchio' : 'Scegli alimento'}</button>`}${swaps}<button class="ghost sm danger" data-act="pvRm" data-d="${d}" data-m="${m}" data-i="${i}">✕ Togli</button></div></div>`;
   }
   function viewPlanRev() {
     const p = P(), pl = ui.sub.draft, D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false }, sw = ui.pv && ui.pv.swap;
-    const unk = pl.days.reduce((n, d) => n + d.meals.reduce((a, m) => a + m.filter(x => !x.f || !(x.g > 0)).length, 0), 0);
+    const unk = pl.days.reduce((n, d) => n + d.meals.reduce((a, m) => a + m.filter(F.itemOpen).length, 0), 0);
     let panel = '';
     if (sw) { panel = addPanel(p, sw.m).replace(/data-act="dAdd" data-m="\d*">Aggiungi</g, 'data-act="dAdd" data-m="' + sw.m + '">Usa questo<').replace('Aggiungi a ', 'Scegli per '); }
     return `<div class="row"><button class="ghost" data-act="pvCancel">← Dieta</button></div><h1>Controlla il piano</h1>
@@ -917,8 +919,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         ${unk ? `<div class="msg warn small" style="margin-top:8px">${unk} voce/i da completare (alimento non riconosciuto o quantità mancante): non entrano nei totali finché non le sistemi.</div>` : ''}
         <label for="pv_name" style="margin-top:8px">Nome del piano</label><input id="pv_name" value="${esc(pl.name)}"></div>
       ${panel}
+      ${pl.water || pl.notes ? `<div class="card">${pl.water ? `<div><b>Acqua:</b> ${esc(String(pl.water).replace('.', ','))} litri al giorno</div>` : ''}${pl.notes ? `<div class="small mute" style="white-space:pre-wrap;margin-top:4px">${esc(pl.notes)}</div>` : ''}</div>` : ''}
       ${pl.days.map((d, di) => { const t = F.planDayTotals(p, d).total; return `<div class="card"><h2 style="margin:0">${esc(d.name)}</h2><div class="mute small">${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g</div>
-        ${F.MEALS.map((nm, mi) => `<h3 style="margin:10px 0 2px">${nm}</h3>${(d.meals[mi] || []).map((it, ii) => pvRow(p, it, di, mi, ii)).join('') || '<p class="mute small" style="margin:2px 0">Nessun alimento.</p>'}<button class="sm" style="margin-top:4px" data-act="pvAddItem" data-d="${di}" data-m="${mi}">+ Aggiungi alimento</button>`).join('')}</div>`; }).join('')}
+        ${F.planSections(p, d).map(sc => `<h3 style="margin:12px 0 2px">${esc(sc.lab)} <span class="mute small" style="font-weight:400">${sc.supp ? 'integratori' : fx(sc.tot.k) + ' kcal · P ' + fx(sc.tot.p) + ' · C ' + fx(sc.tot.c) + ' · G ' + fx(sc.tot.f)}</span></h3>${sc.groups.map(g => (g.head ? `<div class="mute small" style="font-weight:600;margin-top:6px">${g.head}</div>` : '') + g.rows.map(r => pvRow(p, r[0], di, r[1], r[2])).join('')).join('')}`).join('')}
+        <div class="row wrap" style="margin-top:10px;gap:6px"><span class="mute small">Aggiungi un alimento a:</span>${F.MEALS.map((nm, mi) => `<button class="sm" data-act="pvAddItem" data-d="${di}" data-m="${mi}">${nm}</button>`).join('')}</div></div>`; }).join('')}
       <div class="row"><button class="primary grow" data-act="pvSave">Attiva il piano</button><button data-act="pvCancel">Annulla</button></div>`;
   }
   /* Strumento di calcolo: valori degli alimenti e totali della combinazione composta dall'utente. Non indica cosa mangiare. */
@@ -998,7 +1002,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const meals = F.MEALS.map((nm, mi) => {
       const items = day.meals[mi], mt = F.mealTotal(p, items), tk = tgt && tgt.meals ? tgt.meals[mi].k : 0, left = tk - mt.k;
       const open = !!(D.open && D.open[mi]) || D.addTo === mi;
-      const pitems = pdy ? (pdy.meals[mi] || []).filter(x => x.f && x.g > 0) : [];
+      const pitems = pdy ? (pdy.meals[mi] || []).filter(x => !x.opt && x.f && x.g > 0) : [];
       return `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)}${tk ? ' / ' + fx(tk) : ''} kcal</span></div>
         ${tk ? `<div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, Math.round(mt.k / tk * 100))}%${left < -tk * 0.05 ? ';background:var(--warn)' : ''}"></i></div>` : ''}
         <div class="small mute">P ${fx(mt.p)} · C ${fx(mt.c)} · G ${fx(mt.f)} g</div></button>
@@ -1482,7 +1486,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       await F.loadCrea(); const p = P(), nut = ensureNut(p);
       (d.foods || []).forEach(f => { if (!(nut.foods || []).some(x => x.id === f.id)) { nut.foods = nut.foods || []; nut.foods.push(f); } });
       if (nut.plan && nut.plan.active) { nut.planOld = (nut.planOld || []).concat([Object.assign({}, nut.plan, { active: false })]).slice(-5); }
-      nut.plan = { id: 'pa' + Date.now().toString(36), name: m.title, text: String(d.text || '').slice(0, 20000), created: F.todayISO(), days: d.plan.days.map(dy => Object.assign({}, dy, { meals: dy.meals.map(ml => ml.map(it => Object.assign({ conf: 'ok', base: it.f }, it))) })), multi: (d.plan.days || []).length > 1, active: true, src: 'nutrizionista', assignedId: m.id, by: d.by || '' };
+      nut.plan = { id: 'pa' + Date.now().toString(36), name: m.title, text: String(d.text || '').slice(0, 20000), created: F.todayISO(), days: d.plan.days.map(dy => Object.assign({}, dy, { meals: dy.meals.map(ml => ml.map(it => Object.assign({ conf: 'ok', base: it.f }, it))) })), multi: (d.plan.days || []).length > 1, active: true, src: 'nutrizionista', assignedId: m.id, by: d.by || '', water: d.plan.water || undefined, notes: d.plan.notes || undefined };
       try { await AC.respondDiet(m.id, 'activated'); } catch (e) { toast('Dieta attivata. Il nutrizionista vedrà la tua scelta appena torna la connessione.'); }
       ui.diets = (ui.diets || []).filter(x => x.id !== m.id); ui.sub = null; if (ui.diet) ui.diet.planDay = null; save(); render(); window.scrollTo(0, 0); toast('Dieta attivata: la trovi nella scheda Dieta');
     },
@@ -1497,6 +1501,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     pvCancel() { ui.sub = null; ui.pv = null; if (ui.diet) { ui.diet.addTo = null; ui.diet.pick = null; } render(); window.scrollTo(0, 0); },
     pvSwap(t) { ui.pv = { swap: { d: +t.dataset.d, m: +t.dataset.m, i: +t.dataset.i } }; ui.diet.pick = null; render(); window.scrollTo(0, 0); },
     pvAddItem(t) { ui.pv = { swap: { d: +t.dataset.d, m: +t.dataset.m, i: -1 } }; ui.diet.pick = null; render(); window.scrollTo(0, 0); },
+    pvAlt(t) { const it = ui.sub.draft.days[+t.dataset.d].meals[+t.dataset.m][+t.dataset.i]; if (it) F.swapAlt(it, +t.dataset.k); render(); },
     pvRm(t) { ui.sub.draft.days[+t.dataset.d].meals[+t.dataset.m].splice(+t.dataset.i, 1); render(); },
     pvApply() {
       const p = P(), nut = ensureNut(p), pk = ui.diet.pick, sw = ui.pv.swap, dr = ui.sub.draft; if (!pk || !pk.f) return;
@@ -1518,13 +1523,13 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     },
     pvAddMeal(t) {
       const p = P(), D = ui.diet, mi = +t.dataset.m, pd = F.planDayFor(p.nutrition.plan, D.date, D.planDay), day = F.dayOf(p, D.date); let n = 0;
-      (pd.meals[mi] || []).forEach(it => { if (it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } });
+      (pd.meals[mi] || []).forEach(it => { if (!it.opt && it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } });
       save(); render(); toast(n ? n + ' alimenti aggiunti: puoi cambiare le quantità' : 'Niente da aggiungere');
     },
     async pvAddDay() {
       const p = P(), D = ui.diet, pd = F.planDayFor(p.nutrition.plan, D.date, D.planDay), day = F.dayOf(p, D.date);
       if (day.meals.some(m => m.length) && !(await ask({ title: 'Aggiungere il piano a questo giorno?', text: 'Nel diario ci sono già degli alimenti: quelli del piano si aggiungono, non li sostituiscono.' }))) return;
-      let n = 0; pd.meals.forEach((m, mi) => m.forEach(it => { if (it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } }));
+      let n = 0; pd.meals.forEach((m, mi) => m.forEach(it => { if (!it.opt && it.f && it.g > 0) { day.meals[mi].push({ f: it.f, g: it.g }); n++; } }));
       save(); render(); toast(n + ' alimenti aggiunti: puoi cambiare le quantità');
     },
     tgSave() { const v = id => parseFloat(String($(id).value).replace(',', '.')) || 0, k = v('#tg_k'); if (!(k > 0)) return toast('Scrivi almeno le kcal'); ensureNut(P()).targets = { k, p: v('#tg_p'), c: v('#tg_c'), f: v('#tg_f') }; save(); render(); toast('Obiettivi salvati'); },

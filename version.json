@@ -1,8 +1,14 @@
 {
-  "version": "1.46.0",
-  "build": 122,
-  "date": "2026-11-20",
+  "version": "1.47.0",
+  "build": 123,
+  "date": "2026-11-21",
   "notes": [
-    "Nutrizione: il nutrizionista scrive la dieta, controlla gli alimenti (CREA, catalogo o valori suoi) e la invia; il cliente la legge come scritta e in forma digitale e sceglie se attivarla o continuare con la sua."
+    "Nutrizione: il nutrizionista vede come il cliente segue la dieta (14 giorni, piano contro diario).",
+    "Amministratore: dashboard con indicatori, elenco attività ordinabile e filtrabile, allenatori e clienti assegnati, pagamenti per palestra e nutrizionista (prova gratuita, mensile, gratuito).",
+    "Clienti: filtri per allenatore e stato con conteggi.",
+    "Nuovo allenatore o nutrizionista: scelta la palestra compaiono le persone già presenti e si abilita il secondo ruolo con lo stesso account, senza nuova password.",
+    "Dieta scritta a mano: riconosce pasti e titoli (Spuntino 1, prima e dopo l'allenamento), alternative (\"o\", \"in alternativa\"), quantità senza unità, integratori, acqua in litri e note finali.",
+    "Dieta: qualunque titolo scritto dal professionista (es. Merenda, Pre workout, Pasto 3) diventa una sezione; l'app ricorda gli alimenti scelti e i valori inseriti a mano per i riconoscimenti successivi.",
+    "Schede alimentari: riconosce qualsiasi sezione scritta (Colazione, Spuntino 1/2, Pranzo, Prima/Dopo allenamento, Cena, Integratori, Acqua) e calcola kcal e macro per ogni sezione."
   ]
 }

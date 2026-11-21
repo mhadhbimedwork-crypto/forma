@@ -48,7 +48,7 @@
   BV('latte_mandorla', 'Bevanda di mandorla (non zuccherata)', 15, 0.5, 0.3, 1.2, ['latte di mandorla', 'bevanda di mandorla'], 500, 'Fino a 500 ml al giorno; poche proteine.', { units: [['1 bicchiere', 200]] });
   BV('spremuta', 'Spremuta / succo di frutta', 42, 0.6, 9.5, 0.1, ['spremuta', 'succo', 'succo di frutta', 'succo di arancia', 'spremuta di arancia'], 250, 'Zuccheri liberi: massimo 1 bicchiere (200-250 ml) al giorno, meglio il frutto intero.', { units: [['1 bicchiere', 200]], pr: 3 });
   BV('bibita', 'Bibita zuccherata (cola, aranciata)', 40, 0, 10, 0, ['cola', 'coca cola', 'aranciata', 'bibita', 'bibite', 'the freddo'], 200, 'Zuccheri liberi: da evitare, massimo ogni tanto 1 lattina (330 ml) a settimana.', { units: [['1 lattina', 330]], pr: 99 });
-  BV('isotonico', 'Bevanda isotonica / sali', 25, 0, 6, 0, ['isotonico', 'gatorade', 'powerade', 'sali minerali', 'maltodestrine'], 700, 'Solo se ti alleni più di un\'ora o fa molto caldo: 500-700 ml.', { units: [['1 borraccia', 500]], pr: 99 });
+  BV('isotonico', 'Bevanda isotonica / sali', 25, 0, 6, 0, ['isotonico', 'gatorade', 'powerade', 'sali minerali'], 700, 'Solo se ti alleni più di un\'ora o fa molto caldo: 500-700 ml.', { units: [['1 borraccia', 500]], pr: 99 });
   BV('brodo', 'Brodo vegetale / di carne', 6, 0.5, 0.8, 0.1, ['brodo', 'brodo vegetale', 'brodo di carne'], 500, 'Contiene sale: massimo 1-2 tazze al giorno.', { units: [['1 tazza', 250]], pr: 99 });
   BV('birra', 'Birra', 43, 0.5, 3.6, 0, ['birra'], 330, 'L\'alcol rallenta il recupero e la crescita muscolare: massimo ogni tanto, mai sotto i 18 anni.', { units: [['1 bottiglia', 330]], pr: 99 });
   BV('vino', 'Vino', 80, 0.1, 2.6, 0, ['vino', 'vino rosso', 'vino bianco'], 150, 'L\'alcol rallenta il recupero e la crescita muscolare: massimo ogni tanto, mai sotto i 18 anni.', { units: [['1 calice', 150]], pr: 99 });
@@ -197,7 +197,7 @@
       else if (name.indexOf(nq) === 0 || al.some(a => a.indexOf(nq) === 0)) s = 80;
       else if (name.indexOf(nq) >= 0 || al.some(a => a.indexOf(nq) >= 0)) s = 60;
       else if (toks.every(t => name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0))) s = 40;
-      else if (toks.some(t => t.length >= 3 && (name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0)))) s = 20;
+      else if (toks.some(t => t.length >= 3 && (name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0)))) { const hit = toks.filter(t => t.length >= 3 && (name.indexOf(t) >= 0 || al.some(a => a.indexOf(t) >= 0))).length; s = 20 + Math.round(hit / toks.length * 15); }
       if (!s) { const words = (name + ' ' + al.join(' ')).split(' '); if (toks.every(t => name.indexOf(t) >= 0 || al.some(x => x.indexOf(t) >= 0) || fuzzy(t, words))) s = 10; }
       return { fd, s };
     }).filter(o => o.s > 0).sort((a, b) => b.s - a.s || (a.fd.custom ? -1 : 0) - (b.fd.custom ? -1 : 0)).slice(0, cap).map(o => o.fd);

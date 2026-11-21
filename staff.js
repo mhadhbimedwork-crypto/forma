@@ -158,6 +158,7 @@
         if (minor && (!fd.guardian || !fd.guardianOk)) { toast('Per un minorenne servono nome del genitore e conferma del consenso'); return true; }
         try {
           let gym_id, coach_id; if (A.me.role === 'admin') { if (fd.role === 'client') { const co = (ui.accts || []).find(a => a.id === fd.coach); if (!co) { toast('Scegli un allenatore'); return true; } gym_id = co.gym_id; coach_id = co.id; } else gym_id = fd.gym; if (!gym_id) { toast('Scegli la palestra'); return true; } }
+          if (fd.role !== 'client') { const nm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(), full = nm(fd.name + ' ' + fd.surname); const dup = (ui.accts || []).find(a => a.gym_id === gym_id && a.role !== 'client' && nm(a.full_name) === full); if (dup) { toast(dup.full_name + ' esiste già in questa palestra: usa "Abilita anche come…" nell\'elenco, senza creare un nuovo account'); return true; } }
           const r = await A.createUser({ gym_id, coach_id, name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', can_see_all: !!fd.canSeeAll, is_nutri: !!fd.isNutri, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
           ui.sub = null; ui.tab = back; ui.admLoaded = false; toast('Account creato: ' + r.username); await loadClients(); c.render();
         } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
@@ -440,9 +441,19 @@
     /* Vista palestra (solo amministratore): vedi ciò che vede l'allenatore di una palestra, o tutte insieme */
     const lensBar = () => { if (!(A.enabled && A.me && A.me.role === 'admin')) return ''; X.ensureAdmin(); const g = ui.gyms || [];
       return `<div class="card"><div class="mute small" style="margin-bottom:6px">Vista palestra</div><div class="row wrap" style="gap:6px"><button class="sm ${!ui.lens ? 'primary' : ''}" data-act="lensSet" data-id="">Tutte (${g.length})</button>${g.map(x => `<button class="sm ${ui.lens === x.id ? 'primary' : ''}" data-act="lensSet" data-id="${esc(x.id)}">${esc(x.name)}</button>`).join('')}</div></div>`; };
-    acts.lensSet = t => { ui.lens = t.dataset.id || null; c.render(); };
-    acts.lensOpen = t => { ui.lens = t.dataset.id; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
+    acts.lensSet = t => { ui.lens = t.dataset.id || null; ui.coachF = null; c.render(); };
+    acts.lensOpen = t => { ui.lens = t.dataset.id; ui.coachF = null; ui.stF = null; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
     const inLens = a => !ui.lens || a.gym_id === ui.lens;
+    acts.clCoach = t => { ui.coachF = t.dataset.id || null; c.render(); };
+    acts.clSt = t => { ui.stF = t.dataset.id || null; c.render(); };
+    function clFilters(all, isAct) {
+      const a = ui.accts || [], ids = {}; all.forEach(p => { const k = (p._acct || {}).coach_id || 'none'; ids[k] = (ids[k] || 0) + 1; });
+      const coaches = Object.keys(ids).filter(k => k !== 'none').map(k => ({ id: k, n: ids[k], name: ((a.find(x => x.id === k) || {}).full_name) || 'Allenatore' })).sort((x, y) => y.n - x.n);
+      const B = (act, id, cur, label) => `<button class="sm ${(cur || '') === id ? 'primary' : ''}" data-act="${act}" data-id="${id}">${label}</button>`;
+      const cnt = f => all.filter(p => f(p)).length;
+      return `<div class="card"><div class="mute small" style="margin-bottom:6px">Allenatore</div><div class="row wrap" style="gap:6px">${B('clCoach', '', ui.coachF, 'Tutti (' + all.length + ')')}${coaches.map(x => B('clCoach', x.id, ui.coachF, esc(x.name) + ' (' + x.n + ')')).join('')}${ids.none ? B('clCoach', 'none', ui.coachF, 'Senza allenatore (' + ids.none + ')') : ''}</div>
+        <div class="mute small" style="margin:10px 0 6px">Stato</div><div class="row wrap" style="gap:6px">${B('clSt', '', ui.stF, 'Tutti')}${B('clSt', 'alert', ui.stF, 'Con avvisi (' + cnt(p => F.clientStats(p).alerts.length > 0) + ')')}${B('clSt', 'act', ui.stF, 'Attivi 30 gg (' + cnt(isAct) + ')')}${B('clSt', 'idle', ui.stF, 'Inattivi (' + cnt(p => !isAct(p)) + ')')}${B('clSt', 'off', ui.stF, 'Disattivati (' + cnt(p => (p._acct || {}).active === false) + ')')}</div></div>`;
+    }
     views.clients = function () {
       X.ensureClients();
       X.ensureAdmin();
@@ -451,7 +462,10 @@
       const hay = p => { const a = p._acct || {}, co = (ui.accts || []).find(x => x.id === a.coach_id), g = (ui.gyms || []).find(x => x.id === a.gym_id);
         return plain([p.name, a.full_name, a.username, co && co.full_name, g && g.name, p.birth, GL[p.goal], p.sex === 'F' ? 'donna femmina' : 'uomo maschio', (p.plans || []).map(x => x.title).join(' '), a.active === false ? 'disattivato' : ''].join(' ')); };
       const toks = plain(ui.clQ || '').split(/\s+/).filter(Boolean);
-      const list = X.clients().filter(p => inLens(p._acct || {}) && (!toks.length || (h => toks.every(t => h.includes(t)))(hay(p))))
+      const d30 = Date.now() - 30 * 864e5, isAct = p => !!(p._updated && new Date(p._updated).getTime() > d30);
+      const coachOk = p => !ui.coachF || (ui.coachF === 'none' ? !(p._acct || {}).coach_id : (p._acct || {}).coach_id === ui.coachF);
+      const stOk = p => !ui.stF || (ui.stF === 'alert' ? F.clientStats(p).alerts.length > 0 : ui.stF === 'act' ? isAct(p) : ui.stF === 'idle' ? !isAct(p) : ui.stF === 'off' ? (p._acct || {}).active === false : true);
+      const list = X.clients().filter(p => inLens(p._acct || {}) && coachOk(p) && stOk(p) && (!toks.length || (h => toks.every(t => h.includes(t)))(hay(p))))
         .sort((a, b) => (F.clientStats(b).alerts.length - F.clientStats(a).alerts.length) || a.name.localeCompare(b.name));
       const all = X.clients().filter(p => inLens(p._acct || {}));
       const ver = F.VERSION.version + '.' + F.VERSION.build; let seen = null; try { seen = localStorage.getItem('tlz.bkver'); } catch (e) { }
@@ -468,6 +482,7 @@
         </details>
         ${A.enabled ? '<div class="row wrap" style="gap:6px;margin:8px 0"><button class="sm primary" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button></div>' : ''}
         <input id="clQ" type="search" placeholder="Cerca per nome, cognome, allenatore, palestra, obiettivo…" value="${esc(ui.clQ || '')}" aria-label="Cerca utente" autocomplete="off">${toks.length ? `<p class="mute small" style="margin:4px 2px">${list.length} risultat${list.length === 1 ? 'o' : 'i'} su ${all.length}</p>` : ''}
+        ${A.enabled && ui.clLoaded ? clFilters(all, isAct) : ''}
         ${A.enabled && !ui.clLoaded ? '<p class="mute">Caricamento…</p>' : ''}
         <div class="clgrid">${list.map(clientCard).join('') || (ui.clLoaded || !A.enabled ? '<p class="mute">Nessun cliente.</p>' : '')}</div>`;
     };
@@ -544,11 +559,28 @@
           <button class="primary" style="margin-top:8px">${A.enabled ? 'Invia al cliente' : 'Assegna al cliente'}</button></form><p class="mute small">${A.enabled ? '' : 'Modalità locale: la scheda va direttamente nel profilo di questo cliente su questo dispositivo, con la data di oggi; il cliente decide se attivarla subito. '}L'app del cliente la legge da sola (serie, recuperi, timer, alternative) e lo avvisa: sceglie lui se attivarla subito o continuare con la scheda attuale. Ogni invio resta nello storico.</p></div>` : ''}
         ${can ? `<div class="card"><h2>Account</h2>${acctExtra(p)}<div class="row wrap"><button class="sm" data-act="clientReset" data-id="${esc(uidOf(p))}">Password dimenticata: reimposta</button><button class="sm" data-act="clientActive" data-id="${esc(uidOf(p))}">${acct.active ? 'Disattiva accesso' : 'Riattiva accesso'}</button>${role === 'head' || role === 'admin' ? `<button class="sm danger" data-act="clientDelete" data-id="${esc(uidOf(p))}">Elimina account e dati</button>` : ''}</div></div>` : ''}`;
     };
+    /* Persone già presenti nella palestra scelta: si aggiunge il ruolo allo stesso account, senza nuova password */
+    const ncGym = () => { const sel = document.getElementById('nc_g'); if (sel) return sel.value; if (A.me && A.me.role !== 'admin') return A.me.gym_id; const g = (ui.gyms || []).filter(x => x.active)[0]; return g ? g.id : null; };
+    function existingPanel(gymId) {
+      const gid = gymId || ncGym(), role = (ui.sub && ui.sub.role) || 'coach';
+      const l = (ui.accts || []).filter(a => a.gym_id === gid && (a.role === 'head' || a.role === 'coach' || a.role === 'nutri'));
+      if (!gid) return '';
+      if (!l.length) return '<p class="mute small" style="margin:10px 0 0">In questa palestra non c\'è ancora nessuno: crea il primo con i dati qui sotto.</p>';
+      const row = a => { const isN = a.role === 'nutri' || a.is_nutri, isC = a.role === 'coach' || a.role === 'head';
+        const chips = (isC ? `<span class="chip">${a.role === 'head' ? 'Allenatore principale' : 'Allenatore'}</span> ` : '') + (isN ? '<span class="chip ok">Nutrizionista</span>' : '') + (a.active ? '' : ' <span class="chip warn">disattivato</span>');
+        const can = role === 'nutri' ? !isN : (!isC);
+        return `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:6px 0"><div class="grow small"><b>${esc(a.full_name)}</b><br>${chips}</div>${can ? `<button type="button" class="sm primary" data-act="addRole" data-id="${esc(a.id)}" data-add="${role === 'nutri' ? 'nutri' : 'coach'}">Abilita anche come ${role === 'nutri' ? 'nutrizionista' : 'allenatore'}</button>` : '<span class="mute small">già abilitato</span>'}</div>`; };
+      return `<div style="margin-top:12px"><h3 style="margin:0 0 4px">Già presenti in questa palestra</h3><p class="mute small" style="margin:0 0 4px">Se la persona è qui sotto, non creare un nuovo account: abilita il ruolo con lo stesso accesso e la stessa password.</p>${l.map(row).join('')}<p class="mute small" style="margin:8px 0 0">Se è una persona nuova, compila i dati e crea l'account.</p></div>`;
+    }
+    acts.addRole = async t => {
+      try { const r = await A.addRole(t.dataset.id, t.dataset.add); toast('Fatto: stesso account, ruolo aggiunto'); ui.admLoaded = false; await reload(); const n = document.getElementById('ncExisting'); if (n) n.innerHTML = existingPanel(); } catch (e) { toast('Non riuscito: ' + e.message); }
+    };
     views.newClient = function () {
       const role = (ui.sub && ui.sub.role) || 'client', isC = role === 'client', isN = role === 'nutri', back = (ui.sub && ui.sub.back) || 'clients';
       return `<div class="row"><button class="ghost" data-act="clientBack">← Indietro</button></div><h1>${isC ? 'Nuovo cliente' : isN ? 'Nuovo nutrizionista' : 'Nuovo allenatore'}</h1>
         <form class="card" id="newClientForm" autocomplete="off"><input type="hidden" name="role" value="${role}"><label for="nc_n">Nome</label><input id="nc_n" name="name" required><label for="nc_s">Cognome</label><input id="nc_s" name="surname" required>
         ${A.me && A.me.role === 'admin' ? (X.ensureAdmin(), isC ? `<label for="nc_c">Allenatore (la palestra è quella dell'allenatore)</label><select id="nc_c" name="coach" required>${(ui.accts || []).filter(a => (a.role === 'head' || a.role === 'coach') && a.active).map(a => `<option value="${esc(a.id)}">${esc(a.full_name)} · ${esc(((ui.gyms || []).find(g => g.id === a.gym_id) || {}).name || '')}</option>`).join('') || '<option value="">Carico…</option>'}</select>` : `<label for="nc_g">Palestra</label><select id="nc_g" name="gym" required>${(ui.gyms || []).filter(g => g.active).map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('') || '<option value="">Carico…</option>'}</select>`) : ''}
+        ${isC ? '' : `<div id="ncExisting">${existingPanel()}</div>`}
         ${isC ? `<label for="nc_b">Data di nascita</label><input id="nc_b" name="birth" type="date" required max="${F.todayISO()}">` : ''}
         <label for="nc_p">Password iniziale (min. 8 caratteri)</label><input id="nc_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso la persona sceglierà la propria password, che nessuno può leggere. Potrai reimpostarla se la dimentica.</p>
         ${isC ? `<h3>Consenso</h3><label class="row" style="gap:8px"><input type="checkbox" name="consentOk" style="width:auto"> <span class="small">Ho raccolto il consenso firmato al trattamento dei dati (anche di salute).</span></label>
@@ -688,13 +720,121 @@
     acts.ownToggle = async t => {
       const on = t.dataset.on === '1'; try { await A.setOwn(t.dataset.id, on); ui.own = on ? (ui.own || []).concat(t.dataset.id) : (ui.own || []).filter(x => x !== t.dataset.id); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); }
     };
+    /* ---------- pagamenti (solo amministratore) ---------- */
+    const bl = () => (ui.bill = ui.bill || { rows: {}, pays: [], loaded: false, busy: false, open: null, draft: null });
+    const monthNow = () => new Date().toISOString().slice(0, 7);
+    const MN = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+    const mLabel = m => MN[+m.slice(5, 7) - 1] + ' ' + m.slice(0, 4);
+    const dIt = d => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(d || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; };
+    const lastMonths = n => { const o = [], d = new Date(); d.setDate(1); for (let i = 0; i < n; i++) { o.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() - 1); } return o; };
+    async function loadBill() { const b = bl(); try { const [r, p] = await Promise.all([A.billingList(), A.payList()]); b.rows = {}; (r || []).forEach(x => b.rows[x.subject_type + ':' + x.subject_id] = x); b.pays = p || []; b.err = null; } catch (e) { b.err = e.message; } b.loaded = true; }
+    function ensureBill() { const b = bl(); if (A.enabled && A.me && A.me.role === 'admin' && !b.loaded && !b.busy) { b.busy = true; loadBill().then(() => { b.busy = false; c.render(); }); } }
+    const paidOf = (t, id, m) => bl().pays.find(p => p.subject_type === t && p.subject_id === id && p.month === m);
+    function billStatus(t, id) {
+      const r = bl().rows[t + ':' + id], today = new Date().toISOString().slice(0, 10), m = monthNow();
+      if (!r || r.mode === 'off') return { k: 'off', cls: '', t: 'Pagamento non attivato' };
+      if (r.mode === 'free') return { k: 'free', cls: 'ok', t: 'Gratuito' };
+      if (r.mode === 'trial') { if (!r.trial_until) return { k: 'trial', cls: 'ok', t: 'Prova gratuita' }; if (r.trial_until < today) return { k: 'trialx', cls: 'warn', t: 'Prova scaduta il ' + dIt(r.trial_until) }; return { k: 'trial', cls: 'ok', t: 'Prova gratuita fino al ' + dIt(r.trial_until) }; }
+      return paidOf(t, id, m) ? { k: 'paid', cls: 'ok', t: 'Pagato · ' + mLabel(m) } : { k: 'due', cls: 'warn', t: 'Da pagare · ' + mLabel(m) };
+    }
+    const nutriList = () => (ui.accts || []).filter(a => a.role === 'nutri' || a.is_nutri);
+    const subjName = (t, id) => t === 'gym' ? ((ui.gyms || []).find(g => g.id === id) || {}).name || 'Palestra' : (() => { const a = (ui.accts || []).find(x => x.id === id) || {}; return (a.full_name || 'Nutrizionista') + ' (nutrizionista)'; })();
+    function billSummary() {
+      ensureBill(); const b = bl(); if (!b.loaded) return '<div class="card"><h2>Pagamenti</h2><p class="mute small">Caricamento…</p></div>';
+      const subs = (ui.gyms || []).map(g => ['gym', g.id]).concat(nutriList().map(a => ['nutri', a.id])), cnt = { due: [], paid: 0, trial: 0, trialx: [], free: 0, off: 0 };
+      subs.forEach(([t, id]) => { const s = billStatus(t, id); if (s.k === 'due') cnt.due.push(subjName(t, id)); else if (s.k === 'trialx') cnt.trialx.push(subjName(t, id)); else cnt[s.k]++; });
+      return `<div class="card"><h2>Pagamenti · ${mLabel(monthNow())}</h2>${b.err ? `<div class="msg danger small">${esc(/relation|policy|row-level|JWT|aal/i.test(b.err) ? 'Per vedere i pagamenti serve l\'accesso amministratore con la verifica a due passaggi. ' : '')}${esc(b.err)}</div>` : ''}
+        <div class="row wrap" style="gap:6px"><span class="chip ${cnt.due.length ? 'warn' : ''}">Da pagare: ${cnt.due.length}</span><span class="chip">Pagati: ${cnt.paid}</span><span class="chip">In prova: ${cnt.trial}</span><span class="chip ${cnt.trialx.length ? 'warn' : ''}">Prova scaduta: ${cnt.trialx.length}</span><span class="chip">Gratuiti: ${cnt.free}</span><span class="chip">Non attivati: ${cnt.off}</span></div>
+        ${cnt.due.length ? `<p class="small" style="margin:8px 0 0"><b>Da pagare:</b> ${cnt.due.map(esc).join(', ')}</p>` : ''}${cnt.trialx.length ? `<p class="small" style="margin:6px 0 0"><b>Prova scaduta:</b> ${cnt.trialx.map(esc).join(', ')}</p>` : ''}
+        <p class="mute small" style="margin:8px 0 0">Il pagamento lo attivi tu per ogni palestra e ogni nutrizionista. Se non è attivato, non cambia nulla per loro. Lo stato non blocca nessuno da solo: per sospendere usa "Disattiva".</p></div>`;
+    }
+    function billPanel(t, id) {
+      const b = bl(), key = t + ':' + id, st = billStatus(t, id), open = b.open === key;
+      const head = `<div class="row wrap" style="gap:8px;margin-top:6px"><span class="chip ${st.cls}">${esc(st.t)}</span><button class="sm" data-act="billOpen" data-k="${key}">${open ? 'Chiudi' : 'Pagamento'}</button></div>`;
+      if (!open) return head;
+      const d = b.draft || { mode: 'off' }, M = (m, l) => `<button class="sm ${d.mode === m ? 'primary' : ''}" data-act="billMode" data-m="${m}">${l}</button>`;
+      const pays = d.mode === 'paid' ? lastMonths(6).map(m => { const p = paidOf(t, id, m); return `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:6px 0"><div class="grow small">${mLabel(m)}${p ? ` · pagato il ${dIt(p.paid_at)}${p.amount != null ? ' · € ' + p.amount : ''}` : ''}</div>${p ? `<button class="sm" data-act="billUnpay" data-k="${key}" data-m="${m}">Annulla</button>` : `<button class="sm primary" data-act="billPay" data-k="${key}" data-m="${m}">Segna pagato</button>`}</div>`; }).join('') : '';
+      return head + `<div class="card" style="margin-top:8px"><div class="small mute" style="margin-bottom:6px">Come vuoi gestire il pagamento di ${esc(subjName(t, id))}?</div>
+        <div class="row wrap" style="gap:6px">${M('off', 'Non attivato')}${M('trial', 'Prova gratuita')}${M('paid', 'A pagamento')}${M('free', 'Gratuito')}</div>
+        ${d.mode === 'trial' ? `<div class="row wrap" style="gap:6px;margin-top:8px"><button class="sm" data-act="billTrial" data-d="14">14 giorni da oggi</button><button class="sm" data-act="billTrial" data-d="30">30 giorni da oggi</button><button class="sm" data-act="billTrial" data-d="60">60 giorni da oggi</button></div><label for="bl_tr">Prova fino al</label><input id="bl_tr" type="date" value="${esc(d.trial_until || '')}">` : ''}
+        ${d.mode === 'paid' ? `<label for="bl_pr">Importo mensile (€)</label><input id="bl_pr" inputmode="decimal" value="${d.price == null ? '' : esc(d.price)}">` : ''}
+        <label for="bl_nt">Nota (facoltativa)</label><input id="bl_nt" value="${esc(d.note || '')}" maxlength="200">
+        <div class="row" style="margin-top:10px"><button class="primary" data-act="billSave" data-k="${key}">Salva</button></div>${pays ? `<h3 style="margin:14px 0 4px">Pagamenti</h3>${pays}` : ''}</div>`;
+    }
+    const readBill = () => { const d = bl().draft || { mode: 'off' }; const g = id => document.getElementById(id); if (g('bl_tr')) d.trial_until = g('bl_tr').value || null; if (g('bl_pr')) { const v = parseFloat(String(g('bl_pr').value).replace(',', '.')); d.price = isFinite(v) && v >= 0 ? v : null; } if (g('bl_nt')) d.note = g('bl_nt').value.trim() || null; bl().draft = d; return d; };
+    acts.billOpen = t => { const b = bl(); b.open = b.open === t.dataset.k ? null : t.dataset.k; if (b.open) { const r = b.rows[b.open]; b.draft = r ? { mode: r.mode, price: r.price, trial_until: r.trial_until, note: r.note } : { mode: 'off' }; } c.render(); };
+    acts.billMode = t => { const d = readBill(); d.mode = t.dataset.m; if (d.mode === 'trial' && !d.trial_until) { const x = new Date(); x.setDate(x.getDate() + 30); d.trial_until = x.toISOString().slice(0, 10); } c.render(); };
+    acts.billTrial = t => { const d = readBill(), x = new Date(); x.setDate(x.getDate() + +t.dataset.d); d.mode = 'trial'; d.trial_until = x.toISOString().slice(0, 10); c.render(); };
+    acts.billSave = async t => {
+      const d = readBill(), [ty, id] = t.dataset.k.split(':'); if (d.mode === 'paid' && d.price == null && !confirm('Non hai indicato l\'importo mensile. Salvare lo stesso?')) return;
+      try { const r = await A.billingSet(ty, id, { mode: d.mode, price: d.mode === 'paid' ? d.price : (d.price == null ? null : d.price), trial_until: d.mode === 'trial' ? d.trial_until : null, note: d.note }); bl().rows[t.dataset.k] = (r && r[0]) || Object.assign({ subject_type: ty, subject_id: id }, d); toast('Salvato'); c.render(); } catch (e) { toast('Non salvato: ' + e.message); }
+    };
+    acts.billPay = async t => { const [ty, id] = t.dataset.k.split(':'), r = bl().rows[t.dataset.k]; try { const x = await A.paySet(ty, id, t.dataset.m, r && r.price != null ? r.price : null); bl().pays = bl().pays.filter(p => !(p.subject_type === ty && p.subject_id === id && p.month === t.dataset.m)).concat((x && x[0]) ? [x[0]] : [{ subject_type: ty, subject_id: id, month: t.dataset.m, amount: r ? r.price : null, paid_at: new Date().toISOString().slice(0, 10) }]); toast('Pagamento segnato'); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.billUnpay = async t => { const [ty, id] = t.dataset.k.split(':'); if (!confirm('Annullare questo pagamento?')) return; try { await A.payDel(ty, id, t.dataset.m); bl().pays = bl().pays.filter(p => !(p.subject_type === ty && p.subject_id === id && p.month === t.dataset.m)); c.render(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    const nutriCard = () => { const l = nutriList(); return `<div class="card"><h2>Nutrizionisti (${l.length})</h2>${l.map(a => `<div style="border-top:1px solid var(--line);padding:8px 0"><b>${esc(a.full_name)}</b> <span class="mute small">${esc(a.username)}${a.gym_id ? ' · ' + esc(((ui.gyms || []).find(g => g.id === a.gym_id) || {}).name || '') : ''}</span>${a.active ? '' : ' <span class="chip warn">disattivato</span>'}${billPanel('nutri', a.id)}</div>`).join('') || (ui.admLoaded ? '<p class="mute small">Nessun nutrizionista ancora. Si aggiunge da Team → "+ Nuovo nutrizionista" o spuntando "anche nutrizionista" su un allenatore.</p>' : '')}</div>`; };
+    /* ---------- dashboard amministratore: attività, allenatori, nutrizionisti, clienti e pagamenti ---------- */
+    const dsh = () => (ui.dsh = ui.dsh || { q: '', sort: 'name', dir: 1, f: 'all', open: null, sortC: 'clients' });
+    const plainS = v => String(v == null ? '' : v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const D30 = () => Date.now() - 30 * 864e5;
+    const act30Of = (pred) => (ui.cl || []).filter(p => p._acct && pred(p._acct) && p._updated && new Date(p._updated).getTime() > D30()).length;
+    function gymRow(g) {
+      const l = (ui.accts || []).filter(a => a.gym_id === g.id), coaches = l.filter(a => a.role === 'coach' || a.role === 'head'), cl = l.filter(a => a.role === 'client');
+      return { g, heads: l.filter(a => a.role === 'head'), coaches, nutris: l.filter(a => a.role === 'nutri' || a.is_nutri), cl, act30: act30Of(a => a.gym_id === g.id), st: billStatus('gym', g.id), free: cl.filter(a => !a.coach_id).length };
+    }
+    const ST_ORD = { due: 0, trialx: 1, trial: 2, paid: 3, free: 4, off: 5 };
+    function dashKpi() {
+      const g = ui.gyms || [], a = ui.accts || [], cl = a.filter(x => x.role === 'client'), co = a.filter(x => x.role === 'coach' || x.role === 'head');
+      const k = (n, l, w) => `<div class="kpi"><b>${n}</b><span>${l}</span>${w ? `<span class="chip warn" style="margin-top:4px">${w}</span>` : ''}</div>`, free = cl.filter(x => !x.coach_id).length;
+      return `<div class="grid3" style="grid-template-columns:repeat(4,1fr);margin-bottom:10px">${k(g.filter(x => x.active).length + '/' + g.length, 'Palestre attive')}${k(co.length, 'Allenatori')}${k(nutriList().length, 'Nutrizionisti')}${k(cl.length, 'Clienti', free ? free + ' senza allenatore' : '')}</div>`;
+    }
+    const sortBtn = (k, l) => { const d = dsh(); return `<button class="ghost sm" style="padding:2px 4px;font-weight:${d.sort === k ? 700 : 400}" data-act="dSort" data-k="${k}">${l}${d.sort === k ? (d.dir > 0 ? ' ▲' : ' ▼') : ''}</button>`; };
+    acts.dSort = t => { const d = dsh(); if (d.sort === t.dataset.k) d.dir = -d.dir; else { d.sort = t.dataset.k; d.dir = t.dataset.k === 'name' ? 1 : -1; } c.render(); };
+    acts.dFilter = t => { dsh().f = t.dataset.f; c.render(); };
+    acts.dOpen = t => { const d = dsh(); d.open = d.open === t.dataset.id ? null : t.dataset.id; c.render(); };
+    acts.dCoach = t => { ui.lens = t.dataset.gym; ui.coachF = t.dataset.id || null; ui.stF = null; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
+    acts.dSortC = t => { dsh().sortC = t.dataset.k; c.render(); };
+    function dashGyms() {
+      const d = dsh(), q = plainS(d.q);
+      let rows = (ui.gyms || []).map(gymRow).filter(r => {
+        if (q && !plainS([r.g.name, r.heads.map(h => h.full_name).join(' '), r.coaches.map(h => h.full_name).join(' ')].join(' ')).includes(q)) return false;
+        if (d.f === 'active') return r.g.active; if (d.f === 'inactive') return !r.g.active;
+        if (d.f === 'due') return r.st.k === 'due' || r.st.k === 'trialx'; if (d.f === 'trial') return r.st.k === 'trial'; if (d.f === 'paid') return r.st.k === 'paid' || r.st.k === 'free'; if (d.f === 'off') return r.st.k === 'off';
+        return true;
+      });
+      const key = { name: r => plainS(r.g.name), clients: r => r.cl.length, coaches: r => r.coaches.length, act: r => r.act30, st: r => ST_ORD[r.st.k] }[d.sort] || (r => plainS(r.g.name));
+      rows.sort((a, b) => { const x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * d.dir || plainS(a.g.name).localeCompare(plainS(b.g.name)); });
+      const F2 = (f, l) => `<button class="sm ${d.f === f ? 'primary' : ''}" data-act="dFilter" data-f="${f}">${l}</button>`;
+      const open = r => `<tr><td colspan="7" style="padding:0"><div class="card" style="margin:6px 0;background:var(--card2,transparent)">
+        <div class="row wrap" style="gap:8px"><button class="sm primary" data-act="lensOpen" data-id="${r.g.id}">Tutti i clienti (${r.cl.length})</button><button class="sm" data-act="gymOpen" data-id="${r.g.id}">Account e dettagli</button><button class="sm" data-act="gymActive" data-id="${r.g.id}" data-on="${r.g.active ? 0 : 1}">${r.g.active ? 'Disattiva' : 'Riattiva'}</button></div>
+        <h3 style="margin:12px 0 4px">Allenatori e clienti assegnati</h3>${r.coaches.length ? r.coaches.map(co => { const n = r.cl.filter(x => x.coach_id === co.id).length, a30 = act30Of(a => a.coach_id === co.id); return `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:6px 0"><div class="grow small"><b>${esc(co.full_name)}</b> <span class="mute">${esc(rl(co.role))}${co.is_nutri ? ' · nutrizionista' : ''}${co.active ? '' : ' · disattivato'}</span><br>${n} client${n === 1 ? 'e' : 'i'} · ${a30} attiv${a30 === 1 ? 'o' : 'i'} negli ultimi 30 giorni</div><button class="sm" data-act="dCoach" data-gym="${r.g.id}" data-id="${co.id}">Vedi clienti</button></div>`; }).join('') : '<p class="mute small">Nessun allenatore.</p>'}
+        ${r.free ? `<div class="row" style="gap:8px;border-top:1px solid var(--line);padding:6px 0"><div class="grow small"><b>Senza allenatore</b><br>${r.free} client${r.free === 1 ? 'e' : 'i'}</div><button class="sm" data-act="dCoach" data-gym="${r.g.id}" data-id="none">Vedi clienti</button></div>` : ''}
+        ${r.nutris.length ? `<h3 style="margin:12px 0 4px">Nutrizionisti</h3><div class="small">${r.nutris.map(x => esc(x.full_name)).join(', ')}</div>` : ''}
+        <h3 style="margin:12px 0 4px">Pagamento</h3>${billPanel('gym', r.g.id)}</div></td></tr>`;
+      return `<div class="card"><h2>Attività (${rows.length}/${(ui.gyms || []).length})</h2>
+        <input placeholder="Cerca palestra o allenatore" value="${esc(d.q)}" data-dq style="margin-bottom:8px">
+        <div class="row wrap" style="gap:6px;margin-bottom:8px">${F2('all', 'Tutte')}${F2('active', 'Attive')}${F2('inactive', 'Disattivate')}${F2('due', 'Da incassare')}${F2('trial', 'In prova')}${F2('paid', 'Pagate o gratuite')}${F2('off', 'Pagamento non attivato')}</div>
+        <div style="overflow-x:auto"><table style="width:100%;min-width:640px"><thead><tr><th style="text-align:left">${sortBtn('name', 'Attività')}</th><th style="text-align:left">Principale</th><th>${sortBtn('coaches', 'Allenatori')}</th><th>Nutrizionisti</th><th>${sortBtn('clients', 'Clienti')}</th><th>${sortBtn('act', 'Attivi 30 gg')}</th><th style="text-align:left">${sortBtn('st', 'Pagamento')}</th></tr></thead><tbody>
+        ${rows.map(r => `<tr style="cursor:pointer" data-act="dOpen" data-id="${r.g.id}"><td style="text-align:left"><b>${esc(r.g.name)}</b>${r.g.active ? '' : ' <span class="chip warn">disattivata</span>'}</td><td style="text-align:left" class="small">${r.heads.map(h => esc(h.full_name)).join(', ') || '–'}</td><td>${r.coaches.length}</td><td>${r.nutris.length}</td><td><b>${r.cl.length}</b></td><td>${r.act30}</td><td style="text-align:left"><span class="chip ${r.st.cls}">${esc(r.st.t)}</span></td></tr>${d.open === r.g.id ? open(r) : ''}`).join('') || `<tr><td colspan="7" class="mute small">${ui.admLoaded ? 'Nessuna attività con questi filtri.' : 'Caricamento…'}</td></tr>`}</tbody></table></div>
+        <p class="mute small" style="margin:8px 0 0">Tocca una riga per vedere allenatori, clienti assegnati e pagamento di quella attività.</p></div>`;
+    }
+    function dashCoaches() {
+      const d = dsh(), q = plainS(d.q), a = ui.accts || [], gname = id => ((ui.gyms || []).find(g => g.id === id) || {}).name || '';
+      let rows = a.filter(x => x.role === 'coach' || x.role === 'head').map(co => ({ co, n: a.filter(x => x.role === 'client' && x.coach_id === co.id).length, a30: act30Of(x => x.coach_id === co.id) }))
+        .filter(r => !q || plainS(r.co.full_name + ' ' + gname(r.co.gym_id)).includes(q));
+      const k = d.sortC === 'name' ? (r => plainS(r.co.full_name)) : d.sortC === 'gym' ? (r => plainS(gname(r.co.gym_id))) : (r => r.n);
+      rows.sort((x, y) => { const p = k(x), r = k(y); return d.sortC === 'clients' ? (r - p) || plainS(x.co.full_name).localeCompare(plainS(y.co.full_name)) : (p < r ? -1 : p > r ? 1 : 0); });
+      const B = (key, l) => `<button class="ghost sm" style="padding:2px 4px;font-weight:${d.sortC === key ? 700 : 400}" data-act="dSortC" data-k="${key}">${l}${d.sortC === key ? ' ▼' : ''}</button>`;
+      return `<div class="card"><h2>Allenatori e carico clienti</h2><p class="mute small" style="margin-top:0">Per trovare l'allenatore giusto: ordina per numero di clienti e confronta le attività.</p><div style="overflow-x:auto"><table style="width:100%;min-width:480px"><thead><tr><th style="text-align:left">${B('name', 'Allenatore')}</th><th style="text-align:left">${B('gym', 'Attività')}</th><th>${B('clients', 'Clienti')}</th><th>Attivi 30 gg</th><th></th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td style="text-align:left"><b>${esc(r.co.full_name)}</b>${r.co.active ? '' : ' <span class="chip warn">disattivato</span>'}</td><td style="text-align:left" class="small">${esc(gname(r.co.gym_id))}</td><td><b>${r.n}</b></td><td>${r.a30}</td><td><button class="sm" data-act="dCoach" data-gym="${r.co.gym_id}" data-id="${r.co.id}">Vedi clienti</button></td></tr>`).join('') || '<tr><td colspan="5" class="mute small">Nessun allenatore.</td></tr>'}</tbody></table></div></div>`;
+    }
     views.gyms = function () {
       X.ensureAdmin(); X.ensureClients();
-      return `<h1>Palestre</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${quick()}
+      return `<h1>Dashboard</h1>${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${quick()}
+        ${!ui.admLoaded ? '<p class="mute">Caricamento…</p>' : dashKpi()}
+        ${billSummary()}
         <div class="card"><div class="row wrap"><button class="sm primary" data-act="gymNew">+ Nuova palestra</button><button class="sm" data-act="gymReload">Aggiorna</button><button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button></div>
         <p class="mute small" style="margin-bottom:0">Crei la palestra insieme al suo allenatore principale. Poi è lui a creare allenatori e clienti.</p></div>
-        ${!ui.admLoaded ? '<p class="mute">Caricamento…</p>' : ''}
-        ${(ui.gyms || []).map(g => { const k = gymStats(g); return `<div class="card"><div class="row" style="gap:8px"><div class="grow"><b>${esc(g.name)}</b>${g.active ? '' : ' <span class="chip warn">disattivata</span>'}<div class="mute small">Principale: ${k.heads.map(h => esc(h.full_name)).join(', ') || '–'} · ${k.coaches} allenator${k.coaches === 1 ? 'e' : 'i'} · ${k.clients} client${k.clients === 1 ? 'e' : 'i'}</div></div><button class="sm primary" data-act="gymOpen" data-id="${g.id}">Apri</button></div></div>`; }).join('') || (ui.admLoaded ? '<p class="mute">Nessuna palestra.</p>' : '')}`;
+        ${dashGyms()}${dashCoaches()}${nutriCard()}`;
     };
     views.gym = function () {
       X.ensureAdmin(); X.ensureClients(); const g = (ui.gyms || []).find(x => x.id === ui.sub.id); if (!g) return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><p class="mute">Caricamento…</p>`;
@@ -702,6 +842,7 @@
       return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><h1>${esc(g.name)}</h1>
         <div class="card"><div class="row wrap"><button class="sm" data-act="gymActive" data-id="${g.id}" data-on="${g.active ? 0 : 1}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="lensOpen" data-id="${g.id}">Vedi come l'allenatore</button><button class="sm primary" data-act="xlsxGym" data-id="${g.id}">Excel della palestra</button><button class="sm" data-act="csvGym" data-id="${g.id}">CSV</button></div>
         <p class="mute small" style="margin-bottom:0">Disattivando la palestra nessuno dei suoi account può più entrare. I dati restano e li riattivi quando vuoi.</p></div>
+        <div class="card"><h2>Pagamento</h2>${billPanel('gym', g.id)}</div>
         <div class="card"><h2>Account (${k.list.length})</h2>${k.list.slice().sort((a, b) => ord[a.role] - ord[b.role] || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account.</p>'}</div>`;
     };
     views.newGym = function () {
@@ -864,6 +1005,7 @@
     acts.devOpen = () => { ui.sub = { type: 'dev' }; c.render(); window.scrollTo(0, 0); };
     acts.pwChange = async () => { if (A.imp && A.imp()) return toast('Non disponibile durante l\'accesso rapido'); const a = prompt('Nuova password (almeno 8 caratteri):'); if (!a) return; try { await A.changePassword(a); toast('Password aggiornata'); } catch (e) { toast(e.message); } };
     X.onChange = function (t) {
+      if (t.id === 'nc_g') { const n = document.getElementById('ncExisting'); if (n) n.innerHTML = existingPanel(t.value); return true; }
       if (t.dataset.nutri) { A.setNutri(t.dataset.nutri, t.checked).then(() => { toast(t.checked ? 'Segnato come nutrizionista' : 'Nutrizionista rimosso'); return reload(); }).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
@@ -876,7 +1018,7 @@
       if (t.id === 'impTabAll' && t.files[0]) { importFile(t.files[0], X.clients(), null); t.value = ''; return true; }
       return false;
     };
-    X.onInput = function (t) { if (t.id === 'cmpQ' || t.id === 'cmpEx') { ui[t.id] = t.value; const pos = t.selectionStart, id = t.id; c.render(); const n = document.getElementById(id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
+    X.onInput = function (t) { if (t.hasAttribute && t.hasAttribute('data-dq')) { dsh().q = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-dq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'cmpQ' || t.id === 'cmpEx') { ui[t.id] = t.value; const pos = t.selectionStart, id = t.id; c.render(); const n = document.getElementById(id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
     Object.assign(X.views, { newClient: views.newClient });
     return X;
   };
