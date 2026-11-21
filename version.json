@@ -3,6 +3,7 @@
   "build": 127,
   "date": "2026-11-21",
   "notes": [
+    "Ricerca alimenti e ricette: nuovi elenchi a schede grandi e chiare, con calorie e macro e tasto +, al posto del menù scuro di sistema.",
     "Accessi: allenatore, nutrizionista e amministratore scelgono per ogni cliente i servizi attivi (solo allenamento, solo dieta, entrambi); l'app mostra solo le sezioni abilitate.",
     "Dieta: le fasce attorno all'allenamento ora si chiamano Pre workout e Post workout (il testo \"prima/dopo l'allenamento\" viene riconosciuto lo stesso).",
     "Nutrizione: il nutrizionista vede come il cliente segue la dieta (14 giorni, piano contro diario).",
