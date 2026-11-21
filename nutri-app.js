@@ -99,12 +99,16 @@
     document.getElementById('pall').onclick = () => exportPdf(null);
   }
 
+  /* ---------- dieta: scrivi, controlla, invia ---------- */
+  let _nd = null, _ndFor = null;
+  function ND() { if (!_nd || _ndFor !== st.cur.client_id) { _ndFor = st.cur.client_id; _nd = F.nutriDiet({ A, st, root: $app, rerender: () => renderClient(), confirmBox, fmtD }); } return _nd; }
+
   /* ---------- scheda cliente ---------- */
   async function openClient(id, keep) {
     const c = st.clients.find(x => x.client_id === id); if (!c) return;
     try {
       const [view, recs] = await Promise.all([rest('rpc/nutri_client_view', { method: 'POST', body: JSON.stringify({ cid: id }) }), rest('nutri_records?client_id=eq.' + id + '&deleted_at=is.null&select=id,kind,at,data,created_at,updated_at&order=at.desc,id.desc')]);
-      st.cur = c; st.view = view; st.recs = recs; if (!keep) { st.tab = 'dati'; st.form = null; } renderClient();
+      st.cur = c; st.view = view; st.recs = recs; if (!keep) { st.tab = 'dati'; st.form = null; st.dd = null; st.ddOk = ''; } renderClient();
     } catch (e) { loadClients(e.message); }
   }
   const age = b => { if (!b) return null; const d = new Date(b); return isFinite(d) ? Math.floor((Date.now() - d) / 31557600000) : null; };
@@ -134,7 +138,7 @@
     return o.length ? '<div class="der">' + o.join(' · ') + '<div class="mut" style="font-size:12px;margin-top:4px">Calcolo da formule pubblicate: i valori sono strumenti di lavoro del professionista, non indicazioni dell\'app.</div></div>' : '';
   }
   function renderClient() {
-    const c = st.cur, p = prof(), tabs = [['dati', 'Dati e peso'], ['rilev', 'Rilevazioni'], ['nuovo', 'Nuova rilevazione'], ['import', 'Importa da file/testo'], ['metab', 'Calcolatrice metabolismo']];
+    const c = st.cur, p = prof(), tabs = [['dati', 'Dati e peso'], ['rilev', 'Rilevazioni'], ['nuovo', 'Nuova rilevazione'], ['import', 'Importa da file/testo'], ['dieta', 'Dieta'], ['metab', 'Calcolatrice metabolismo']];
     if (c.scope_diary) tabs.push(['diario', 'Diario']); if (c.scope_training) tabs.push(['allen', 'Allenamenti']);
     let body = '';
     if (st.tab === 'dati') {
@@ -145,6 +149,7 @@
       body = '<div class="card"><h2>Rilevazioni salvate</h2>' + (st.recs.length ? '<table><tr><th>Data</th><th>Tipo</th><th>Valori</th><th class="noprint"></th></tr>' + st.recs.map(r => '<tr><td>' + fmtD(r.at) + '</td><td>' + KIND[r.kind] + '</td><td>' + recSummary(r) + '</td><td class="noprint" style="white-space:nowrap"><button data-ed="' + r.id + '">Modifica</button> <button class="dan" data-del="' + r.id + '">Elimina</button></td></tr>').join('') + '</table>' : '<p class="mut">Nessuna rilevazione ancora.</p>') + (pend().length ? '<p class="warn">' + pend().length + ' rilevazioni in attesa di connessione: saranno salvate appena la rete torna.</p>' : '') + '</div>';
     } else if (st.tab === 'nuovo') body = formHtml(st.form || { kind: 'visit', at: today(), data: {} });
     else if (st.tab === 'import') body = '<div class="card"><h2>Importa da file o testo</h2><p class="mut">Carica un file di testo/CSV esportato dallo strumento (bioimpedenziometro, plicometro…) oppure incolla il testo. Il programma riconosce i valori e li mostra: nulla viene salvato finché non confermi.</p><input type="file" id="imf" accept=".txt,.csv,.tsv,text/*"><textarea id="imt" rows="7" placeholder="Peso: 80,5 kg&#10;Angolo di fase: 6,5&#10;Acqua extracellulare: 18 l" style="margin-top:8px"></textarea><div class="save"><button id="imgo" class="pri">Riconosci i valori</button></div><div id="imres"></div></div>';
+    else if (st.tab === 'dieta') { const nd = ND(); body = (st.ddOk ? '<p class="ok">' + esc(st.ddOk) + '</p>' : '') + nd.html(); }
     else if (st.tab === 'metab') body = metabHtml();
     else if (st.tab === 'diario') body = diaryHtml();
     else if (st.tab === 'allen') body = trainHtml();
@@ -155,7 +160,7 @@
     $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { st.tab = b.dataset.tab; if (st.tab === 'nuovo') st.form = null; renderClient(); });
     $app.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => { const r = st.recs.find(x => x.id == b.dataset.ed); st.form = { id: r.id, kind: r.kind, at: r.at, data: JSON.parse(JSON.stringify(r.data || {})) }; st.tab = 'nuovo'; renderClient(); });
     $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => delRec(b.dataset.del));
-    if (st.tab === 'nuovo') bindForm(); if (st.tab === 'import') bindImport(); if (st.tab === 'metab') bindMetab();
+    if (st.tab === 'nuovo') bindForm(); if (st.tab === 'import') bindImport(); if (st.tab === 'metab') bindMetab(); if (st.tab === 'dieta') { const nd = ND(); nd.bind(); nd.load(); }
   }
 
   /* ---------- modulo di inserimento: ogni dato si conferma con Salva ---------- */

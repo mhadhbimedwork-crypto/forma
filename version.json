@@ -1,8 +1,8 @@
 {
-  "version": "1.45.1",
-  "build": 121,
+  "version": "1.46.0",
+  "build": 122,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: nel calcolo 'chiudi la giornata' puoi indicare cosa hai a disposizione e vedere alimenti con valori vicini a quanto manca; quello che scegli entra nel calcolo."
+    "Nutrizione: il nutrizionista scrive la dieta, controlla gli alimenti (CREA, catalogo o valori suoi) e la invia; il cliente la legge come scritta e in forma digitale e sceglie se attivarla o continuare con la sua."
   ]
 }

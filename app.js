@@ -271,7 +271,7 @@
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab)) ui.tab = X.homeTab();
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
-    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, planrev: viewPlanRev, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
+    else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, planrev: viewPlanRev, dietsent: viewDietSent, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, gara: () => G.view(), clients: XV.clients, gyms: XV.gyms, team: XV.team, nutri: XV.nutri }[ui.tab])();
     $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
@@ -859,6 +859,27 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const ok = S.settings.legal === F.LEGAL_VERSION;
     return `<div class="card"><details><summary><b>Avvertenze e responsabilità</b></summary><p class="small mute" style="margin:8px 0 0">${esc(BRAND)} è solo un motore di calcolo: non è un servizio medico, dietetico o di allenamento personale.</p>${legalBody()}${ok && S.settings.legalAt ? `<p class="mute small" style="margin-top:10px">Accettate il ${esc(S.settings.legalAt)}.</p>` : ''}</details></div>`;
   }
+  /* --- dieta inviata dal nutrizionista: il cliente la legge (testo identico + versione digitale) e sceglie se attivarla --- */
+  const dietOf = m => { try { const d = JSON.parse(m.body); return d && d.plan ? d : null; } catch (e) { return null; } };
+  function dietInboxCard() {
+    const l = (ui.diets || []).filter(m => dietOf(m)); if (!l.length) return '';
+    return l.map(m => { const d = dietOf(m); return `<div class="card" style="border-color:var(--ac)"><div class="row"><h2 class="grow" style="margin:0">Nuova dieta dal tuo nutrizionista</h2><span class="chip">da scegliere</span></div>
+      <p class="small" style="margin:6px 0 0"><b>${esc(m.title)}</b>${d.by ? ' · ' + esc(d.by) : ''}${m.created_at ? ' · ' + esc(String(m.created_at).slice(0, 10)) : ''}</p>
+      <p class="mute small" style="margin:6px 0 0">Puoi leggerla come l'ha scritta lui e vederla in forma digitale. Se la attivi diventa il tuo piano; se non vuoi, continui con quella che hai${nutPlanActive() ? ' (resta attiva)' : ''}.</p>
+      <div class="row wrap" style="margin-top:8px;gap:8px"><button class="sm" data-act="dietOpen" data-id="${esc(m.id)}">Leggi la dieta</button><button class="sm primary" data-act="dietActivate" data-id="${esc(m.id)}">Attiva questa dieta</button><button class="sm ghost" data-act="dietKeep" data-id="${esc(m.id)}">Continua con la mia</button></div></div>`; }).join('');
+  }
+  const nutPlanActive = () => { const p = P(); return !!(p && p.nutrition && p.nutrition.plan && p.nutrition.plan.active); };
+  function viewDietSent() {
+    const p = P(), sb = ui.sub, nut = ensureNut(p); let src;
+    if (sb.id) { const m = (ui.diets || []).find(x => String(x.id) === String(sb.id)), d = m && dietOf(m); if (!d) { ui.sub = null; return viewDiet(); } src = { title: m.title, by: d.by, at: m.created_at, text: d.text, plan: d.plan, foods: d.foods || [], inbox: m.id }; }
+    else { const pl = nut.plan; if (!pl) { ui.sub = null; return viewDiet(); } src = { title: pl.name, by: pl.by, at: pl.created, text: pl.text, plan: pl, foods: nut.foods || [] }; }
+    const pp = { nutrition: { foods: src.foods } };
+    const days = (src.plan.days || []).map(d => { const t = F.planDayTotals(pp, d).total; return `<h3 style="margin:12px 0 2px">${esc(d.name)} <span class="mute small" style="font-weight:400">${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g</span></h3>` + (d.meals || []).map((m, mi) => m.length ? `<div class="small"><b>${F.MEALS[mi]}</b>: ${m.map(it => { const fd = F.getFood(pp, it.f); return esc(fd ? fd.name : (it.raw || '?')) + ' ' + fx(it.g) + (fd && fd.liq ? ' ml' : ' g'); }).join(' · ')}</div>` : '').join(''); }).join('');
+    return `<div class="row"><button class="ghost" data-act="dietBack">← Dieta</button></div><h1>${esc(src.title)}</h1><p class="mute small" style="margin-top:0">${src.by ? 'Dieta scritta da ' + esc(src.by) : 'Dieta del tuo nutrizionista'}${src.at ? ' · ' + esc(String(src.at).slice(0, 10)) : ''}</p>
+      <div class="card"><h2>Versione scritta</h2><p class="mute small" style="margin-top:0">Il testo identico a come l'ha scritto il nutrizionista.</p>${src.text ? `<pre style="white-space:pre-wrap;font-family:inherit;margin:0;line-height:1.5">${esc(src.text)}</pre>` : '<p class="mute">Testo non disponibile.</p>'}</div>
+      <div class="card"><h2>Versione digitale</h2><p class="mute small" style="margin-top:0">Alimenti e quantità con i valori delle tabelle CREA.</p>${days}</div>
+      ${src.inbox ? `<div class="row wrap" style="gap:8px"><button class="primary" data-act="dietActivate" data-id="${esc(src.inbox)}">Attiva questa dieta</button><button data-act="dietKeep" data-id="${esc(src.inbox)}">Continua con la mia</button></div>` : ''}`;
+  }
   function planCard(p, D) {
     const nut = p.nutrition, pl = nut.plan && nut.plan.active ? nut.plan : null;
     if (!pl) return `<div class="card"><h2>Piano del tuo nutrizionista</h2><p class="small mute" style="margin:0 0 6px">Hai un piano scritto dal tuo nutrizionista o dietista? Incolla qui il testo o caricalo da file: ${esc(BRAND)} riconosce alimenti e quantità e tu controlli e correggi tutto prima di attivarlo. ${esc(F.PLAN_NOTICE)}</p>
@@ -869,7 +890,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">${esc(pl.name)}</h2><span class="chip">attivo</span></div>
       ${pl.days.length > 1 ? `<div class="row wrap" style="gap:6px;margin:8px 0">${pl.days.map((d, i) => `<button class="sm chiptab${i === ci ? ' on' : ''}" data-act="pvDay" data-i="${i}">${esc(d.name)}</button>`).join('')}</div>` : ''}
       <p class="small" style="margin:6px 0 0">${esc(cur.name)}: ${fx(t.k)} kcal · P ${fx(t.p)} · C ${fx(t.c)} · G ${fx(t.f)} g (somma delle quantità scritte nel piano)</p>
-      <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="pvAddDay">Aggiungi il giorno al diario</button><button class="sm" data-act="pvEdit">Vedi e modifica</button><button class="sm danger" data-act="pvDrop">Rimuovi il piano</button></div>
+      <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="pvAddDay">Aggiungi il giorno al diario</button><button class="sm" data-act="pvEdit">Vedi e modifica</button>${pl.src === 'nutrizionista' && pl.text ? '<button class="sm" data-act="dietOpen">Dieta scritta del nutrizionista</button>' : ''}<button class="sm danger" data-act="pvDrop">Rimuovi il piano</button></div>
       <details style="margin-top:8px"><summary class="mute small">Testo originale del piano</summary><pre class="small" style="white-space:pre-wrap;margin:6px 0 0">${esc(pl.text || '')}</pre></details></div>`;
   }
   function targetsCard(p) {
@@ -995,6 +1016,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         ${tgt ? `<p class="mute small" style="margin:8px 0 0">${tgt.src === 'plan' ? 'Obiettivo preso dal piano che hai attivato.' : 'Obiettivo impostato da te.'}</p>` : ''}
         ${F.intolWarnings(p, D.date).map(w => `<div class="msg danger small">${esc(w.text)}</div>`).join('')}
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div></div>
+      ${dietInboxCard()}
       ${planCard(p, D)}
       ${meals}
       ${cmpCard(p, day, tot, tgt)}
@@ -1452,6 +1474,23 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       if (!pl.days.length) return toast('Non trovo alimenti: scrivi un alimento per riga, ad esempio "Pane 50 g"');
       ui.pv = {}; ui.sub = { type: 'planrev', draft: pl }; render(); window.scrollTo(0, 0);
     },
+    async dietOpen(t) { await F.loadCrea(); ui.sub = { type: 'dietsent', id: t && t.dataset ? t.dataset.id : undefined }; render(); window.scrollTo(0, 0); },
+    dietBack() { ui.sub = null; render(); window.scrollTo(0, 0); },
+    async dietActivate(t) {
+      const m = (ui.diets || []).find(x => String(x.id) === t.dataset.id), d = m && dietOf(m); if (!d) return;
+      if (nutPlanActive() && !(await ask({ title: 'Attivare la nuova dieta?', text: 'Sostituisce il piano che stai usando. Il piano attuale viene tenuto da parte, non cancellato.' }))) return;
+      await F.loadCrea(); const p = P(), nut = ensureNut(p);
+      (d.foods || []).forEach(f => { if (!(nut.foods || []).some(x => x.id === f.id)) { nut.foods = nut.foods || []; nut.foods.push(f); } });
+      if (nut.plan && nut.plan.active) { nut.planOld = (nut.planOld || []).concat([Object.assign({}, nut.plan, { active: false })]).slice(-5); }
+      nut.plan = { id: 'pa' + Date.now().toString(36), name: m.title, text: String(d.text || '').slice(0, 20000), created: F.todayISO(), days: d.plan.days.map(dy => Object.assign({}, dy, { meals: dy.meals.map(ml => ml.map(it => Object.assign({ conf: 'ok', base: it.f }, it))) })), multi: (d.plan.days || []).length > 1, active: true, src: 'nutrizionista', assignedId: m.id, by: d.by || '' };
+      try { await AC.respondDiet(m.id, 'activated'); } catch (e) { toast('Dieta attivata. Il nutrizionista vedrà la tua scelta appena torna la connessione.'); }
+      ui.diets = (ui.diets || []).filter(x => x.id !== m.id); ui.sub = null; if (ui.diet) ui.diet.planDay = null; save(); render(); window.scrollTo(0, 0); toast('Dieta attivata: la trovi nella scheda Dieta');
+    },
+    async dietKeep(t) {
+      const m = (ui.diets || []).find(x => String(x.id) === t.dataset.id); if (!m) return;
+      if (!(await ask({ title: 'Continuare con la tua dieta?', text: 'Il nutrizionista vedrà che non hai attivato questa. Non potrai più attivarla da qui: se cambi idea chiedigli di rimandartela.' }))) return;
+      try { await AC.respondDiet(m.id, 'kept'); ui.diets = (ui.diets || []).filter(x => x.id !== m.id); ui.sub = null; render(); toast('Continui con la tua dieta'); } catch (e) { toast('Non riuscito: ' + e.message); }
+    },
     pvDay(t) { ui.diet.planDay = +t.dataset.i; render(); },
     pvEdit() { ui.pv = {}; ui.sub = { type: 'planrev', draft: JSON.parse(JSON.stringify(P().nutrition.plan)) }; render(); window.scrollTo(0, 0); },
     async pvDrop() { if (!(await ask({ title: 'Rimuovere il piano?', text: 'Il testo originale e le correzioni si perdono. I pasti già scritti nel diario restano.' }))) return; P().nutrition.plan = null; ui.diet.planDay = null; save(); render(); },
@@ -1829,7 +1868,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       try { const ids = await AC.listOwn(); if (!ids.length) throw new Error('Nessun profilo atleta collegato al tuo account: collegalo da FORGIA (Accessi rapidi → ★).'); await AC.impersonate(ids[0], ''); }
       catch (e) { AC.signOut(); onSignOut(); ui.authErr = e.message; return render(); }
     }
-    ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = [];
+    ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = []; ui.diets = [];
     const imp = AC.imp && AC.imp();
     if (AC.me.role === 'client' && !imp && S.profiles.length > 1) { const m = S.profiles.find(isMine); if (m) S.active = m.id; }
     if (AC.me.must_change_password && !imp) return render();
@@ -1856,6 +1895,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         else if (m && nSess(m) > nSess(P())) ui.legacyMine = { name: m.name, n: nSess(m) };
       } }
     try { ui.inbox = await AC.myPlans(); } catch (e) { }
+    try { ui.diets = await AC.myDiets(); } catch (e) { ui.diets = ui.diets || []; }
     await loadNutriLinks(); pushDiary();
     if (!imp || imp.write) await autoImportAssigned();
     render();
@@ -1877,7 +1917,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     ui.inbox = left;
     if (done.length) { save(); toast('Hai ricevuto una nuova scheda: ' + done[done.length - 1]); }
   }
-  function onSignOut() { S = emptyState(); mem = null; ui.sub = null; ui.tab = 'home'; ui.consent = undefined; ui.cl = null; ui.clLoaded = false; ui.inbox = []; render(); }
+  function onSignOut() { S = emptyState(); mem = null; ui.sub = null; ui.tab = 'home'; ui.consent = undefined; ui.cl = null; ui.clLoaded = false; ui.inbox = []; ui.diets = []; render(); }
   const X = F.mountExtras({ S: () => S, P, save, render, toast, esc, ui, fmt, lineChart, onSignIn, onSignOut });
   Object.assign(act, X.acts);
   G = F.mountGara({ P, save, render, toast, esc, ui, lineChart, planOf, pastCard });
