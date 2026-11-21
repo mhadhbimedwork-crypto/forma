@@ -16,7 +16,7 @@
     X.tabs = I => {
       if (!staffMode()) return [];
       if (!A.enabled) return [['clients', 'Clienti', I.user]];
-      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); t.push(['clients', 'Clienti', I.user]); if (r === 'head' || r === 'admin') t.push(['team', 'Team', I.plan]); if (A.isNutri()) t.push(['nutri', 'Nutrizione', I.plan]); return t;
+      const r = A.me.role, t = []; if (r === 'admin') t.push(['gyms', 'Palestre', I.chart]); if (r === 'admin') t.push(['agents', 'Agenti', I.plan]); t.push(['clients', 'Clienti', I.user]); if (r === 'head' || r === 'admin') t.push(['team', 'Team', I.plan]); if (A.isNutri()) t.push(['nutri', 'Nutrizione', I.plan]); return t;
     };
     X.homeTab = () => (A.enabled && A.me && A.me.role === 'admin' ? 'gyms' : 'clients');
 
@@ -855,6 +855,10 @@
     views.nutri = function () {
       const url = /\/gym\/?/.test(location.pathname) ? location.pathname.replace(/\/gym\/.*$/, '/nutri/') : new URL('nutri/', location.href).href;
       return `<h1>Area nutrizionista</h1><div class="card"><p class="small" style="margin-top:0">Qui trovi gli strumenti del professionista: elenco clienti collegati, visite e misure (plicometria, bioimpedenza, circonferenze, esami), calcolo del metabolismo, importazione dati e download Excel/PDF di tutto.</p><p class="small mute">Vedi solo i clienti che accettano il collegamento dalla loro app, e solo i dati per cui danno il consenso.</p><a class="btn primary" style="display:block;text-align:center;text-decoration:none;padding:12px" href="${esc(url)}" target="_blank" rel="noopener">Apri l'area nutrizionista</a></div>`;
+    };
+    views.agents = function () {
+      const url = 'https://mhadhbimedwork-crypto.github.io/agentclip/';
+      return `<h1>Agenti AgentClip</h1><div class="card"><p class="small" style="margin-top:0">Squadra di controllo automatica: collaudatore delle schede alimentari, revisore alimenti, sicurezza e rilascio. Lavorano ogni notte su GitHub, senza intelligenza artificiale e senza consumare token.</p><p class="small mute">La dashboard mostra solo conteggi e testi di controllo: gli agenti non leggono dati di clienti, palestre o account.</p><a class="btn primary" style="display:block;text-align:center;text-decoration:none;padding:12px" href="${esc(url)}" target="_blank" rel="noopener">Apri la dashboard AgentClip</a></div>`;
     };
     views.team = function () {
       X.ensureAdmin(); const adm = A.me.role === 'admin', coaches = (ui.accts || []).filter(a => (adm ? (a.role === 'coach' || a.role === 'head' || a.role === 'nutri') && inLens(a) : (a.role === 'coach' || a.role === 'nutri')));

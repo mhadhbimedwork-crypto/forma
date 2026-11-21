@@ -640,14 +640,14 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       return `<div class="row"><button class="ghost" data-act="cancelSub">← Annulla</button></div><h1>Controlla la scheda letta</h1>
         <div class="card"><b>${pr.days.length} giorni, ${all.length} esercizi</b><div class="mute small">${unk ? unk + ' da collegare · ' : ''}${fl ? fl + ' con ambiguità' : 'nessuna ambiguità'}</div>
         <label for="imp_title">Nome scheda</label><input id="imp_title" value="${esc(st.title)}">
-        ${pr.flags.length ? msgs(pr.flags.map(t => ({ k: 'warn', t }))) : ''}
+        ${pr.flags.length ? msgs(pr.flags.map(t => ({ k: 'warn', t }))) : ''}${F.fmtHintsHtml(st.hints)}
         <div class="row" style="margin-top:12px"><button class="primary grow" data-act="saveImport">Salva scheda</button></div>
         <p class="mute small">Potrai collegare gli esercizi non riconosciuti e correggere serie e ripetizioni nel dettaglio della scheda.</p></div>
         ${pr.days.map(d => `<div class="card"><h2>${esc(d.name)}</h2>${d.exercises.map(x => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line)"><b>${esc(x.name)}</b> — ${x.sets}× ${esc(F.repsLabel(x))}${x.pct ? ' · ' + esc(F.pctLabel(x)) : ''}${x.rest ? ' · rec ' + x.rest + 's' : ''}${x.rpe ? ' · ' + rpeTxt(x.rpe) : ''}${x.tempo ? ' · tempo ' + esc(x.tempo) : ''} ${x.exId ? `<span class="chip">${esc(F.EXMAP[x.exId].name)}</span>` : '<span class="chip warn">da collegare</span>'}${x.flags.map(f => `<div class="mute">⚠ ${esc(f)}</div>`).join('')}</div>`).join('')}</div>`).join('')}`;
     }
     return `<div class="row"><button class="ghost" data-act="cancelSub">← Annulla</button></div><h1>Importa scheda</h1>
       <div class="card"><h2>Incolla il testo</h2><p class="mute small">Incolla la scheda come l'ha scritta l'allenatore, anche in inglese: <code>Bench press 4x6 @80% rest 2 min</code>, <code>Lat pulldown 3 x 8-10 RPE 8</code>, <code>Squat 5 serie da 5, 75%, recupero 2'</code>. Riconosco serie, ripetizioni, % del massimale, RPE/RIR, recuperi e tempo. Le righe come <code># Giorno 1</code> o <code>Push day:</code> sono i giorni.</p>
-      <textarea id="imp_text" placeholder="# Day 1&#10;Bench press 4x6 @80% rest 2 min&#10;Lat pulldown 3x8-10 RPE 8&#10;Leg press 3x12 rec 90s" aria-label="Testo della scheda"></textarea>
+      <textarea id="imp_text" placeholder="${F.fmtPlaceholder('train')}" aria-label="Testo della scheda"></textarea>${F.fmtGuide('train', 'imp_text')}
       <button class="primary" style="margin-top:8px" data-act="parseText">Leggi scheda</button>${AC.isAdmin && AC.isAdmin() ? '<button class="sm" style="margin-top:8px" data-act="garaSample">Prova: carica scheda di gara di esempio</button>' : ''}</div>
       <div class="card"><h2>Da file: Excel, PDF, CSV</h2><p class="mute small">Carica la scheda dell'allenatore come file <b>.xlsx</b>, <b>.csv</b>, <b>.pdf</b> o <b>.txt</b>. Riconosco le colonne (esercizio, serie, ripetizioni, recupero, carico, RPE, note) e i giorni (un foglio per giorno, oppure una riga titolo o la colonna Giorno). I PDF devono contenere testo; se è una scansione usa la foto.</p>
       <input type="file" id="imp_file" accept=".xlsx,.csv,.pdf,.txt,application/pdf" aria-label="File della scheda"></div>
@@ -883,7 +883,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   function planCard(p, D) {
     const nut = p.nutrition, pl = nut.plan && nut.plan.active ? nut.plan : null;
     if (!pl) return `<div class="card"><h2>Piano del tuo nutrizionista</h2><p class="small mute" style="margin:0 0 6px">Hai un piano scritto dal tuo nutrizionista o dietista? Incolla qui il testo o caricalo da file: ${esc(BRAND)} riconosce alimenti e quantità e tu controlli e correggi tutto prima di attivarlo. ${esc(F.PLAN_NOTICE)}</p>
-      <textarea id="pvText" style="min-height:90px;font-family:inherit" placeholder="Colazione&#10;Latte parzialmente scremato 200 ml&#10;Pane integrale 50 g&#10;Pranzo&#10;…" aria-label="Testo del piano alimentare"></textarea>
+      <textarea id="pvText" style="min-height:90px;font-family:inherit" placeholder="${F.fmtPlaceholder('diet')}" aria-label="Testo del piano alimentare"></textarea>${F.fmtGuide('diet', 'pvText')}
       <div class="row wrap" style="margin-top:6px"><button class="sm primary" data-act="pvParse">Riconosci alimenti e quantità</button><label for="pvFile" class="sm" style="display:inline-block;padding:8px 12px;border:1px solid var(--line2);border-radius:10px;cursor:pointer">Carica da file di testo</label><input id="pvFile" type="file" accept=".txt,text/plain" style="display:none"></div>
       <p class="mute small" style="margin:6px 0 0">Se il piano è un PDF, aprilo, copia il testo e incollalo qui.</p></div>`;
     const cur = F.planDayFor(pl, D.date, D.planDay), ci = pl.days.indexOf(cur), t = F.planDayTotals(p, cur).total;
@@ -914,7 +914,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const unk = pl.days.reduce((n, d) => n + d.meals.reduce((a, m) => a + m.filter(F.itemOpen).length, 0), 0);
     let panel = '';
     if (sw) { panel = addPanel(p, sw.m).replace(/data-act="dAdd" data-m="\d*">Aggiungi</g, 'data-act="dAdd" data-m="' + sw.m + '">Usa questo<').replace('Aggiungi a ', 'Scegli per '); }
-    return `<div class="row"><button class="ghost" data-act="pvCancel">← Dieta</button></div><h1>Controlla il piano</h1>
+    return `<div class="row"><button class="ghost" data-act="pvCancel">← Dieta</button></div><h1>Controlla il piano</h1>${F.fmtHintsHtml(pl.hints)}
       <div class="card"><p class="small" style="margin:0">Ho riconosciuto gli alimenti dal testo: <b>controlla ogni riga</b> e correggi quantità e alimenti. Verifica anche se i pesi sono da crudo o da cotto. ${esc(F.PLAN_NOTICE)}</p>
         ${unk ? `<div class="msg warn small" style="margin-top:8px">${unk} voce/i da completare (alimento non riconosciuto o quantità mancante): non entrano nei totali finché non le sistemi.</div>` : ''}
         <label for="pv_name" style="margin-top:8px">Nome del piano</label><input id="pv_name" value="${esc(pl.name)}"></div>
@@ -1476,7 +1476,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       const t = ($('#pvText').value || '').trim(); if (t.length < 5) return toast('Incolla il testo del piano');
       await F.loadCrea(); const p = P(); ensureNut(p); const pl = F.parsePlanText(p, t);
       if (!pl.days.length) return toast('Non trovo alimenti: scrivi un alimento per riga, ad esempio "Pane 50 g"');
-      ui.pv = {}; ui.sub = { type: 'planrev', draft: pl }; render(); window.scrollTo(0, 0);
+      pl.hints = F.fmtHintsDiet(pl, t); ui.pv = {}; ui.sub = { type: 'planrev', draft: pl }; render(); window.scrollTo(0, 0);
     },
     async dietOpen(t) { await F.loadCrea(); ui.sub = { type: 'dietsent', id: t && t.dataset ? t.dataset.id : undefined }; render(); window.scrollTo(0, 0); },
     dietBack() { ui.sub = null; render(); window.scrollTo(0, 0); },
@@ -1586,7 +1586,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     swap(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), e = F.EXMAP[t.dataset.ex], x = pl.days[+t.dataset.d].exercises[+t.dataset.x]; Object.assign(x, { exId: e.id, name: e.name, unit: e.unit, repsInfo: undefined, reps: x.repsInfo ? '8-12' : x.reps, flags: [], note: '' }); save(); render(); },
     async rmEx(t) { if (!(await ask({ title: 'Togliere questo esercizio dalla scheda?', text: 'Le sedute già registrate restano.' }))) return; const p = P(), pl = p.plans.find(x => x.id === ui.sub.id); pl.days[+t.dataset.d].exercises.splice(+t.dataset.x, 1); save(); render(); },
     addEx(t) { const p = P(), pl = p.plans.find(x => x.id === ui.sub.id), v = $('#add_' + t.dataset.d).value; if (!v) return; const e = F.EXMAP[v]; pl.days[+t.dataset.d].exercises.push({ exId: e.id, name: e.name, sets: 3, setsEarly: 2, reps: e.unit === 'sec' ? '20-40 s' : '8-12', unit: e.unit, rest: 90, note: '' }); save(); render(); },
-    parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, raw: tx, title: 'Scheda importata ' + F.todayISO() }; render(); },
+    parseText() { const tx = $('#imp_text').value; if (!tx.trim()) return toast('Incolla prima il testo della scheda'); const r = F.parseScheda(tx); if (!r.days.length || !r.days.some(d => d.exercises.length)) return toast('Non riesco a leggere esercizi: usa il formato NOME | serie | ripetizioni'); ui.sub.state = { parsed: r, raw: tx, title: 'Scheda importata ' + F.todayISO(), hints: F.fmtHintsTrain(r, tx) }; render(); },
     async parsePhoto() {
       const f = $('#imp_photo').files[0]; if (!f) return toast('Scegli prima una foto');
       const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(f); });

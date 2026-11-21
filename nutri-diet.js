@@ -47,7 +47,7 @@
       const dd = D();
       return '<div class="card"><h2>Nuova dieta</h2><p class="mut" style="font-size:13px">Scrivi o incolla la dieta come l\'hai preparata: un alimento per riga con la quantità (es. "Pane integrale 50 g"), con i titoli dei giorni e dei pasti. Il programma riconosce alimenti e quantità dalle tabelle CREA e tu controlli e correggi ogni voce prima di inviare. Il cliente riceverà il testo identico a come l\'hai scritto e anche la versione digitale.</p>' +
         '<label>Titolo</label><input id="nd_title" value="' + esc(dd.title) + '" placeholder="Es. Dieta di novembre">' +
-        '<label style="margin-top:8px">Testo della dieta</label><textarea id="nd_text" rows="14" placeholder="Lunedì&#10;Colazione&#10;Latte parzialmente scremato 200 ml&#10;Pane integrale 50 g&#10;Pranzo&#10;…">' + esc(dd.text) + '</textarea>' +
+        '<label style="margin-top:8px">Testo della dieta</label><textarea id="nd_text" rows="14" placeholder="' + F.fmtPlaceholder('diet') + '">' + esc(dd.text) + '</textarea>' + F.fmtGuide('diet', 'nd_text') +
         '<div class="save"><button class="pri" id="nd_parse">Riconosci alimenti e quantità</button><span class="msg bad" id="nd_msg">' + esc(dd.msg) + '</span></div></div>';
     }
     function itemRow(d, m, i, it) {
@@ -72,7 +72,7 @@
     function reviewCard() {
       const dd = D(), pl = dd.plan, day = pl.days[Math.min(dd.day, pl.days.length - 1)], tot = F.planDayTotals(dd.p, day).total;
       let bad = 0; pl.days.forEach(d => d.meals.forEach(m => m.forEach(it => { if (F.itemOpen(it)) bad++; })));
-      return '<div class="card"><h2>Controlla la dieta</h2><label>Titolo</label><input id="nd_title" value="' + esc(dd.title) + '">' +
+      return F.fmtHintsHtml(dd.hints) + '<div class="card"><h2>Controlla la dieta</h2><label>Titolo</label><input id="nd_title" value="' + esc(dd.title) + '">' +
         (pl.days.length > 1 ? '<div class="tabs" style="margin-top:8px">' + pl.days.map((d, i) => '<button data-nd-day="' + i + '" class="' + (i === dd.day ? 'on' : '') + '">' + esc(d.name) + '</button>').join('') + '</div>' : '') +
         F.planSections(dd.p, day).map(sc => '<h3 style="margin:14px 0 4px">' + esc(sc.lab) + ' <span class="mut" style="font-weight:400;font-size:13px">' + (sc.supp ? 'integratori' : Math.round(sc.tot.k) + ' kcal · P ' + r1(sc.tot.p) + ' · C ' + r1(sc.tot.c) + ' · G ' + r1(sc.tot.f)) + '</span></h3>' + sc.groups.map(g => (g.head ? '<div class="mut" style="font-weight:600;margin:6px 0 2px">' + g.head + '</div>' : '') + '<table>' + g.rows.map(r => itemRow(day, r[1], r[2], r[0])).join('') + '</table>').join('')).join('') +
         '<div style="margin-top:12px"><span class="mut">Aggiungi un alimento a:</span> ' + MEALS.map((n, mi) => '<button data-nd-add="' + mi + '">' + n + '</button>').join(' ') + '</div>' +
@@ -101,7 +101,7 @@
         $('nd_parse').disabled = true; $('nd_msg').textContent = 'Riconosco…'; $('nd_msg').className = 'msg';
         await F.loadCrea(); const pl = F.parsePlanText(dd.p, dd.text);
         if (!pl.days.length) { dd.msg = 'Non trovo alimenti: scrivi un alimento per riga, ad esempio "Pane 50 g".'; return ctx.rerender(); }
-        dd.plan = pl; dd.day = 0; dd.msg = ''; dd.sel = null; ctx.rerender();
+        dd.plan = pl; dd.hints = F.fmtHintsDiet(pl, dd.text); dd.day = 0; dd.msg = ''; dd.sel = null; ctx.rerender();
       };
       if (!dd.plan) return;
       const day = () => dd.plan.days[Math.min(dd.day, dd.plan.days.length - 1)];
