@@ -102,7 +102,7 @@
           const l = await rest('rpc/nutri_search', { method: 'POST', body: JSON.stringify({ q }) });
           box.innerHTML = l.length ? l.map(x => '<button type="button" class="sugbtn" data-u="' + esc(x.username) + '" ' + (x.linked ? 'disabled' : '') + '><b>' + esc(x.full_name) + '</b><span>' + (x.linked === 'active' ? 'già collegato' : x.linked === 'pending' ? 'richiesta in attesa' : 'Tocca per inviare la richiesta') + '</span></button>').join('') : '<p class="mut" style="margin:0;font-size:13px">Nessun atleta della tua palestra con questo nome. Se è di un\'altra palestra scrivi nome e cognome completi e premi "Invia richiesta".</p>';
           box.querySelectorAll('button[data-u]:not([disabled])').forEach(b => b.onclick = () => ask(b.dataset.u));
-        } catch (er) { box.innerHTML = ''; }
+        } catch (er) { box.innerHTML = '<p class="msg bad" style="margin:0">Ricerca non riuscita: ' + esc(er.message || 'riprova') + '</p>'; }
       }, 250);
     };
     document.getElementById('rgo').onclick = () => {

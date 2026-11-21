@@ -1,6 +1,6 @@
 {
   "version": "1.48.1",
-  "build": 128,
+  "build": 129,
   "date": "2026-11-21",
   "notes": [
     "Allenatori e responsabili: il profilo atleta personale è nella lista Clienti (senza altra password); se crei un cliente con il tuo nome lo attiva da solo e avvisa dei doppioni.",
