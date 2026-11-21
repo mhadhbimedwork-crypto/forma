@@ -1,7 +1,7 @@
 // Copia i file web dell'app in una cartella di output (default: www). Usato da Pages e da Capacitor.
 const fs = require('fs'), path = require('path');
 const out = path.resolve(process.argv[2] || 'www');
-const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'crea.js', 'crea.json', 'crea_micro.json', 'dietplan.js', 'guide.js', 'closeday.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
+const FILES = ['index.html', 'styles.css', 'data.js', 'body.js', 'painx.js', 'engine.js', 'exercises2.js', 'recovery.js', 'analytics.js', 'xlsx.js', 'qrcode.js', 'exportdata.js', 'account.js', 'staff.js', 'planfile.js', 'parser.js', 'nutrition.js', 'crea.js', 'crea.json', 'crea_micro.json', 'dietplan.js', 'formato.js', 'guide.js', 'closeday.js', 'planner.js', 'gara.js', 'backup.js', 'app.js', 'sw.js', 'manifest.webmanifest', 'version.json'];
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 for (const f of FILES) fs.copyFileSync(f, path.join(out, f));
 fs.cpSync('icons', path.join(out, 'icons'), { recursive: true });
@@ -52,7 +52,7 @@ if (path.basename(out) === '_site') {
     const nu = path.join(out, 'nutri'); fs.mkdirSync(nu, { recursive: true });
     fs.writeFileSync(path.join(nu, 'gymcfg.js'), 'window.FORMA_GYM = ' + JSON.stringify({ name: 'FORGIA Nutrizionista', key: 'forgia.nutri.v1', mode: 'nutri', server }) + ';\n');
     fs.copyFileSync('nutri.html', path.join(nu, 'index.html'));
-    for (const f of ['xlsx.js', 'account.js', 'nutri.js', 'nutri-app.js', 'nutrition.js', 'crea.js', 'crea.json', 'dietplan.js', 'nutri-diet.js']) fs.copyFileSync(f, path.join(nu, f));
+    for (const f of ['xlsx.js', 'account.js', 'nutri.js', 'nutri-app.js', 'nutrition.js', 'crea.js', 'crea.json', 'dietplan.js', 'formato.js', 'nutri-diet.js']) fs.copyFileSync(f, path.join(nu, f));
     console.log('Area nutrizionista in', nu);
   }
   console.log('Console amministratore in', ad);
