@@ -926,6 +926,29 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     }).join('');
     return lines ? `<h3 style="margin:10px 0 4px">Da dove arrivano oggi</h3>${lines}` : '';
   }
+  /* alimenti con valori vicini a quanto manca; l'utente indica cosa ha a disposizione e sceglie lui */
+  function cmpFitList(p, tot, tgt) {
+    const S = cmpS(), need = { k: tgt.k - tot.k, p: tgt.p - tot.p, c: tgt.c - tot.c, f: tgt.f - tot.f };
+    if (!(need.k > 30)) return '<p class="mute small">Gli obiettivi di oggi sono già raggiunti: non c\'è niente da compensare.</p>';
+    const words = String(S.avail || '').split(/[,;\n]+/).map(x => F.normText(x).trim()).filter(x => x.length >= 3);
+    const inCombo = new Set(S.combo.map(x => x.f)), seen = new Set();
+    let pool = F.allFoods(p).concat(F.CREA || []).filter(fd => fd && fd.k > 0 && !inCombo.has(fd.id) && !F.isAvoided(p, fd) && !/alcol/i.test(fd.grp || '') && !/\b(vino|birra|liquor|grappa|whisky|vodka|rum)\b/i.test(fd.name || ''));
+    if (words.length) pool = pool.filter(fd => { const nm = F.normText(fd.name); return words.some(w => nm.indexOf(w) >= 0); });
+    const fit = F.fitFoods(pool, need, { k: tgt.k, p: tgt.p, c: tgt.c, f: tgt.f }, { step: 5, max: 500 }), rows = [];
+    for (const x of fit) { const fd = pool[x.i], key = F.normText(fd.name).split(/[ ,]/)[0]; if (seen.has(key)) continue; seen.add(key); rows.push([fd, x]); if (rows.length >= 10) break; }
+    if (!rows.length) return '<p class="mute small">Nessun alimento ha valori vicini a quanto manca' + (words.length ? ' tra quelli che hai indicato.' : '.') + '</p>';
+    return rows.map(([fd, x]) => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b><div class="mute small">circa ${x.g} ${F.unitOf(fd)} portano ${fx(x.got.k)} kcal · P ${fmt(x.got.p, 1)} · C ${fmt(x.got.c, 1)} · G ${fmt(x.got.f, 1)}</div></div><button class="sm" data-act="cmpFitUse" data-f="${esc(fd.id)}">Ce l'ho: aggiungi al calcolo</button></div>`).join('');
+  }
+  function cmpFitHtml(p, tot, tgt) {
+    const S = cmpS();
+    if (!S.fitOpen) return `<div class="row wrap" style="margin-top:10px"><button class="sm" data-act="cmpFitOpen">Mostra alimenti con valori vicini a quanto manca</button></div>`;
+    return `<h3 style="margin:12px 0 4px">Alimenti con valori vicini a quanto manca</h3>
+      <p class="mute small" style="margin:0 0 6px">Elenco ordinato per vicinanza dei valori a ciò che manca ai tuoi obiettivi: non è un consiglio su cosa mangiare. Dimmi cosa hai a disposizione e scegli tu: quello che scegli entra nel calcolo qui sopra. Gli alimenti che hai segnato come da evitare non compaiono.</p>
+      <label class="small" for="cmpavail">Cosa hai a disposizione? (facoltativo: scrivi i nomi separati da virgola, vuoto = tutti)</label>
+      <input id="cmpavail" placeholder="es. yogurt, riso, tonno, pane" autocomplete="off" value="${esc(S.avail || '')}" style="margin:4px 0 6px">
+      <div id="cmpFitList">${cmpFitList(p, tot, tgt)}</div>
+      <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="cmpFitOpen">Nascondi l'elenco</button></div>`;
+  }
   function cmpCard(p, day, tot, tgt) {
     const S = cmpS();
     if (!S.open) return `<div class="card"><div class="row"><div class="grow"><b>Valori e combinazioni</b><div class="mute small">Confronta gli alimenti per contenuto e componi una combinazione con i totali.</div></div><button class="sm" data-act="cmpOpen">Apri</button></div></div>`;
@@ -940,6 +963,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div id="cmpCombo">${S.combo.length ? S.combo.map((it, i) => { const fd = F.getFood(p, it.f); return fd ? `<div class="row" style="padding:4px 0"><div class="grow"><b>${esc(fd.name)}</b></div><input inputmode="decimal" style="width:80px" data-cg="${i}" value="${it.g}" aria-label="Quantità"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="cmpRm" data-i="${i}" aria-label="Togli">✕</button></div>` : ''; }).join('') : '<p class="mute small" style="margin:2px 0">Vuota: aggiungi alimenti dall\'elenco e scegli tu le quantità.</p>'}</div>
       <div id="cmpTot">${cmpTotHtml(p, tot, tgt)}</div>
       ${S.combo.length && tgt ? `<div class="row wrap" style="margin-top:8px;gap:6px"><button class="sm primary" data-act="cmpClose">Calcola le quantità per chiudere la giornata</button></div><p class="mute small" style="margin:4px 0 0">Calcolo sugli alimenti che hai scelto tu e su quanto manca ai tuoi obiettivi (${fx(tgt.k - tot.k)} kcal · P ${fx(tgt.p - tot.p)} · C ${fx(tgt.c - tot.c)} · G ${fx(tgt.f - tot.f)} g). I valori sono quelli delle tabelle: l'etichetta del prodotto può differire.</p>${S.closeMsg ? `<div class="msg small" style="margin-top:6px">${esc(S.closeMsg)}</div>` : ''}` : ''}
+      ${tgt ? cmpFitHtml(p, tot, tgt) : ''}
       ${S.combo.length ? `<div class="row wrap" style="margin-top:8px;gap:6px"><select id="cmpMeal" aria-label="Pasto" style="width:auto">${F.MEALS.map((n, i) => `<option value="${i}"${i === S.meal ? ' selected' : ''}>${n}</option>`).join('')}</select><button class="sm primary" data-act="cmpAdd">Aggiungi al diario</button><button class="sm" data-act="cmpClear">Svuota</button></div>` : ''}</div>`;
   }
   function viewDiet() {
@@ -1409,12 +1433,14 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       const S = cmpS(), p = P(), D = ui.diet, day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), tg = dietTarget(p, D.date); if (!tg || !S.combo.length) return;
       const foods = S.combo.map(it => F.getFood(p, it.f)).filter(Boolean); if (foods.length !== S.combo.length) return toast('Alimento non trovato');
       const need = { k: tg.k - tot.k, p: tg.p - tot.p, c: tg.c - tot.c, f: tg.f - tot.f };
-      const r = F.closeDay(foods, need, { k: tg.k, p: tg.p, c: tg.c, f: tg.f }, { step: 5, max: 800 });
+      const r = F.closeDay(foods, need, { k: tg.k, p: tg.p, c: tg.c, f: tg.f }, { step: 5, max: 500 });
       S.combo.forEach((it, i) => { it.g = r.g[i]; });
       const names = { k: 'kcal', p: 'proteine', c: 'carboidrati', f: 'grassi' }, off = ['k', 'p', 'c', 'f'].filter(k => !r.okBy[k]);
       S.closeMsg = r.ok ? 'Con queste quantità la giornata chiude dentro il range.' : (r.g.every(v => v === 0) ? 'Gli obiettivi di oggi sono già raggiunti o superati: nessuna quantità da aggiungere.' : 'Con questi alimenti non si chiude del tutto: restano fuori ' + off.map(k => names[k] + ' (' + (r.miss[k] > 0 ? 'mancano ' : 'in più ') + fx(Math.abs(r.miss[k])) + (k === 'k' ? ' kcal' : ' g') + ')').join(', ') + '. Puoi cambiare gli alimenti o le quantità.');
       render();
     },
+    cmpFitOpen() { const S = cmpS(); S.fitOpen = !S.fitOpen; render(); },
+    cmpFitUse(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; S.closeMsg = ''; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' aggiunto al calcolo'); act.cmpClose(); },
     cmpClear() { cmpS().combo = []; cmpS().closeMsg = ''; render(); },
     cmpAdd() { const S = cmpS(), p = P(), day = F.dayOf(p, ui.diet.date), mi = +($('#cmpMeal') || { value: S.meal }).value; const ok = S.combo.filter(x => x.g > 0); if (!ok.length) return toast('Inserisci le quantità'); ok.forEach(x => day.meals[mi].push({ f: x.f, g: x.g })); S.combo = []; S.meal = mi; save(); toast('Aggiunto al diario'); render(); },
     async nlAccept(t) { const id = t.dataset.id, d = $('#nl_d' + id), tr = $('#nl_t' + id); try { await AC._rest('nutri_links?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'active', scope_diary: !!(d && d.checked), scope_training: !!(tr && tr.checked), decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Consensi salvati'); render(); } catch (e) { toast(/row-level|policy|violat/i.test(e.message) ? 'Per i minorenni serve il consenso di un genitore: chiedi all\'allenatore di registrarlo' : e.message); } },
@@ -1786,6 +1812,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     if (t.dataset.es) { esSet(t); return; }
     if (t.id === 'dg') { const w = $('#dgwarn'), g = parseFloat(String(t.value).replace(',', '.')); if (w && g > 0) { const left = +w.dataset.left; w.style.color = g > left + 1 ? 'var(--warn)' : ''; w.textContent = g > left + 1 ? `Attenzione: ${fx(g)} g superano il limite di oggi (restano ${fx(left)} g).` : `Puoi aggiungerne ancora ${fx(left)} g oggi.`; } return; }
     if (t.id === 'dq') { liveSearch(t.value); return; }
+    if (t.id === 'cmpavail') { const S = cmpS(); S.avail = t.value; const l = $('#cmpFitList'), p0 = P(), D = ui.diet; if (l && D) { const tg = dietTarget(p0, D.date); if (tg) l.innerHTML = cmpFitList(p0, F.dayTotal(p0, F.dayOf(p0, D.date)), tg); } return; }
     if (t.id === 'cmpq') { const S = cmpS(); S.q = t.value; const l = $('#cmpList'); if (l) l.innerHTML = cmpListHtml(P()); return; }
     if (t.dataset.cg != null && t.dataset.cg !== '') { const S = cmpS(), it = S.combo[+t.dataset.cg]; if (it) { it.g = parseFloat(String(t.value).replace(',', '.')) || 0; const D = ui.diet, p0 = P(), tot0 = F.dayTotal(p0, F.dayOf(p0, D.date)), tg = dietTarget(p0, D.date), el = $('#cmpTot'); if (el) el.innerHTML = cmpTotHtml(p0, tot0, tg); } return; }
     if (t.classList && t.classList.contains('whyq')) { const r = document.querySelector('.whyres[data-k="' + t.dataset.k + '"]'); if (r) r.innerHTML = F.pxSearch(t.value, 6).map(o => `<button class="sm" style="display:block;width:100%;text-align:left;margin:3px 0" data-act="whyPainPick" data-k="${t.dataset.k}" data-id="${o.id}">${esc(o.name)}</button>`).join(''); return; }

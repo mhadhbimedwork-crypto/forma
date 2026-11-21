@@ -1,8 +1,8 @@
 {
-  "version": "1.45.0",
-  "build": 120,
+  "version": "1.45.1",
+  "build": 121,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: 'Calcola le quantità per chiudere la giornata'. Scegli tu gli alimenti, l'app calcola le grammature per rientrare nel range dei tuoi obiettivi."
+    "Dieta: nel calcolo 'chiudi la giornata' puoi indicare cosa hai a disposizione e vedere alimenti con valori vicini a quanto manca; quello che scegli entra nel calcolo."
   ]
 }

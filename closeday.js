@@ -58,4 +58,24 @@
     KEYS.forEach(k => { miss[k] = need[k] - got[k]; const lim = (target[k] || 0) * F.CLOSE_TOL[k]; ok0[k] = Math.abs(miss[k]) <= lim; if (!ok0[k]) ok = false; });
     return { g: rb, got, miss, ok, okBy: ok0 };
   };
+  /**
+   * Alimenti i cui valori si avvicinano a quanto manca (uno alla volta). Non è un consiglio: è un ordinamento per vicinanza ai valori.
+   * foods: [{ k, p, c, f }] per 100 g; ritorna [{ i, g, gain, got }] ordinato per riduzione dello scarto
+   */
+  F.fitFoods = function (foods, need, target, opt) {
+    opt = opt || {}; const step = opt.step || 5, max = opt.max || 800, out = [];
+    const w = KEYS.map(k => { const s = Math.max(1, (target[k] || 1) * F.CLOSE_TOL[k]); return 1 / (s * s); });
+    const r = KEYS.map(k => need[k]), cost = v => { let c = 0; KEYS.forEach((k, t) => { const d = v[t] - r[t]; c += w[t] * d * d; }); return c; };
+    const c0 = cost([0, 0, 0, 0]); if (!(c0 > 0)) return out;
+    foods.forEach((fd, i) => {
+      const a = KEYS.map(k => (fd[k] || 0) / 100); if (!(a[0] > 0)) return;
+      let num = 0, den = 0; KEYS.forEach((k, t) => { num += w[t] * a[t] * r[t]; den += w[t] * a[t] * a[t]; });
+      if (!(den > 0)) return;
+      const cap = target.k > 0 ? Math.min(max, Math.floor(0.35 * target.k / a[0] / step) * step) : max;
+      let g = Math.min(cap, Math.round(num / den / step) * step); if (g < step) return;
+      const got = a.map(x => x * g), gain = c0 - cost(got); if (gain <= 0) return;
+      out.push({ i, g, gain: gain / c0, got: { k: got[0], p: got[1], c: got[2], f: got[3] } });
+    });
+    return out.sort((x, y) => y.gain - x.gain);
+  };
 })(window.FORMA);
