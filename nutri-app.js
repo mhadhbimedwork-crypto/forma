@@ -62,7 +62,7 @@
     if (!A.enabled) { $app.innerHTML = '<div class="card">Server non configurato.</div>'; return; }
     if (!A.me) await A.restore();
     if (!A.me) return viewLogin();
-    if (A.me.role !== 'nutri') { await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
+    if (!A.isNutri()) { await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
     if (A.me.must_change_password) return viewPw();
     if (!await termsOk()) return viewTerms();
     document.getElementById('who').textContent = A.me.full_name; const o = document.getElementById('out'); o.hidden = false;

@@ -1,8 +1,8 @@
 {
-  "version": "1.44.1",
-  "build": 117,
+  "version": "1.44.2",
+  "build": 118,
   "date": "2026-11-20",
   "notes": [
-    "Dieta: tornano le guide con fonti ufficiali (OMS, Ministero della Salute, CREA, EFSA, FAO) con link diretto. Informazioni generali, uguali per tutti."
+    "Nutrizionista: puoi segnare un allenatore esistente come nutrizionista (spunta 'anche nutrizionista') o creare un nuovo nutrizionista da Team."
   ]
 }
