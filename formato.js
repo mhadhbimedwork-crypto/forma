@@ -7,7 +7,7 @@
     diet: [
       'LUNEDÌ', 'COLAZIONE', 'Latte parzialmente scremato 200 ml', 'Pane integrale 50 g', 'o Fette biscottate 30 g',
       'SPUNTINO 1', 'Yogurt greco 150 g', 'PRANZO', 'Riso 80 g', 'Petto di pollo 150 g', 'Olio extravergine d\'oliva 10 ml',
-      'PRIMA DELL\'ALLENAMENTO', 'Banana 1', 'DOPO L\'ALLENAMENTO', 'Proteine in polvere (whey) 30 g',
+      'PRE WORKOUT', 'Banana 1', 'POST WORKOUT', 'Proteine in polvere (whey) 30 g',
       'CENA', 'Merluzzo 200 g', 'Patate 250 g', 'INTEGRATORI', 'Creatina 5 g', 'ACQUA', '2,5 litri al giorno', 'NOTE', 'Pesare gli alimenti a crudo.'],
     train: [
       '# Giorno A - Petto e tricipiti', 'Panca piana 4x6 @80% rec 2 min', 'Croci ai cavi 3x12 RPE 8', 'Pushdown ai cavi 3x10-12 rec 90s',
@@ -20,7 +20,7 @@
   const GUIDE = {
     diet: [
       ['Giorni', 'Scrivi il giorno su una riga da solo (LUNEDÌ, MARTEDÌ…). Se la dieta è uguale tutti i giorni puoi non scriverlo.'],
-      ['Pasti e spuntini', 'Un titolo per riga: COLAZIONE, SPUNTINO 1, PRANZO, PRIMA DELL\'ALLENAMENTO, DOPO L\'ALLENAMENTO, CENA… Qualsiasi titolo va bene: l\'app crea la casella con quel nome.'],
+      ['Pasti e spuntini', 'Un titolo per riga: COLAZIONE, SPUNTINO 1, PRANZO, PRE WORKOUT, POST WORKOUT, CENA… Qualsiasi titolo va bene: l\'app crea la casella con quel nome.'],
       ['Alimenti e quantità', 'Un alimento per riga con la quantità: «Riso 80 g», «Latte 200 ml», «Banana 1». Se scrivi solo il numero («Uova 2») l\'app capisce che sono pezzi.'],
       ['Alternative', 'Metti «o» oppure «in alternativa» all\'inizio della riga: «o Fette biscottate 30 g». L\'atleta potrà scambiare l\'alimento e le calorie non si sommano due volte.'],
       ['Integratori', 'Titolo INTEGRATORI e un prodotto per riga con la dose: «Creatina 5 g». L\'atleta sceglie se contarli nelle calorie.'],

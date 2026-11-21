@@ -1,15 +1,17 @@
 {
-  "version": "1.48.0",
-  "build": 125,
+  "version": "1.48.1",
+  "build": 127,
   "date": "2026-11-21",
   "notes": [
+    "Accessi: allenatore, nutrizionista e amministratore scelgono per ogni cliente i servizi attivi (solo allenamento, solo dieta, entrambi); l'app mostra solo le sezioni abilitate.",
+    "Dieta: le fasce attorno all'allenamento ora si chiamano Pre workout e Post workout (il testo \"prima/dopo l'allenamento\" viene riconosciuto lo stesso).",
     "Nutrizione: il nutrizionista vede come il cliente segue la dieta (14 giorni, piano contro diario).",
     "Amministratore: dashboard con indicatori, elenco attività ordinabile e filtrabile, allenatori e clienti assegnati, pagamenti per palestra e nutrizionista (prova gratuita, mensile, gratuito).",
     "Clienti: filtri per allenatore e stato con conteggi.",
     "Nuovo allenatore o nutrizionista: scelta la palestra compaiono le persone già presenti e si abilita il secondo ruolo con lo stesso account, senza nuova password.",
-    "Dieta scritta a mano: riconosce pasti e titoli (Spuntino 1, prima e dopo l'allenamento), alternative (\"o\", \"in alternativa\"), quantità senza unità, integratori, acqua in litri e note finali.",
+    "Dieta scritta a mano: riconosce pasti e titoli (Spuntino 1, pre e post workout), alternative (\"o\", \"in alternativa\"), quantità senza unità, integratori, acqua in litri e note finali.",
     "Dieta: qualunque titolo scritto dal professionista (es. Merenda, Pre workout, Pasto 3) diventa una sezione; l'app ricorda gli alimenti scelti e i valori inseriti a mano per i riconoscimenti successivi.",
-    "Schede alimentari: riconosce qualsiasi sezione scritta (Colazione, Spuntino 1/2, Pranzo, Prima/Dopo allenamento, Cena, Integratori, Acqua) e calcola kcal e macro per ogni sezione.",
+    "Schede alimentari: riconosce qualsiasi sezione scritta (Colazione, Spuntino 1/2, Pranzo, Pre/Post workout, Cena, Integratori, Acqua) e calcola kcal e macro per ogni sezione.",
     "Amministratore: scheda Agenti con il collegamento alla dashboard AgentClip (controlli automatici notturni, senza token).",
     "Schede: nel riquadro dove si incolla dieta o scheda c'è un esempio in grigio, una guida a tendina sul formato consigliato e il pulsante per inserirlo; dopo la lettura l'app dà suggerimenti non bloccanti (alimenti non riconosciuti, quantità mancanti, giorni, acqua). Resta tutto libero e correggibile."
   ]

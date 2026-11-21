@@ -118,8 +118,8 @@
       [/^\s*pranzo\s*(\d+)?/i, m => [1, 'Pranzo' + (m[1] ? ' ' + m[1] : '')]],
       [/^\s*cena\s*(\d+)?/i, m => [3, 'Cena' + (m[1] ? ' ' + m[1] : '')]],
       [/^\s*(?:spuntino|merenda|snack|break|fuori pasto)\s*(\d+)?/i, m => [2, 'Spuntino' + (m[1] ? ' ' + m[1] : '')]],
-      [/^\s*(?:prima|pre)[\s-]*(?:dell'|del\s+|di\s+|dall')?\s*(?:allenamento|workout|training|palestra)/i, () => [2, "Prima dell'allenamento"]],
-      [/^\s*(?:dopo|post)[\s-]*(?:l'|dell'|il\s+|dall')?\s*(?:allenamento|workout|training|palestra)/i, () => [2, "Dopo l'allenamento"]]
+      [/^\s*(?:prima|pre)[\s-]*(?:dell'|del\s+|di\s+|dall')?\s*(?:allenamento|workout|training|palestra)/i, () => [2, "Pre workout"]],
+      [/^\s*(?:dopo|post)[\s-]*(?:l'|dell'|il\s+|dall')?\s*(?:allenamento|workout|training|palestra)/i, () => [2, "Post workout"]]
     ];
     for (const [re, fn] of rules) { const m = re.exec(s); if (m) { const [slot, lab] = fn(m); return { slot, lab, rest: s.slice(m[0].length).replace(/^\s*[:\-–]\s*/, '').trim() }; } }
     return null;

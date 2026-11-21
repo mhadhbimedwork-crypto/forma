@@ -226,7 +226,7 @@
         ${AC.enabled ? X.menuBtn() : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ['plan', 'Scheda', ICON.plan], ...(GYM ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ...((G && P() && G.gate(P(), planOf(P()))) ? [G.tab(ICON)] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team', 'nutri'].includes(x[0]));
+    const t = [['home', 'Oggi', ICON.home], ...(AC.modules() === 'diet' ? [] : [['plan', 'Scheda', ICON.plan]]), ...((GYM || AC.modules() === 'train') ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ...((G && P() && G.gate(P(), planOf(P()))) ? [G.tab(ICON)] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team', 'nutri'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   /* --- sblocco con impronta / Face ID (WebAuthn): vale solo su questo dispositivo --- */
@@ -269,6 +269,7 @@
     let body;
     if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}</div></header><main>${g}</main>`; return; }
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab)) ui.tab = X.homeTab();
+    if (!ui.sub && ((ui.tab === 'diet' && AC.modules() === 'train') || (ui.tab === 'plan' && AC.modules() === 'diet'))) ui.tab = 'home';
     const XV = X ? Object.assign({}, X.views) : {};
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
     else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, planrev: viewPlanRev, dietsent: viewDietSent, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();

@@ -159,7 +159,7 @@
         try {
           let gym_id, coach_id; if (A.me.role === 'admin') { if (fd.role === 'client') { const co = (ui.accts || []).find(a => a.id === fd.coach); if (!co) { toast('Scegli un allenatore'); return true; } gym_id = co.gym_id; coach_id = co.id; } else gym_id = fd.gym; if (!gym_id) { toast('Scegli la palestra'); return true; } }
           if (fd.role !== 'client') { const nm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(), full = nm(fd.name + ' ' + fd.surname); const dup = (ui.accts || []).find(a => a.gym_id === gym_id && a.role !== 'client' && nm(a.full_name) === full); if (dup) { toast(dup.full_name + ' esiste già in questa palestra: usa "Abilita anche come…" nell\'elenco, senza creare un nuovo account'); return true; } }
-          const r = await A.createUser({ gym_id, coach_id, name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', can_see_all: !!fd.canSeeAll, is_nutri: !!fd.isNutri, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
+          const r = await A.createUser({ gym_id, coach_id, name: fd.name, surname: fd.surname, birth: fd.birth || null, password: fd.password, role: fd.role || 'client', modules: fd.modules || 'both', can_see_all: !!fd.canSeeAll, is_nutri: !!fd.isNutri, consent: fd.role === 'client' && (fd.consentOk || minor) ? { version: F.CONSENT_VERSION, is_minor: !!minor, guardian_name: fd.guardian || null, guardian_contact: fd.guardianContact || null } : null });
           ui.sub = null; ui.tab = back; ui.admLoaded = false; toast('Account creato: ' + r.username); await loadClients(); c.render();
         } catch (e) { toast('Creazione non riuscita: ' + e.message); } return true;
       }
@@ -582,6 +582,7 @@
         ${A.me && A.me.role === 'admin' ? (X.ensureAdmin(), isC ? `<label for="nc_c">Allenatore (la palestra è quella dell'allenatore)</label><select id="nc_c" name="coach" required>${(ui.accts || []).filter(a => (a.role === 'head' || a.role === 'coach') && a.active).map(a => `<option value="${esc(a.id)}">${esc(a.full_name)} · ${esc(((ui.gyms || []).find(g => g.id === a.gym_id) || {}).name || '')}</option>`).join('') || '<option value="">Carico…</option>'}</select>` : `<label for="nc_g">Palestra</label><select id="nc_g" name="gym" required>${(ui.gyms || []).filter(g => g.active).map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('') || '<option value="">Carico…</option>'}</select>`) : ''}
         ${isC ? '' : `<div id="ncExisting">${existingPanel()}</div>`}
         ${isC ? `<label for="nc_b">Data di nascita</label><input id="nc_b" name="birth" type="date" required max="${F.todayISO()}">` : ''}
+        ${isC ? '' : '<label for="nc_m">Servizi attivi</label><select id="nc_m" name="modules"><option value="both">Allenamento e dieta</option><option value="train">Solo allenamento</option><option value="diet">Solo dieta</option></select><p class="mute small" style="margin:4px 0 0">Decide quali sezioni vede la persona nell’app. Puoi cambiarlo quando vuoi dalla sua scheda.</p>'}
         <label for="nc_p">Password iniziale (min. 8 caratteri)</label><input id="nc_p" name="password" minlength="8" required autocomplete="off"><p class="mute small" style="margin:4px 0 0">Al primo accesso la persona sceglierà la propria password, che nessuno può leggere. Potrai reimpostarla se la dimentica.</p>
         ${isC ? `<h3>Consenso</h3><label class="row" style="gap:8px"><input type="checkbox" name="consentOk" style="width:auto"> <span class="small">Ho raccolto il consenso firmato al trattamento dei dati (anche di salute).</span></label>
         <div class="mute small" style="margin-top:6px">Se la persona è minorenne compila anche i dati del genitore o tutore:</div>
@@ -870,6 +871,7 @@
       const a = p._acct; if (!a) return '';
       X.ensureAdmin(); const r = A.me.role; let h = '';
       if (r !== 'coach') { const cs = (ui.accts || []).filter(x => x.gym_id === a.gym_id && (x.role === 'coach' || x.role === 'head') && x.active); if (cs.length) h += `<label for="asg">Allenatore assegnato</label><select id="asg" data-asg="${esc(p._uid)}">${cs.map(x => `<option value="${x.id}" ${x.id === a.coach_id ? 'selected' : ''}>${esc(x.full_name)}</option>`).join('')}</select>`; }
+      h += `<label for="mod">Servizi attivi</label><select id="mod" data-mod="${esc(p._uid)}">${[['both', 'Allenamento e dieta'], ['train', 'Solo allenamento'], ['diet', 'Solo dieta']].map(([v, l]) => `<option value="${v}" ${(a.modules || 'both') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
       if (r === 'admin') h += `<div class="msg small" style="margin:8px 0">Ripristino dati su richiesta della palestra: serve il blocco di sicurezza sbloccato (Profilo → Console).</div><label class="btn sm" style="margin:0 0 8px;display:inline-flex">Ripristina da file .json<input type="file" id="rstFile" data-id="${esc(p._uid)}" accept=".json" hidden></label>`;
       return h;
     }
@@ -1012,6 +1014,7 @@
       if (t.id === 'nc_g') { const n = document.getElementById('ncExisting'); if (n) n.innerHTML = existingPanel(t.value); return true; }
       if (t.dataset.nutri) { A.setNutri(t.dataset.nutri, t.checked).then(() => { toast(t.checked ? 'Segnato come nutrizionista' : 'Nutrizionista rimosso'); return reload(); }).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
+      if (t.dataset.mod) { A.setModules(t.dataset.mod, t.value).then(async () => { toast('Servizi aggiornati'); await loadClients(); await reload(); }).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
       if (t.id === 'rstOne' && t.files.length) { const fl = Array.from(t.files), uid = t.dataset.u; t.value = ''; acts.rstLoad(fl, uid); return true; }
       if (t.id === 'rstBk' && t.files.length) { const fl = Array.from(t.files); t.value = ''; acts.rstLoad(fl); return true; }
