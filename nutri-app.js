@@ -1,7 +1,7 @@
 /* FORGIA – pagina web del nutrizionista (/nutri/). Stessi dati dell'app: ogni dato si salva subito sul profilo del cliente. */
 (function () {
   'use strict';
-  const F = window.FORMA, A = F.Account, $app = document.getElementById('app');
+  const F = window.FORMA, A = F.Account; let $app = document.getElementById('app'); let EMB = false;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = v => { if (v == null || v === '') return null; const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : null; };
   const today = () => new Date().toISOString().slice(0, 10);
@@ -35,7 +35,7 @@
 
   /* ---------- accesso ---------- */
   function viewLogin(err) {
-    document.getElementById('out').hidden = true; document.getElementById('who').textContent = '';
+    if (!EMB) { document.getElementById('out').hidden = true; document.getElementById('who').textContent = ''; }
     $app.innerHTML = '<div class="card login"><h2>Accesso nutrizionista</h2><label>Nome</label><input id="ln" autocomplete="username"><label style="margin-top:8px">Cognome</label><input id="ls"><label style="margin-top:8px">Password</label><input id="lp" type="password" autocomplete="current-password"><div class="save"><button class="pri" id="lgo">Entra</button><span class="msg bad" id="lerr">' + esc(err || '') + '</span></div></div>';
     const go = async () => { const b = document.getElementById('lgo'); b.disabled = true; try { await A.signIn(v('ln'), v('ls'), v('lp')); boot(); } catch (e) { viewLogin(e.message); } };
     document.getElementById('lgo').onclick = go; document.getElementById('lp').onkeydown = e => { if (e.key === 'Enter') go(); };
@@ -62,11 +62,11 @@
     if (!A.enabled) { $app.innerHTML = '<div class="card">Server non configurato.</div>'; return; }
     if (!A.me) await A.restore();
     if (!A.me) return viewLogin();
-    if (!A.isNutri()) { await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
+    if (!A.isNutri()) { if (EMB) { $app.innerHTML = '<div class="card">Questa sezione è riservata ai nutrizionisti.</div>'; return; } await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
     if (A.me.must_change_password) return viewPw();
     if (!await termsOk()) return viewTerms();
-    document.getElementById('who').textContent = A.me.full_name; const o = document.getElementById('out'); o.hidden = false;
-    o.onclick = async () => { await A.signOut(); A.me = null; viewLogin(); };
+    if (!EMB) { document.getElementById('who').textContent = A.me.full_name; const o = document.getElementById('out'); o.hidden = false;
+      o.onclick = async () => { await A.signOut(); A.me = null; viewLogin(); }; }
     flush(); loadClients();
   }
 
@@ -296,5 +296,11 @@
     w.document.write(h); w.document.close(); setTimeout(() => w.print(), 400);
   }
 
-  boot();
+  /* Dentro l'app: stessa sessione dell'allenatore, nessun secondo accesso. */
+  F.NutriApp = { mount(el) {
+    if (!el) return; EMB = true; $app = el;
+    if (A.me && A.isNutri() && !A.me.must_change_password && st.clients.length + (st.cur ? 1 : 0)) { if (st.cur) renderClient(); else renderList(); return; }
+    boot();
+  } };
+  if (document.getElementById('who')) boot();
 })();

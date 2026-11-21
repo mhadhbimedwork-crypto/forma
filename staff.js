@@ -861,8 +861,8 @@
         <button class="primary" style="margin-top:12px;width:100%">Crea palestra e accesso</button></form>`;
     };
     views.nutri = function () {
-      const url = /\/gym\/?/.test(location.pathname) ? location.pathname.replace(/\/gym\/.*$/, '/nutri/') : new URL('nutri/', location.href).href;
-      return `<h1>Area nutrizionista</h1><div class="card"><p class="small" style="margin-top:0">Qui trovi gli strumenti del professionista: elenco clienti collegati, visite e misure (plicometria, bioimpedenza, circonferenze, esami), calcolo del metabolismo, importazione dati e download Excel/PDF di tutto.</p><p class="small mute">Vedi solo i clienti che accettano il collegamento dalla loro app, e solo i dati per cui danno il consenso.</p><a class="btn primary" style="display:block;text-align:center;text-decoration:none;padding:12px" href="${esc(url)}" target="_blank" rel="noopener">Apri l'area nutrizionista</a></div>`;
+      setTimeout(() => { const el = document.getElementById('nutriMount'); if (el && F.NutriApp) F.NutriApp.mount(el); }, 0);
+      return `<h1>Nutrizione</h1><div id="nutriMount"><div class="card mute">Caricamento…</div></div>`;
     };
     views.agents = function () {
       const url = 'https://mhadhbimedwork-crypto.github.io/agentclip/';

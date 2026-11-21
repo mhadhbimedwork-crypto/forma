@@ -34,7 +34,7 @@
   }
   async function api(path, o) {
     o = o || {};
-    if (imp && !imp.write && o.method && o.method !== 'GET') throw new Error('Sola visione: per modificare togli il lucchetto dalla console');
+    if (imp && !imp.write && o.method && o.method !== 'GET' && !/^rpc\/(nutri_clients|nutri_search|nutri_client_view)\b/.test(path)) throw new Error('Sola visione: per modificare togli il lucchetto dalla console');
     try { return await raw(path, Object.assign({}, o, { headers: hdr(o.headers) })); }
     catch (e) { if (e.status === 401 && tok) { await refresh(); return raw(path, Object.assign({}, o, { headers: hdr(o.headers) })); } throw e; }
   }
