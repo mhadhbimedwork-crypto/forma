@@ -63,6 +63,7 @@
     if (!A.me) await A.restore();
     if (!A.me) return viewLogin();
     if (!A.isNutri()) { if (EMB) { $app.innerHTML = '<div class="card">Questa sezione è riservata ai nutrizionisti.</div>'; return; } await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
+    if (A.needMfa) { $app.innerHTML = '<div class="card"><h2>Verifica a due passaggi obbligatoria</h2><p>Per il tuo account serve la verifica a due passaggi. Apri l\'app FORGIA, accedi lì e registra l\'app di verifica (Google o Microsoft Authenticator); poi torna qui.</p><button class="ghost" id="mfaOut">Esci</button></div>'; document.getElementById('mfaOut').onclick = async () => { await A.signOut(); A.me = null; viewLogin(); }; return; }
     if (A.me.must_change_password) return viewPw();
     if (!await termsOk()) return viewTerms();
     if (!EMB) { document.getElementById('who').textContent = A.me.full_name; const o = document.getElementById('out'); o.hidden = false;

@@ -54,13 +54,15 @@
     if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
     A.me = rows[0]; A.gym = null;
     if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
-    A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2'; A.offlineBoot = false; cacheMe();
+    A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2';
+    if (!A.needMfa && !imp && A.me.role !== 'admin' && A.aal() !== 'aal2') { try { A.needMfa = (await rest('rpc/mfa_required', { method: 'POST', body: '{}' })) === true; } catch (e) { if (!e.offline) A.needMfa = true; } }   // l'amministratore decide per ruolo chi deve avere la verifica a due passaggi
+    A.offlineBoot = false; cacheMe();
     if (!imp || imp.own) rest('rpc/touch_seen', { method: 'POST', body: '{}' }).catch(() => { });   // ultimo accesso (non quando un amministratore guarda il profilo di un altro)
     return A.me;
   }
   /** Ripristina una sessione già aperta (all'avvio). */
   const meKey = 'forgia.mecache';
-  const cacheMe = () => { try { localStorage.setItem(meKey, JSON.stringify({ uid: A.me.id, me: A.me, gym: A.gym })); } catch (e) { } };
+  const cacheMe = () => { try { localStorage.setItem(meKey, JSON.stringify({ uid: A.me.id, me: A.me, gym: A.gym, mfa: !!A.needMfa || A.aal() === 'aal2' })); } catch (e) { } };
   A.restore = async function () {
     if (!A.enabled || !tok) return null;
     for (let k = 0; k < 4; k++) {
@@ -68,7 +70,7 @@
       catch (e) {
         if (e.status === 401 || e.status === 400 && /refresh/i.test(e.message) || /scaduta|attivo/.test(e.message)) { tok = null; store(); return null; }
         if (e.offline && (navigator.onLine === false || k === 3)) {   // senza rete si apre con l'ultimo profilo noto: si lavora in locale
-          try { const c = JSON.parse(localStorage.getItem(meKey) || 'null'); if (c && tok.user && c.uid === tok.user.id && c.me && c.me.active) { A.me = c.me; A.gym = c.gym || null; A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2'; A.offlineBoot = true; return A.me; } } catch (e2) { }
+          try { const c = JSON.parse(localStorage.getItem(meKey) || 'null'); if (c && tok.user && c.uid === tok.user.id && c.me && c.me.active) { A.me = c.me; A.gym = c.gym || null; A.needMfa = A.aal() !== 'aal2' && (A.me.role === 'admin' || !!c.mfa); A.offlineBoot = true; return A.me; } } catch (e2) { }
           return null;
         }
         if (e.status) return null; await new Promise(r => setTimeout(r, 1500));
@@ -179,6 +181,7 @@
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
   A.backupNow = uid => admin({ action: 'backup_now', user_id: uid }).then(r => r.backup);
+  A.mfaReset = uid => admin({ action:'mfa_reset', user_id: uid });
   A.backupGym = gym_id => admin({ action: 'backup_gym', gym_id }).then(r => r.backup);
   A.setRm = (uid, on) => rest('rpc/set_rm_enabled', { method: 'POST', body: JSON.stringify({ target: uid, enabled: !!on }) });
   A.addRole = (uid, add) => admin({ action: 'add_role', user_id: uid, add });
