@@ -1231,7 +1231,7 @@
     /* ---------------- CLIENTI ---------------- */
     const _vCli = views.clients;
     views.clients = function () {
-      const role = A.enabled && A.me && !(A.imp && A.imp()) && !ui.sub ? A.me.role : null;
+      const role = A.enabled && A.me && !ui.sub ? A.me.role : null;
       if (role !== 'admin' && role !== 'head' && role !== 'coach') return _vCli.apply(this, arguments);
       const D = AD(); if (D.classic) return `<div class="row"><button class="ghost" data-act="adClassic" data-v="0">← Dashboard clienti</button></div>` + _vCli.apply(this, arguments);
       if (role !== 'admin') return clScoped();
@@ -1284,7 +1284,7 @@
     /* ---------------- TEAM ---------------- */
     const _vTeam = views.team;
     views.team = function () {
-      if (A.enabled && A.me && A.me.role === 'head' && !(A.imp && A.imp()) && !ui.sub) {
+      if (A.enabled && A.me && A.me.role === 'head' && !ui.sub) {
         X.ensureAdmin(); X.ensureClients(); const g = A.gym || gGym()[0]; if (!g) return `<div class="gd">${gHead('Team', '')}${gLoading()}</div>`;
         const s = gStat(g, 0), a = gAcc();
         return `<div class="gd">${gHead('Team', g.name)}${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${gLoading()}
