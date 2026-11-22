@@ -55,6 +55,7 @@
     A.me = rows[0]; A.gym = null;
     if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
     A.needMfa = A.me.role === 'admin' && A.aal() !== 'aal2'; A.offlineBoot = false; cacheMe();
+    if (!imp || imp.own) rest('rpc/touch_seen', { method: 'POST', body: '{}' }).catch(() => { });   // ultimo accesso (non quando un amministratore guarda il profilo di un altro)
     return A.me;
   }
   /** Ripristina una sessione già aperta (all'avvio). */
@@ -76,7 +77,7 @@
     return null;
   };
   A.signIn = async function (name, surname, password) {
-    const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) }).catch(e => { throw new Error(e.status === 400 ? 'Nome, cognome o password non corretti' : e.message); });
+    const b = await raw('/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: A.emailOf(name, surname), password }) }).catch(e => { throw new Error(e.status === 400 ? (/banned/i.test(e.message || '') ? 'Account disattivato: contatta la tua palestra' : 'Nome, cognome o password non corretti') : e.message); });
     tok = { access_token: b.access_token, refresh_token: b.refresh_token, user: b.user, at: Date.now() }; store(); return loadMe();
   };
   /* ---- verifica a due passaggi (TOTP) per l'amministratore ---- */
@@ -173,7 +174,7 @@
     const rows = await rest('client_data?select=user_id,updated_at,version,data,profile:profiles!client_data_user_id_fkey(id,username,full_name,role,birth,active,coach_id,gym_id,must_change_password,rm_enabled,modules)');
     return rows.filter(r => r.profile && r.profile.role === 'client').map(r => Object.assign({}, r.data, { _uid: r.user_id, _updated: r.updated_at, _acct: r.profile, rmOn: !!r.profile.rm_enabled }));
   };
-  A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,gym_id,can_see_all,is_nutri,modules,must_change_password,created_at&order=created_at.desc');
+  A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,gym_id,can_see_all,is_nutri,modules,must_change_password,created_at,last_seen&order=created_at.desc');
   A.listGyms = () => rest('gyms?select=id,name,active,created_at&order=name');
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });

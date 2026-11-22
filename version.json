@@ -1,25 +1,11 @@
 {
   "version": "1.48.1",
-  "build": 133,
+  "build": 134,
   "date": "2026-11-22",
   "notes": [
+    "Disattivare una palestra, un allenatore o un cliente ora lo blocca davvero: non può più entrare né rinnovare l'accesso, e i suoi dati restano. Riattivando torna tutto come prima. Nuova colonna «Ultimo accesso» nelle tabelle di clienti, team e controllo amministratore.",
     "Dashboard nuova per amministratore, responsabile di palestra e allenatore: schede con numeri, grafico iscrizioni, anello pagamenti/stato, palestre numerate che si aprono sui clienti in ordine di iscrizione, tabelle ridimensionabili. Team per palestra. In Profilo il controllo completo (attiva/disattiva palestra, allenatore, nutrizionista, cliente) e il tuo profilo atleta privato.",
     "Tabella iscritti rifatta come Google Sheets: colonne A, B, C…, numeri di riga, barra della formula, celle selezionabili con le frecce, riga 1 per ordinare e scheda foglio in basso.",
-    "Tabella iscritti stile foglio di calcolo per amministratore, responsabile e allenatore: ordina, cerca, filtra per ruolo, scarica CSV o copia per Google Sheets. Mostra servizi, stato, primo accesso, ultimo salvataggio e (per l'amministratore) il pagamento della palestra.",
-    "Nutrizione ora è dentro l'app: stessa sessione, nessun secondo accesso. Chi entra come allenatore-nutrizionista trova elenco clienti, ricerca per nome e dieta nella sezione Nutrizione.",
-    "Allenatori e responsabili: il profilo atleta personale è nella lista Clienti (senza altra password); se crei un cliente con il tuo nome lo attiva da solo e avvisa dei doppioni.",
-    "Nutrizionista: scrivi nome o cognome e scegli l'atleta della tua palestra dall'elenco per inviare la richiesta di collegamento.",
-    "Ricerca alimenti e ricette: nuovi elenchi a schede grandi e chiare, con calorie e macro e tasto +, al posto del menù scuro di sistema.",
-    "Accessi: allenatore, nutrizionista e amministratore scelgono per ogni cliente i servizi attivi (solo allenamento, solo dieta, entrambi); l'app mostra solo le sezioni abilitate.",
-    "Dieta: le fasce attorno all'allenamento ora si chiamano Pre workout e Post workout (il testo \"prima/dopo l'allenamento\" viene riconosciuto lo stesso).",
-    "Nutrizione: il nutrizionista vede come il cliente segue la dieta (14 giorni, piano contro diario).",
-    "Amministratore: dashboard con indicatori, elenco attività ordinabile e filtrabile, allenatori e clienti assegnati, pagamenti per palestra e nutrizionista (prova gratuita, mensile, gratuito).",
-    "Clienti: filtri per allenatore e stato con conteggi.",
-    "Nuovo allenatore o nutrizionista: scelta la palestra compaiono le persone già presenti e si abilita il secondo ruolo con lo stesso account, senza nuova password.",
-    "Dieta scritta a mano: riconosce pasti e titoli (Spuntino 1, pre e post workout), alternative (\"o\", \"in alternativa\"), quantità senza unità, integratori, acqua in litri e note finali.",
-    "Dieta: qualunque titolo scritto dal professionista (es. Merenda, Pre workout, Pasto 3) diventa una sezione; l'app ricorda gli alimenti scelti e i valori inseriti a mano per i riconoscimenti successivi.",
-    "Schede alimentari: riconosce qualsiasi sezione scritta (Colazione, Spuntino 1/2, Pranzo, Pre/Post workout, Cena, Integratori, Acqua) e calcola kcal e macro per ogni sezione.",
-    "Amministratore: scheda Agenti con il collegamento alla dashboard AgentClip (controlli automatici notturni, senza token).",
-    "Schede: nel riquadro dove si incolla dieta o scheda c'è un esempio in grigio, una guida a tendina sul formato consigliato e il pulsante per inserirlo; dopo la lettura l'app dà suggerimenti non bloccanti (alimenti non riconosciuti, quantità mancanti, giorni, acqua). Resta tutto libero e correggibile."
+    "Tabella iscritti stile foglio di calcolo per amministratore, responsabile e allenatore: ordina, cerca, filtra per ruolo, scarica CSV o copia per Google Sheets. Mostra servizi, stato, primo accesso, ultimo salvataggio e (per l'amministratore) il pagamento della palestra."
   ]
 }
