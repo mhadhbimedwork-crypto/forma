@@ -29,6 +29,13 @@ header.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height
 .brandrow img{border-radius:7px}
 header.top .brand{font:italic 700 1.1rem var(--display);letter-spacing:.16em;color:#fff}
 .brandrow .tag{margin-left:auto;font:600 .64rem var(--display);letter-spacing:.2em;color:var(--accent)}
+.slogan{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 12px;padding:6px 18px;min-height:34px;overflow:hidden;background:linear-gradient(100deg,#ff4234 0%,#c4121f 52%,#2a0a0e 100%);clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,14px 100%);box-shadow:0 0 22px #ff42344d}
+.slogan span{font:italic 700 1.28rem/1 var(--display);letter-spacing:.26em;color:#fff;text-transform:uppercase;text-shadow:0 2px 0 #00000066,0 0 14px #ff8a1f88;white-space:nowrap}
+.slogan i{flex:none;width:7px;align-self:stretch;margin:-6px 4px;background:var(--accent2);transform:skewX(-24deg);box-shadow:0 0 10px var(--accent2)}
+.slogan::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,#ffffff44 50%,transparent 60%);transform:translateX(-120%);animation:slg 5.5s ease-in-out infinite}
+@keyframes slg{0%,70%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+@media(max-width:380px){.slogan span{font-size:1.05rem;letter-spacing:.18em}}
+@media(prefers-reduced-motion:reduce){.slogan::after{animation:none}}
 .who{display:flex;gap:12px;align-items:center}
 .avatar{width:56px;height:56px;flex:0 0 56px;clip-path:var(--cut-s);background:linear-gradient(135deg,var(--accent),#b4101f);display:grid;place-items:center;font:italic 700 1.8rem var(--display);color:#fff}
 .wname{font:italic 700 1.7rem/1.05 var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.01em}
@@ -324,3 +331,25 @@ html{scroll-behavior:smooth}
 .gd select,.gd input{background:#0a1322;border:1px solid var(--gl);color:var(--ink);border-radius:8px;padding:8px 10px;width:auto}
 @media(min-width:900px){.gd-row{grid-template-columns:1.7fr 1fr}.gd-row.r2{grid-template-columns:1fr 1fr}.gd-kpis{grid-template-columns:repeat(6,1fr)}}
 @media(min-width:1100px){.gd-tiles{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
+
+/* ===== Dieta v2 (build 137): tabella pasti, combinazioni in alto, micronutrienti ===== */
+.dz-wrap{overflow:auto;margin:12px 0 4px;border:1px solid #1d2e4d;border-radius:10px;background:linear-gradient(180deg,#12203a,#0e1a30)}
+table.dz{border-collapse:collapse;width:100%;font-size:.88rem}
+table.dz th{position:sticky;top:0;background:#0d1a30;color:#9fb3d1;text-align:right;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid #1d2e4d;white-space:nowrap}
+table.dz th:first-child,table.dz td.dz-n{text-align:left}
+table.dz td{padding:9px 10px;text-align:right;border-bottom:1px solid #16233d;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.dz td i{font-style:normal;color:#6c819f}
+table.dz td.dz-n{color:#cfe0ff;font-weight:600}
+table.dz tbody tr[data-act]{cursor:pointer}table.dz tbody tr[data-act]:hover{background:#13233f}
+table.dz tr.dz-s td{background:#0d1a30;font-weight:700;color:#fff;border-top:2px solid var(--accent)}
+table.dz tr.dz-t td{color:#9fb3d1;font-size:.82rem}
+.dz-det{margin-top:10px;border:1px solid #1d2e4d;border-radius:10px;background:#0c1627;padding:8px 12px}
+.dz-det summary{cursor:pointer;font-weight:600;font-size:.9rem}
+.dz-h{margin:10px 0 4px;font:600 .72rem var(--text);text-transform:uppercase;letter-spacing:.06em;color:#9fb3d1}
+.dz-mic{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px}
+.dz-mic div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #16233d;padding:3px 0;font-size:.82rem}
+.dz-mic span{color:#9fb3d1}.dz-mic b{font-variant-numeric:tabular-nums}
+.dz-combo{border-left-color:var(--ion)}
+.dz-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.dz-chip{flex:none;white-space:nowrap;border-radius:999px!important;background:#0c1627;border:1px solid #1d2e4d}
+.dz-meal .row.wrap{margin-top:6px}

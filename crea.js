@@ -21,7 +21,8 @@
       F.CREA.forEach(x => { x.nn = F.normText ? F.normText(x.name + ' ' + x.cat) : x.name.toLowerCase(); });
       return F.CREA;
     }).catch(() => { loading = null; return []; });
-    if (!F.CREAMICRO && !window.FORMA_GYM) fetch('crea_micro.json').then(r => r.ok ? r.json() : null).then(d => { if (d && d.dati) F.CREAMICRO = d.dati; }).catch(() => { });
+    const mp = (!F.CREAMICRO && !window.FORMA_GYM) ? fetch('crea_micro.json').then(r => r.ok ? r.json() : null).then(d => { if (d && d.dati) F.CREAMICRO = d.dati; }).catch(() => { }) : Promise.resolve();
+    loading = loading.then(r => mp.then(() => r));
     return loading;
   };
   /** cerca nelle tabelle CREA: tutte le parole devono comparire; prima chi inizia con la ricerca */

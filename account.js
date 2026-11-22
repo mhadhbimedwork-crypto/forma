@@ -178,6 +178,8 @@
   A.listGyms = () => rest('gyms?select=id,name,active,created_at&order=name');
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
+  A.backupNow = uid => admin({ action: 'backup_now', user_id: uid }).then(r => r.backup);
+  A.backupGym = gym_id => admin({ action: 'backup_gym', gym_id }).then(r => r.backup);
   A.setRm = (uid, on) => rest('rpc/set_rm_enabled', { method: 'POST', body: JSON.stringify({ target: uid, enabled: !!on }) });
   A.addRole = (uid, add) => admin({ action: 'add_role', user_id: uid, add });
   A.setNutri = (uid, is_nutri) => admin({ action: 'set_nutri', user_id: uid, is_nutri });

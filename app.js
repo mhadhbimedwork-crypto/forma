@@ -215,9 +215,14 @@
   const GOAL_SHORT = { recomp: 'Definizione e massa magra', cut: 'Dimagrire', mass: 'Massa muscolare', strength: 'Forza' };
   function goalLabel(p) { return p.goal === 'auto' ? 'Automatico · ' + (GOAL_SHORT[F.effGoal(p)] || '') : GOALS[p.goal].split(' (')[0]; }
   /* ---------- VISTE ---------- */
+  /* scritta d'impatto sotto il logo: "NO PAIN // NO GAIN" a tutta larghezza */
+  function slogan(tag) {
+    const t = String(tag || '').replace(/\s*[·•]\s*/g, ' ').trim(), m = /^(.*?)\s+(NO GAIN)$/i.exec(t);
+    return `<div class="slogan" role="img" aria-label="${esc(t)}">${m ? `<span>${esc(m[1])}</span><i aria-hidden="true"></i><span>${esc(m[2])}</span>` : `<span>${esc(t)}</span>`}</div>`;
+  }
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const brand = `<div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}<span class="tag">${GYM ? esc(GYM.tag) : 'NO PAIN · NO GAIN'}</span></div>${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
+    const brand = `<div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}</div>${slogan(GYM ? GYM.tag : 'NO PAIN NO GAIN')}${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
     if (!p) return `<header class="top">${brand}${AC.enabled && AC.me ? '<div style="position:absolute;right:var(--gutter);top:calc(env(safe-area-inset-top) + 22px)">' + X.menuBtn() + '</div>' : ''}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}
@@ -679,8 +684,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         <input inputmode="decimal" style="width:62px" data-dn="${mi}:${ii}" value="${it.n || 1}" aria-label="Porzioni"><span class="mute small">porz.</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
     }
     const fd = F.getFood(p, it.f); if (!fd) return '';
-    return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b> ${chips(fd)}<div class="mute small">${fx(m.k)} kcal · P ${fx(m.p)} · C ${fx(m.c)} · G ${fx(m.f)}</div></div>
-      <input inputmode="decimal" style="width:70px" data-dg="${mi}:${ii}" value="${it.g}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'} ${esc(fd.name)}"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
+    return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b> ${chips(fd)}${fd.src === 'CREA' ? '<span class="chip">CREA</span> ' : ''}<div class="mute small">${fx(m.k)} kcal · P ${fx(m.p)} · C ${fx(m.c)} · G ${fx(m.f)}</div>${fd.src === 'CREA' ? microHtml(p, [it], 'Valori e micronutrienti') : ''}</div>
+      <input inputmode="decimal" style="width:70px" data-dg=""${mi}:${ii}" value="${it.g}" aria-label="${fd.liq ? 'Millilitri' : 'Grammi'} ${esc(fd.name)}"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="dRm" data-m="${mi}" data-i="${ii}" aria-label="Rimuovi">✕</button></div>`;
   }
   function limitBox(p, fd) {
     return "";   // nessun limite o consiglio: l'app calcola soltanto
@@ -936,15 +941,16 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return arr.filter(x => x && x[S.nut] > 0).sort((a, b) => b[S.nut] - a[S.nut]).slice(0, 12);
   }
   function cmpListHtml(p) {
-    const S = cmpS(), arr = cmpFoods(p);
-    return arr.length ? arr.map(fd => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b><div class="mute small">per 100 ${F.unitOf(fd)}: <b>${fmt(fd[S.nut], 1)}${S.nut === 'k' ? ' kcal' : ' g'}</b> ${CMP_N[S.nut].toLowerCase()} · ${fx(fd.k)} kcal · P ${fmt(fd.p, 1)} · C ${fmt(fd.c, 1)} · G ${fmt(fd.f, 1)}</div></div><button class="sm" data-act="cmpPut" data-f="${esc(fd.id)}">Aggiungi alla combinazione</button></div>`).join('') : '<p class="mute small">Nessun alimento trovato.</p>';
+    const S = cmpS(), all = cmpFoods(p), arr = S.more ? all : all.slice(0, 6);
+    return arr.length ? arr.map(fd => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(fd.name)}</b>${fd.src === 'CREA' ? ' <span class="chip">CREA</span>' : ''}<div class="mute small">per 100 ${F.unitOf(fd)}: <b>${fmt(fd[S.nut], 1)}${S.nut === 'k' ? ' kcal' : ' g'}</b> ${CMP_N[S.nut].toLowerCase()} · ${fx(fd.k)} kcal · P ${fmt(fd.p, 1)} · C ${fmt(fd.c, 1)} · G ${fmt(fd.f, 1)}</div></div><button class="sm" data-act="cmpPut" data-f="${esc(fd.id)}">+ Aggiungi</button></div>`).join('') + (all.length > 6 ? `<div class="row" style="margin-top:6px"><button class="ghost sm" data-act="cmpMore">${S.more ? 'Mostra meno' : 'Mostra altri ' + (all.length - 6)}</button></div>` : '') : '<p class="mute small">Nessun alimento trovato.</p>';
   }
   function cmpSum(p) { const t = { k: 0, p: 0, c: 0, f: 0 }; cmpS().combo.forEach(it => { const fd = F.getFood(p, it.f); if (fd && it.g > 0) { const m = F.foodMacros(fd, it.g); t.k += m.k; t.p += m.p; t.c += m.c; t.f += m.f; } }); return t; }
   function cmpTotHtml(p, tot, tgt) {
     const S = cmpS(), t = cmpSum(p); if (!S.combo.length) return '';
+    const mic = microHtml(p, S.combo, 'Micronutrienti della combinazione');
     const day = { k: tot.k + t.k, p: tot.p + t.p, c: tot.c + t.c, f: tot.f + t.f };
     const dl = (a, b, u) => { const d = Math.round(a - b); return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + u; };
-    return `<div class="msg small"><b>Combinazione:</b> ${fx(t.k)} kcal · P ${fmt(t.p, 1)} · C ${fmt(t.c, 1)} · G ${fmt(t.f, 1)} g<div style="margin-top:4px"><b>Giornata con la combinazione:</b> ${fx(day.k)} kcal · P ${fx(day.p)} · C ${fx(day.c)} · G ${fx(day.f)} g</div>${tgt ? `<div style="margin-top:4px" class="mute">Differenza dai tuoi obiettivi: ${dl(day.k, tgt.k, ' kcal')} · P ${dl(day.p, tgt.p, ' g')} · C ${dl(day.c, tgt.c, ' g')} · G ${dl(day.f, tgt.f, ' g')}</div>${(() => { const T = F.CLOSE_TOL, bad = ['k', 'p', 'c', 'f'].filter(k => Math.abs(day[k] - tgt[k]) > tgt[k] * T[k]); return `<div style="margin-top:4px"><b class="${bad.length ? 'warn' : 'ok'}">${bad.length ? 'Fuori dal range: ' + bad.map(k => CMP_N[k].toLowerCase()).join(', ') : 'Giornata dentro il range'}</b> <span class="mute">(±3% kcal, ±5% macro)</span></div>`; })()}` : ''}</div>`;
+    return `<div class="msg small"><b>Combinazione:</b> ${fx(t.k)} kcal · P ${fmt(t.p, 1)} · C ${fmt(t.c, 1)} · G ${fmt(t.f, 1)} g<div style="margin-top:4px"><b>Giornata con la combinazione:</b> ${fx(day.k)} kcal · P ${fx(day.p)} · C ${fx(day.c)} · G ${fx(day.f)} g</div>${tgt ? `<div style="margin-top:4px" class="mute">Differenza dai tuoi obiettivi: ${dl(day.k, tgt.k, ' kcal')} · P ${dl(day.p, tgt.p, ' g')} · C ${dl(day.c, tgt.c, ' g')} · G ${dl(day.f, tgt.f, ' g')}</div>${(() => { const T = F.CLOSE_TOL, bad = ['k', 'p', 'c', 'f'].filter(k => Math.abs(day[k] - tgt[k]) > tgt[k] * T[k]); return `<div style="margin-top:4px"><b class="${bad.length ? 'warn' : 'ok'}">${bad.length ? 'Fuori dal range: ' + bad.map(k => CMP_N[k].toLowerCase()).join(', ') : 'Giornata dentro il range'}</b> <span class="mute">(±3% kcal, ±5% macro)</span></div>`; })()}` : ''}${mic}</div>`;
   }
   function whereFrom(p, day, tot) {
     const lines = ['p', 'c', 'f', 'k'].map(key => {
@@ -978,25 +984,64 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="row wrap" style="margin-top:6px"><button class="ghost sm" data-act="cmpFitOpen">Nascondi l'elenco</button></div>`;
   }
   function cmpCard(p, day, tot, tgt) {
-    const S = cmpS();
-    if (!S.open) return `<div class="card"><div class="row"><div class="grow"><b>Valori e combinazioni</b><div class="mute small">Confronta gli alimenti per contenuto e componi una combinazione con i totali.</div></div><button class="sm" data-act="cmpOpen">Apri</button></div></div>`;
-    return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Valori e combinazioni</h2><button class="ghost sm" data-act="cmpOpen">Chiudi</button></div>
-      <p class="mute small" style="margin:6px 0">Strumento di calcolo: mostra i valori delle tabelle e i totali della combinazione che componi tu. Non indica cosa mangiare né quanto.</p>
-      ${whereFrom(p, day, tot)}
-      <h3 style="margin:12px 0 4px">Alimenti in ordine di contenuto</h3>
-      <div class="row wrap" style="gap:6px">${['p', 'c', 'f', 'k'].map(k => `<button class="sm${S.nut === k ? ' primary' : ''}" data-act="cmpNut" data-k="${k}">${CMP_N[k]}</button>`).join('')}</div>
-      <input id="cmpq" placeholder="Filtra per nome (facoltativo)" autocomplete="off" aria-label="Filtra alimenti" style="margin:8px 0" value="${esc(S.q)}">
-      <div id="cmpList">${cmpListHtml(p)}</div>
+    const S = cmpS(), st = foodStats(p), ids = st.fav.concat(st.recent, st.freq).filter((v, i, a) => a.indexOf(v) === i).slice(0, 14);
+    const chipRow = ids.length ? `<div class="dz-chips" aria-label="Alimenti usati di recente">${ids.map(id => { const fd = F.getFood(p, id); return fd ? `<button class="sm dz-chip" data-act="cmpPut" data-f="${esc(id)}">+ ${esc(fd.name.length > 24 ? fd.name.slice(0, 23) + '…' : fd.name)}</button>` : ''; }).join('')}</div>` : '';
+    const head = `<div class="row"><div class="grow"><h2 style="margin:0">Combinazioni</h2><div class="mute small">Metti insieme più alimenti: vedi subito calorie, macro e micronutrienti, poi aggiungi tutto al pasto.${S.combo.length ? ' In composizione: <b>' + S.combo.length + '</b>.' : ''}</div></div><button class="sm${S.open ? ' ghost' : ' primary'}" data-act="cmpOpen">${S.open ? 'Chiudi' : 'Apri'}</button></div>`;
+    if (!S.open) return `<div class="card dz-combo">${head}${chipRow}</div>`;
+    const comboRows = S.combo.length ? S.combo.map((it, i) => { const fd = F.getFood(p, it.f); return fd ? `<div class="row" style="padding:4px 0"><div class="grow"><b>${esc(fd.name)}</b>${fd.src === 'CREA' ? ' <span class="chip">CREA</span>' : ''}</div><input inputmode="decimal" style="width:80px" data-cg="${i}" value="${it.g}" aria-label="Quantità"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="cmpRm" data-i="${i}" aria-label="Togli">✕</button></div>` : ''; }).join('') : '<p class="mute small" style="margin:4px 0">Tocca un alimento qui sotto o in alto per iniziare: poi scegli i grammi.</p>';
+    return `<div class="card dz-combo">${head}${chipRow}
       <h3 style="margin:12px 0 4px">La tua combinazione</h3>
-      <div id="cmpCombo">${S.combo.length ? S.combo.map((it, i) => { const fd = F.getFood(p, it.f); return fd ? `<div class="row" style="padding:4px 0"><div class="grow"><b>${esc(fd.name)}</b></div><input inputmode="decimal" style="width:80px" data-cg="${i}" value="${it.g}" aria-label="Quantità"><span class="mute small">${F.unitOf(fd)}</span><button class="ghost sm danger" data-act="cmpRm" data-i="${i}" aria-label="Togli">✕</button></div>` : ''; }).join('') : '<p class="mute small" style="margin:2px 0">Vuota: aggiungi alimenti dall\'elenco e scegli tu le quantità.</p>'}</div>
+      <div id="cmpCombo">${comboRows}</div>
       <div id="cmpTot">${cmpTotHtml(p, tot, tgt)}</div>
-      ${S.combo.length && tgt ? `<div class="row wrap" style="margin-top:8px;gap:6px"><button class="sm primary" data-act="cmpClose">Calcola le quantità per chiudere la giornata</button></div><p class="mute small" style="margin:4px 0 0">Calcolo sugli alimenti che hai scelto tu e su quanto manca ai tuoi obiettivi (${fx(tgt.k - tot.k)} kcal · P ${fx(tgt.p - tot.p)} · C ${fx(tgt.c - tot.c)} · G ${fx(tgt.f - tot.f)} g). I valori sono quelli delle tabelle: l'etichetta del prodotto può differire.</p>${S.closeMsg ? `<div class="msg small" style="margin-top:6px">${esc(S.closeMsg)}</div>` : ''}` : ''}
-      ${tgt ? cmpFitHtml(p, tot, tgt) : ''}
-      ${S.combo.length ? `<div class="row wrap" style="margin-top:8px;gap:6px"><select id="cmpMeal" aria-label="Pasto" style="width:auto">${F.MEALS.map((n, i) => `<option value="${i}"${i === S.meal ? ' selected' : ''}>${n}</option>`).join('')}</select><button class="sm primary" data-act="cmpAdd">Aggiungi al diario</button><button class="sm" data-act="cmpClear">Svuota</button></div>` : ''}</div>`;
+      ${S.combo.length ? `<div class="row wrap" style="margin-top:8px;gap:6px"><select id="cmpMeal" aria-label="Pasto" style="width:auto">${F.MEALS.map((n, i) => `<option value="${i}"${i === S.meal ? ' selected' : ''}>${n}</option>`).join('')}</select><button class="sm primary" data-act="cmpAdd">Aggiungi tutto al pasto</button><button class="sm" data-act="cmpClear">Svuota</button></div>` : ''}
+      ${S.combo.length && tgt ? `<div class="row wrap" style="margin-top:8px;gap:6px"><button class="sm" data-act="cmpClose">Calcola le quantità per chiudere la giornata</button></div>` : ''}
+      <h3 style="margin:14px 0 4px">Cerca e ordina per contenuto</h3>
+      <div class="row wrap" style="gap:6px">${['p', 'c', 'f', 'k'].map(k => `<button class="sm${S.nut === k ? ' primary' : ''}" data-act="cmpNut" data-k="${k}">${CMP_N[k]}</button>`).join('')}</div>
+      <input id="cmpq" placeholder="Cerca un alimento (es. riso, tonno, yogurt)" autocomplete="off" aria-label="Cerca alimenti" style="margin:8px 0" value="${esc(S.q)}">
+      <div id="cmpList">${cmpListHtml(p)}</div>
+      <p class="mute small" style="margin:8px 0 0">Valori per 100 g dalle <a href="${F.CREA_URL}" target="_blank" rel="noopener">tabelle CREA</a> (etichetta CREA) e dalla tua lista. Strumento di calcolo: non indica cosa mangiare né quanto.</p>
+      ${whereFrom(p, day, tot)}
+      ${tgt ? cmpFitHtml(p, tot, tgt) : ''}</div>`;
+  }
+
+  /* --- dashboard dieta: tabella dei pasti, micronutrienti CREA, combinazioni in alto --- */
+  const microNum = v => v === 'tr' ? 0 : parseFloat(String(v).replace(',', '.')) || 0;
+  const mf = n => String(n >= 100 ? Math.round(n) : n >= 10 ? Math.round(n * 10) / 10 : Math.round(n * 100) / 100).replace('.', ',');
+  const mealOpen = (D, mi, n) => D.open && D.open[mi] !== undefined ? !!D.open[mi] : (n > 0 || D.addTo === mi);
+  function microSum(p, items) {
+    const acc = {}, order = []; let withData = 0, foods = 0;
+    const add = (k, name, unit, val) => { const key = k + '|' + name + '|' + unit; if (!acc[key]) { acc[key] = { k, name, unit, v: 0 }; order.push(key); } acc[key].v += val; };
+    (items || []).forEach(it => {
+      if (!it || it.r || !it.f || !(it.g > 0)) return;
+      const fd = F.getFood(p, it.f); if (!fd) return; foods++;
+      if (fd.src !== 'CREA') return;
+      const q = it.g / 100; let got = false;
+      if (fd.fib != null && fd.fib !== '') { add('b', 'Fibre', 'g', microNum(fd.fib) * q); got = true; }
+      if (fd.sug != null && fd.sug !== '') add('b', 'Zuccheri solubili', 'g', microNum(fd.sug) * q);
+      if (fd.na != null && fd.na !== '') add('b', 'Sodio', 'mg', microNum(fd.na) * q);
+      const mi = F.CREAMICRO && F.CREAMICRO[fd.code];
+      if (mi) { (mi.m || []).forEach(x => add('m', x[0], x[1], microNum(x[2]) * q)); (mi.v || []).forEach(x => add('v', x[0], x[1], microNum(x[2]) * q)); got = true; }
+      if (got) withData++;
+    });
+    return { rows: order.map(k => acc[k]), withData, foods };
+  }
+  function microHtml(p, items, title) {
+    const s = microSum(p, items); if (!s.foods) return '';
+    if (!s.withData) return '<p class="mute small" style="margin:6px 0 0">Vitamine e minerali: disponibili per gli alimenti delle tabelle CREA (etichetta CREA).</p>';
+    const grp = (k, t) => { const r = s.rows.filter(x => x.k === k); return r.length ? `<h4 class="dz-h">${t}</h4><div class="dz-mic">${r.map(x => `<div><span>${esc(x.name)}</span><b>${mf(x.v)} ${esc(x.unit)}</b></div>`).join('')}</div>` : ''; };
+    return `<details class="dz-det"><summary>${esc(title || 'Vitamine e minerali')} <span class="mute small">· dati CREA su ${s.withData} di ${s.foods} alimenti</span></summary>${grp('b', 'Fibre, zuccheri, sodio')}${grp('m', 'Minerali')}${grp('v', 'Vitamine')}<p class="mute small" style="margin:6px 0 0">Somma dei valori CREA per le quantità inserite. Gli alimenti senza dato CREA non sono contati. Sono valori medi di tabella, non una misura personale (tr = tracce, contate zero).</p></details>`;
+  }
+  /* tabella stile foglio di calcolo: un pasto per riga, totale e obiettivo */
+  function dietSheet(p, day, tot, tgt) {
+    const rows = F.MEALS.map((nm, mi) => { const mt = F.mealTotal(p, day.meals[mi] || []), tk = tgt && tgt.meals && tgt.meals[mi] ? tgt.meals[mi].k : 0; return `<tr data-act="dToggle" data-m="${mi}" tabindex="0"><td class="dz-n">${esc(nm)}</td><td>${fx(mt.k)}${tk ? '<i> / ' + fx(tk) + '</i>' : ''}</td><td>${fx(mt.p)}</td><td>${fx(mt.c)}</td><td>${fx(mt.f)}</td></tr>`; }).join('');
+    const tg = tgt ? `<tr class="dz-t"><td class="dz-n">Obiettivo</td><td>${fx(tgt.k)}</td><td>${fx(tgt.p)}</td><td>${fx(tgt.c)}</td><td>${fx(tgt.f)}</td></tr>
+      <tr class="dz-t"><td class="dz-n">Mancano</td><td>${fx(tgt.k - tot.k)}</td><td>${fx(tgt.p - tot.p)}</td><td>${fx(tgt.c - tot.c)}</td><td>${fx(tgt.f - tot.f)}</td></tr>` : '';
+    return `<div class="dz-wrap"><table class="dz" aria-label="Tabella dei pasti di oggi"><thead><tr><th>Pasto</th><th>kcal</th><th>Prot. g</th><th>Carb. g</th><th>Grassi g</th></tr></thead><tbody>${rows}<tr class="dz-s"><td class="dz-n">Totale</td><td>${fx(tot.k)}</td><td>${fx(tot.p)}</td><td>${fx(tot.c)}</td><td>${fx(tot.f)}</td></tr>${tg}</tbody></table></div>`;
   }
   function viewDiet() {
     if (S.settings.legal !== F.LEGAL_VERSION) return legalGate();
     const p = P(), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
+    if (F.loadCrea && !ui.creaTry) { ui.creaTry = 1; F.loadCrea().then(() => { if (ui.tab === 'diet') render(); }).catch(() => { }); }
     const day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), isToday = D.date === localISO(new Date());
     const tgt = dietTarget(p, D.date), c = tgt ? { kcal: tgt.k, carbs: tgt.c, protein: tgt.p, fat: tgt.f } : null, rem = tgt ? { k: tgt.k - tot.k, p: tgt.p - tot.p, c: tgt.c - tot.c, f: tgt.f - tot.f } : null;
     const mon = new Date().getMonth() + 1;
@@ -1004,14 +1049,14 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const pdy = nut.plan && nut.plan.active ? tgt && tgt.day : null;
     const meals = F.MEALS.map((nm, mi) => {
       const items = day.meals[mi], mt = F.mealTotal(p, items), tk = tgt && tgt.meals ? tgt.meals[mi].k : 0, left = tk - mt.k;
-      const open = !!(D.open && D.open[mi]) || D.addTo === mi;
+      const open = mealOpen(D, mi, items.length);
       const pitems = pdy ? (pdy.meals[mi] || []).filter(x => !x.opt && x.f && x.g > 0) : [];
-      return `<div class="card"><button class="ghost" style="display:block;width:100%;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)}${tk ? ' / ' + fx(tk) : ''} kcal</span></div>
+      return `<div class="card dz-meal"><div class="row" style="align-items:flex-start;gap:8px"><button class="ghost grow" style="display:block;text-align:left;padding:0" data-act="dToggle" data-m="${mi}" aria-expanded="${open}"><div class="row"><h2 class="grow" style="margin:0">${open ? '▾' : '▸'} ${nm}</h2><span class="small mute">${fx(mt.k)}${tk ? ' / ' + fx(tk) : ''} kcal</span></div>
         ${tk ? `<div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, Math.round(mt.k / tk * 100))}%${left < -tk * 0.05 ? ';background:var(--warn)' : ''}"></i></div>` : ''}
-        <div class="small mute">P ${fx(mt.p)} · C ${fx(mt.c)} · G ${fx(mt.f)} g</div></button>
+        <div class="small mute">P ${fx(mt.p)} · C ${fx(mt.c)} · G ${fx(mt.f)} g</div></button><button class="sm primary" style="flex:none" data-act="dAddFood" data-m="${mi}">+ Alimento</button></div>
         ${open ? `${pitems.length ? `<div class="msg small" style="margin:8px 0"><b>Dal piano:</b> ${pitems.map(x => { const fd = F.getFood(p, x.f); return fd ? esc(fd.name) + ' ' + x.g + ' ' + F.unitOf(fd) : ''; }).filter(Boolean).join(' · ')}<div class="row wrap" style="margin-top:6px"><button class="sm" data-act="pvAddMeal" data-m="${mi}">Aggiungi al diario</button></div></div>` : ''}
-        ${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente.</p>'}
-        <div class="row" style="margin-top:8px"><button class="sm primary" data-act="dOpen" data-m="${mi}">+ Aggiungi</button></div>
+        ${items.map((it, ii) => itemLine(p, it, mi, ii)).join('') || '<p class="mute small" style="margin:8px 0">Ancora niente: tocca "+ Alimento" o usa una combinazione.</p>'}
+        ${items.length > 1 ? microHtml(p, items, 'Micronutrienti del pasto') : ''}
         ${D.addTo === mi ? addPanel(p, mi) : ''}` : ''}</div>`;
     }).join('');
 
@@ -1022,11 +1067,13 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
         <h2 style="margin:14px 0 0">Riepilogo di ${esc(p.name)}</h2>${tgt ? gauge(tot, c) + macroCols(tot, c) : `<div class="grid3 k4"><div class="kpi"><b>${fx(tot.k)}</b><span>kcal</span></div><div class="kpi"><b>${fx(tot.p)} g</b><span>proteine</span></div><div class="kpi"><b>${fx(tot.c)} g</b><span>carboidrati</span></div><div class="kpi"><b>${fx(tot.f)} g</b><span>grassi</span></div></div>`}
         ${tgt ? `<p class="mute small" style="margin:8px 0 0">${tgt.src === 'plan' ? 'Obiettivo preso dal piano che hai attivato.' : 'Obiettivo impostato da te.'}</p>` : ''}
         ${F.intolWarnings(p, D.date).map(w => `<div class="msg danger small">${esc(w.text)}</div>`).join('')}
+        ${dietSheet(p, day, tot, tgt)}
+        ${microHtml(p, day.meals.reduce((a, m) => a.concat(m || []), []), 'Vitamine e minerali di oggi')}
         <div class="row wrap" style="margin-top:8px"><button class="sm" data-act="dCopy">Copia il giorno prima</button><button class="sm" data-act="newRecipe">Nuova ricetta</button></div></div>
+      ${cmpCard(p, day, tot, tgt)}
       ${dietInboxCard()}
       ${planCard(p, D)}
       ${meals}
-      ${cmpCard(p, day, tot, tgt)}
       <div class="card"><b>Guida e fonti ufficiali</b><p class="mute small" style="margin:4px 0 0">Informazioni generali, uguali per tutti, riprese da fonti ufficiali: ogni sezione indica la fonte con il link. Non sono un consiglio personale: per il tuo caso parla con il tuo medico o professionista.</p></div>
       ${guideHtml(p, D)}
       ${intolCard(p)}
@@ -1339,7 +1386,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   }
   const act = {
     dDay(t) { ui.diet.skip = {}; const d = new Date(ui.diet.date + 'T12:00:00'); d.setDate(d.getDate() + +t.dataset.d); ui.diet.date = d.toISOString().slice(0, 10); ui.diet.addTo = null; ui.diet.pick = null; render(); },
-    dOpen(t) { ui.diet.addTo = +t.dataset.m; ui.diet.pick = null; render(); },
+    dAddFood(t) { const D = ui.diet; D.addTo = +t.dataset.m; D.pick = null; D.open = D.open || {}; D.open[D.addTo] = true; render(); setTimeout(() => { const e = $('#dq'); if (e) { e.focus(); e.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }, 60); },
     revOpen() { const R = ui.rev, A = F.Account, m = (R.list || []).find(x => A.me && x.user_id === A.me.id); R.open = true; R.f = m ? { rating: m.rating, display_name: m.display_name, title: m.title, body: m.body, gym_name: m.gym_name } : {}; render(); },
     revClose() { ui.rev.open = false; render(); },
     revStar(t) { const R = ui.rev; R.f = Object.assign(R.f || {}, { ok: ($('#rv_ok') || {}).checked, display_name: ($('#rv_name') || {}).value, title: ($('#rv_title') || {}).value, body: ($('#rv_body') || {}).value, rating: +t.dataset.n }); const g = $('#rv_gym'); if (g) R.f.gym_name = g.checked ? 'x' : null; render(); },
@@ -1371,7 +1418,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       D.pick = null; save(); render();
     },
     async dRm(t) { if (!(await ask({ title: 'Togliere questo alimento dal pasto?' }))) return; const day = F.dayOf(P(), ui.diet.date); day.meals[+t.dataset.m].splice(+t.dataset.i, 1); save(); render(); },
-    dToggle(t) { const D = ui.diet; D.open = D.open || {}; const m = +t.dataset.m; D.open[m] = !D.open[m]; if (!D.open[m] && D.addTo === m) { D.addTo = null; D.pick = null; } render(); },
+    dToggle(t) { const D = ui.diet; D.open = D.open || {}; const m = +t.dataset.m; D.open[m] = !mealOpen(D, m, (F.dayOf(P(), D.date).meals[m] || []).length); if (!D.open[m] && D.addTo === m) { D.addTo = null; D.pick = null; } render(); },
     dGuide(t) { const D = ui.diet; D.guide = D.guide || {}; D.guide[t.dataset.k] = !D.guide[t.dataset.k]; render(); },
     async scan() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('Fotocamera non disponibile: scrivi il codice a barre nella ricerca');
@@ -1457,7 +1504,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     rCancel() { ui.sub = null; render(); },
     async cmpOpen() { const S = cmpS(); S.open = !S.open; if (S.open && F.loadCrea) { try { await F.loadCrea(); } catch (e) { } } render(); },
     cmpNut(t) { cmpS().nut = t.dataset.k; render(); },
-    cmpPut(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; S.closeMsg = ''; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' nella combinazione'); render(); },
+    cmpPut(t) { const S = cmpS(), fd = F.getFood(P(), t.dataset.f); if (!fd) return; S.open = true; S.closeMsg = ''; if (!S.combo.some(x => x.f === fd.id)) S.combo.push({ f: fd.id, g: 100 }); toast(fd.name + ' nella combinazione'); render(); },
+    cmpMore() { const S = cmpS(); S.more = !S.more; render(); },
     cmpRm(t) { cmpS().combo.splice(+t.dataset.i, 1); render(); },
     cmpClose() {
       const S = cmpS(), p = P(), D = ui.diet, day = F.dayOf(p, D.date), tot = F.dayTotal(p, day), tg = dietTarget(p, D.date); if (!tg || !S.combo.length) return;
