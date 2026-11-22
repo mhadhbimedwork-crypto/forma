@@ -231,7 +231,7 @@
         ${AC.enabled ? X.menuBtn() : `<select id="profSel" aria-label="Cambia profilo">${opts}</select><button class="sm" data-act="newProfile" aria-label="Nuovo profilo">+</button>`}</div></header>`;
   }
   function nav() {
-    const t = [['home', 'Oggi', ICON.home], ...(AC.modules() === 'diet' ? [] : [['plan', 'Scheda', ICON.plan]]), ...((GYM || AC.modules() === 'train') ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ...((G && P() && G.gate(P(), planOf(P()))) ? [G.tab(ICON)] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team', 'nutri'].includes(x[0]));
+    const t = [['home', 'Oggi', ICON.home], ...(AC.modules() === 'diet' ? [] : [['plan', 'Scheda', ICON.plan]]), ...(AC.modules() === 'train' ? [] : [['diet', 'Dieta', ICON.diet]]), ['body', 'Corpo', ICON.body], ['prog', 'Progressi', ICON.chart], ...(X ? X.tabs(ICON) : []), ...((G && P() && G.gate(P(), planOf(P()))) ? [G.tab(ICON)] : []), ['me', 'Profilo', ICON.user]].filter(x => P() || ['clients', 'me', 'gyms', 'team', 'nutri'].includes(x[0]));
     return `<nav class="tabs" aria-label="Sezioni">${t.map(([k, l, i]) => `<button data-act="tab" data-tab="${k}" class="${ui.tab === k && !ui.sub ? 'on' : ''}" ${ui.tab === k ? 'aria-current="page"' : ''}>${i}${l}</button>`).join('')}</nav>`;
   }
   /* --- sblocco con impronta / Face ID (WebAuthn): vale solo su questo dispositivo --- */
@@ -858,6 +858,12 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return null;
   }
   const legalBody = () => F.LEGAL.map(x => `<h3 style="margin:10px 0 2px">${esc(x[0])}</h3><p class="small" style="margin:0">${esc(x[1])}</p>`).join('');
+  function dietOptGate() {
+    return `<h1>Dieta</h1><div class="card hero"><h2>La dieta è facoltativa</h2><p>In ${esc(BRAND)} l'allenamento viene prima di tutto: la sezione Dieta resta spenta finché non la attivi tu. Scegli come vuoi usarla.</p></div>
+      <div class="card"><h2>Mi segue un nutrizionista</h2><p class="small">Il tuo nutrizionista scrive la dieta e tu la vedi qui, pasto per pasto, con calorie, macro e micronutrienti. Tu registri quello che mangi.</p><button class="primary" data-act="dietOpt" data-v="nutri">Attiva con il mio nutrizionista</button></div>
+      <div class="card"><h2>Compilo io i miei dati</h2><p class="small">Inserisci tu gli alimenti di ogni pasto (anche con le combinazioni pronte) e controlli calorie, macro e micronutrienti. Sono indicazioni di calcolo e un diario, non una dieta prescritta.</p><button class="primary" data-act="dietOpt" data-v="self">Attiva e compilo io</button></div>
+      <p class="mute small">Puoi disattivarla quando vuoi dal fondo della sezione Dieta. I dati inseriti restano salvati.</p>`;
+  }
   function legalGate() {
     return `<h1>Dieta</h1><div class="card"><h2>Prima di iniziare</h2><p class="small">${esc(BRAND)} è solo un motore di calcolo e un diario: non crea né consiglia diete. Leggi e accetta queste avvertenze per usare la sezione Dieta.</p>${legalBody()}
       <label class="row" style="gap:8px;margin-top:12px;align-items:flex-start"><input type="checkbox" id="legalChk" style="width:auto;margin-top:4px"><span class="small">Ho letto e capisco che la responsabilità di ciò che mangio e di come mi alleno è mia e dei professionisti che mi seguono, non dell'app.</span></label>
@@ -1039,6 +1045,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return `<div class="dz-wrap"><table class="dz" aria-label="Tabella dei pasti di oggi"><thead><tr><th>Pasto</th><th>kcal</th><th>Prot. g</th><th>Carb. g</th><th>Grassi g</th></tr></thead><tbody>${rows}<tr class="dz-s"><td class="dz-n">Totale</td><td>${fx(tot.k)}</td><td>${fx(tot.p)}</td><td>${fx(tot.c)}</td><td>${fx(tot.f)}</td></tr>${tg}</tbody></table></div>`;
   }
   function viewDiet() {
+    if (GYM && !S.settings.dietOpt) return dietOptGate();
     if (S.settings.legal !== F.LEGAL_VERSION) return legalGate();
     const p = P(), nut = ensureNut(p), D = ui.diet = ui.diet || { date: localISO(new Date()), addTo: null, pick: null, fill: false };
     if (F.loadCrea && !ui.creaTry) { ui.creaTry = 1; F.loadCrea().then(() => { if (ui.tab === 'diet') render(); }).catch(() => { }); }
@@ -1081,7 +1088,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
 
       <div class="card"><details ${D.imp ? 'open' : ''}><summary>Importa una ricetta ricevuta</summary><p class="mute small" style="margin:6px 0">Incolla qui il testo che ti hanno mandato (inizia con FORGIA-RICETTA). Resta solo sul tuo telefono.</p><textarea id="rcImp" style="min-height:70px;font-family:inherit" aria-label="Testo della ricetta"></textarea><button class="sm primary" style="margin-top:6px" data-act="rImport">Importa</button></details></div>
       ${nut.recipes.length ? `<div class="card"><h2>Le mie ricette</h2>${nut.recipes.map(r => { const t = F.recipeTotal(p, r), n = r.portions || 1; return `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(r.name)}</b><div class="mute small">${n} porz. · a porzione ${fx(t.k / n)} kcal · P ${fx(t.p / n)} · C ${fx(t.c / n)} · G ${fx(t.f / n)}</div></div><button class="sm" data-act="editRecipe" data-id="${r.id}">Modifica</button><button class="sm danger" data-act="rDelList" data-id="${r.id}" aria-label="Elimina ${esc(r.name)}">Elimina</button></div>`; }).join('')}</div>` : ''}
-      <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>`;
+      <p class="mute small">Valori indicativi per 100 g di prodotto crudo (se non scritto diversamente): se un prodotto ha l'etichetta, salvalo come nuovo alimento. I dati restano sul tuo dispositivo.</p>${GYM ? '<div class="row" style="margin-top:14px"><button class="ghost sm" data-act="dietOff">Disattiva la sezione Dieta</button></div>' : ''}`;
   }
   function recipeCheck(p, R, tot, n) {
     return '';   // nessun consiglio: l'app calcola soltanto
@@ -1359,7 +1366,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${AC.enabled ? '' : `<div class="card"><h2>I tuoi profili</h2><p class="small mute" style="margin:0 0 6px">Ogni profilo ha i suoi dati. Prima di eliminarne uno fai il backup: l'eliminazione è definitiva.</p>
         ${S.profiles.map(x => `<div class="row" style="border-top:1px solid var(--line);padding:6px 0"><div class="grow"><b>${esc(x.name)}</b>${x.id === S.active ? ' <span class="chip">in uso</span>' : ''}<div class="mute small">${F.ageOf(x.birth)} anni · ${x.weight} kg</div></div>${x.id !== S.active ? `<button class="sm" data-act="profUse" data-id="${x.id}">Apri</button>` : ''}<button class="sm danger" data-act="delProfile" data-id="${x.id}" aria-label="Elimina il profilo di ${esc(x.name)}">Elimina</button></div>`).join('')}
         <button class="sm primary" style="margin-top:8px" data-act="newProfile">+ Aggiungi un profilo</button></div>`}
-      <p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento${GYM ? '' : ' e alimentazione'}, non sostituisce medico, fisioterapista o allenatore.</p>`;
+      <p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento${GYM && !S.settings.dietOpt ? '' : ' e alimentazione'}, non sostituisce medico, fisioterapista o allenatore.</p>`;
   }
 
   /* ---------- azioni ---------- */
@@ -1523,6 +1530,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     cmpAdd() { const S = cmpS(), p = P(), day = F.dayOf(p, ui.diet.date), mi = +($('#cmpMeal') || { value: S.meal }).value; const ok = S.combo.filter(x => x.g > 0); if (!ok.length) return toast('Inserisci le quantità'); ok.forEach(x => day.meals[mi].push({ f: x.f, g: x.g })); S.combo = []; S.meal = mi; save(); toast('Aggiunto al diario'); render(); },
     async nlAccept(t) { const id = t.dataset.id, d = $('#nl_d' + id), tr = $('#nl_t' + id); try { await AC._rest('nutri_links?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'active', scope_diary: !!(d && d.checked), scope_training: !!(tr && tr.checked), decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Consensi salvati'); render(); } catch (e) { toast(/row-level|policy|violat/i.test(e.message) ? 'Per i minorenni serve il consenso di un genitore: chiedi all\'allenatore di registrarlo' : e.message); } },
     async nlRevoke(t) { if (!(await ask({ title: 'Revocare il collegamento con il nutrizionista?', text: 'Non potrà più vedere i tuoi dati. I dati che ha già scritto restano nella sua scheda.' }))) return; try { await AC._rest('nutri_links?id=eq.' + t.dataset.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'revoked', scope_diary: false, scope_training: false, decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Collegamento revocato'); render(); } catch (e) { toast(e.message); } },
+    dietOpt(t) { S.settings.dietOpt = t.dataset.v === 'nutri' ? 'nutri' : 'self'; S.settings.dietOptAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
+    dietOff() { if (!confirm('Disattivare la sezione Dieta? I dati inseriti restano salvati.')) return; S.settings.dietOpt = null; save(); ui.tab = 'home'; render(); },
     legalOk() { const c = $('#legalChk'); if (!c || !c.checked) return toast('Spunta la casella per continuare'); S.settings.legal = F.LEGAL_VERSION; S.settings.legalAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
     async pvParse() {
       const t = ($('#pvText').value || '').trim(); if (t.length < 5) return toast('Incolla il testo del piano');

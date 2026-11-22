@@ -240,3 +240,29 @@
   A.config = () => rest('app_config?select=key,value,updated_at');
   A.setConfig = (key, value) => rest('app_config?on_conflict=key', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ key, value }) });
 })(window.FORMA);
+
+/* Tabelle ovunque: prima riga (intestazione) e prima colonna (nomi) sempre fisse mentre si scorre */
+(function () {
+  try {
+    const st = document.createElement('style');
+    st.textContent = '.stkw{overflow:auto;max-height:72vh;max-width:100%;-webkit-overflow-scrolling:touch;position:relative;--stkbg:#10151d}'
+      + '.dz-wrap{--stkbg:#0f1c33}'
+      + 'table.stk th{position:sticky;top:0;z-index:3;background:var(--stkbg,#10151d)}'
+      + 'table.stk td:first-child,table.stk th:first-child{position:sticky;left:0;z-index:2;background:var(--stkbg,#10151d);box-shadow:1px 0 0 #ffffff14}'
+      + 'table.stk th:first-child{z-index:4}'
+      + 'table.stk tr.dz-s td:first-child{background:#0d1a30}';
+    document.head.appendChild(st);
+    let busy = false;
+    const run = () => {
+      busy = false;
+      document.querySelectorAll('table:not(.stk)').forEach(t => {
+        if (t.closest('.gs-grid,.rz-wrap,[data-nostk]') || t.rows.length < 2) return;
+        t.classList.add('stk');
+        const p = t.parentElement;
+        if (p && !p.classList.contains('dz-wrap') && !p.classList.contains('stkw') && !p.classList.contains('gs-grid')) { const w = document.createElement('div'); w.className = 'stkw'; p.insertBefore(w, t); w.appendChild(t); }
+      });
+    };
+    new MutationObserver(() => { if (!busy) { busy = true; requestAnimationFrame(run); } }).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', run);
+  } catch (e) { }
+})();
