@@ -973,7 +973,7 @@
       views.clients = function () {
         const me = A.me, show = me && ['head', 'coach'].includes(me.role) && !(ui.sub);
         if (show && !ui.ownLoaded) { ui.ownLoaded = true; A.listOwn().then(l => { ui.own = l; c.render(); }).catch(() => { ui.own = ui.own || []; }); }
-        return (show ? `<div class="card">${ownSection()}</div>` : '') + _vc.apply(this, arguments);
+        return (show ? `<div class="card">${ownSection()}</div>` : '') + (me && ['admin', 'head', 'coach'].includes(me.role) && !ui.sub ? '<div class="row" style="margin-bottom:8px"><button class="sm" data-act="tbOpen">Tabella iscritti (stile foglio di calcolo)</button></div>' : '') + _vc.apply(this, arguments);
       }; }
     X.menuBtn = () => A.me ? `<button class="sm acctbtn" data-act="menuToggle" aria-label="Profili e account" aria-expanded="${ui.menu ? 'true' : 'false'}" title="${esc(A.me.full_name)}">${esc(A.me.full_name.trim().charAt(0).toUpperCase())}</button>` : '';
     X.menu = function () {
@@ -1028,6 +1028,7 @@
       if (t.id === 'nc_g') { const n = document.getElementById('ncExisting'); if (n) n.innerHTML = existingPanel(t.value); return true; }
       if (t.dataset.nutri) { A.setNutri(t.dataset.nutri, t.checked).then(() => { toast(t.checked ? 'Segnato come nutrizionista' : 'Nutrizionista rimosso'); return reload(); }).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.perm) { A.setPerms(t.dataset.perm, t.checked).then(() => toast('Permesso aggiornato')).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
+      if (t.hasAttribute && t.hasAttribute('data-tbr')) { (ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }).role = t.value; c.render(); return true; }
       if (t.dataset.mod) { A.setModules(t.dataset.mod, t.value).then(async () => { toast('Servizi aggiornati'); await loadClients(); await reload(); }).catch(e => { toast('Non riuscito: ' + e.message); reload(); }); return true; }
       if (t.dataset.asg) { A.assignCoach(t.dataset.asg, t.value).then(async () => { toast('Cliente assegnato'); await loadClients(); await reload(); }).catch(e => toast('Non riuscito: ' + e.message)); return true; }
       if (t.id === 'rstOne' && t.files.length) { const fl = Array.from(t.files), uid = t.dataset.u; t.value = ''; acts.rstLoad(fl, uid); return true; }
@@ -1039,7 +1040,48 @@
       if (t.id === 'impTabAll' && t.files[0]) { importFile(t.files[0], X.clients(), null); t.value = ''; return true; }
       return false;
     };
-    X.onInput = function (t) { if (t.hasAttribute && t.hasAttribute('data-dq')) { dsh().q = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-dq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'cmpQ' || t.id === 'cmpEx') { ui[t.id] = t.value; const pos = t.selectionStart, id = t.id; c.render(); const n = document.getElementById(id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
+    X.onInput = function (t) { if (t.hasAttribute && t.hasAttribute('data-tq')) { (ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }).q = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-tq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.hasAttribute && t.hasAttribute('data-dq')) { dsh().q = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-dq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'cmpQ' || t.id === 'cmpEx') { ui[t.id] = t.value; const pos = t.selectionStart, id = t.id; c.render(); const n = document.getElementById(id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } if (t.id === 'clQ') { ui.clQ = t.value; const pos = t.selectionStart; c.render(); const n = document.getElementById('clQ'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } return true; } return false; };
+    /* ---------- Tabella iscritti: come un foglio di calcolo (ordina, filtra, esporta, copia in Google Sheets) ---------- */
+    const TB_ROLE = { head: 'Responsabile palestra', coach: 'Allenatore', nutri: 'Nutrizionista', client: 'Atleta' };
+    const TB_SRV = { both: 'Allenamento + dieta', train: 'Solo allenamento', diet: 'Solo dieta' };
+    function tbData() {
+      const T = ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }, adm = A.me && A.me.role === 'admin';
+      const gname = id => ((ui.gyms || []).find(g => g.id === id) || {}).name || (A.gym && A.gym.id === id ? A.gym.name : '');
+      const nmOf = id => ((ui.accts || []).find(a => a.id === id) || {}).full_name || '';
+      const upd = new Map((ui.cl || []).map(p => [p._uid, p._updated]));
+      const plain = v => String(v == null ? '' : v).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      let rows = (ui.accts || []).filter(a => a.role !== 'admin').map(a => ({
+        id: a.id, r: a.role, name: a.full_name || '', user: a.username || '',
+        role: (TB_ROLE[a.role] || a.role) + (a.is_nutri && a.role !== 'nutri' ? ' + nutrizionista' : ''),
+        gym: gname(a.gym_id), coach: a.role === 'client' ? nmOf(a.coach_id) : '',
+        srv: a.role === 'client' ? (TB_SRV[a.modules] || TB_SRV.both) : '',
+        act: a.active ? 'Attivo' : 'Disattivato', acc: a.must_change_password ? 'Primo accesso da fare' : 'Accesso effettuato',
+        last: upd.get(a.id) || '', created: a.created_at || '', pay: adm && a.gym_id ? billStatus('gym', a.gym_id).t : ''
+      }));
+      const q = plain(T.q).trim();
+      if (T.role) rows = rows.filter(r => r.r === T.role);
+      if (q) rows = rows.filter(r => plain([r.name, r.user, r.gym, r.coach, r.role, r.srv, r.act].join(' ')).includes(q));
+      rows.sort((a, b) => String(a[T.sort] || '').localeCompare(String(b[T.sort] || ''), 'it', { numeric: true }) * T.dir || a.name.localeCompare(b.name));
+      const cols = [['name', 'Nome'], ['role', 'Ruolo']].concat(adm || new Set(rows.map(r => r.gym)).size > 1 ? [['gym', 'Palestra']] : [], [['coach', 'Allenatore'], ['srv', 'Servizi'], ['act', 'Stato'], ['acc', 'Accesso'], ['last', 'Ultimo salvataggio'], ['created', 'Iscritto il']], adm ? [['pay', 'Pagamento palestra']] : []);
+      return { T, rows, cols };
+    }
+    const tbCell = (r, k) => (k === 'last' || k === 'created') ? dIt(r[k]) : r[k];
+    views.table = function () {
+      X.ensureClients(); X.ensureAdmin(); ensureBill();
+      const { T, rows, cols } = tbData(), arr = k => T.sort === k ? (T.dir > 0 ? ' ▲' : ' ▼') : '';
+      return `<div class="row"><button class="ghost" data-act="tbBack">← Clienti</button></div><h1>Tabella iscritti</h1>
+        <div class="card"><div class="row wrap" style="gap:8px"><input data-tq placeholder="Cerca nome, palestra, allenatore…" value="${esc(T.q)}" style="flex:1;min-width:160px">
+        <select data-tbr aria-label="Filtra per ruolo"><option value="">Tutti</option>${Object.entries(TB_ROLE).map(([v, l]) => `<option value="${v}" ${T.role === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="row wrap" style="gap:8px;margin-top:8px"><button class="sm primary" data-act="tbCopy">Copia per Google Sheets</button><button class="sm" data-act="tbCsv">Scarica CSV (Excel)</button><a class="btn sm" style="text-decoration:none" href="https://sheets.new" target="_blank" rel="noopener">Apri Google Sheets</a></div>
+        <p class="mute small" style="margin:8px 0 0">${rows.length} persone. «Copia», poi in Google Sheets: Ctrl+V (o tieni premuto e incolla). Il foglio è una copia: non si aggiorna da solo.</p></div>
+        <div class="card" style="padding:0;overflow:auto;max-height:70vh"><table class="tbl"><thead><tr>${cols.map(([k, l]) => `<th><button class="thb" data-act="tbSort" data-k="${k}">${esc(l)}${arr(k)}</button></th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r.act === 'Disattivato' ? 'off' : ''}">${cols.map(([k]) => `<td${k === 'act' && r.act === 'Disattivato' ? ' class="bad"' : ''}>${esc(tbCell(r, k))}</td>`).join('')}</tr>`).join('') || `<tr><td class="mute">Nessun risultato</td></tr>`}</tbody></table></div>`;
+    };
+    acts.tbOpen = () => { ui.tab = 'table'; ui.sub = null; c.render(); };
+    acts.tbBack = () => { ui.tab = 'clients'; c.render(); };
+    acts.tbSort = t => { const T = (ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }); T.dir = T.sort === t.dataset.k ? -T.dir : 1; T.sort = t.dataset.k; c.render(); };
+    const tbSheet = () => { const { rows, cols } = tbData(); return { name: 'Iscritti', cols: cols.map(x => x[1]), rows: rows.map(r => cols.map(([k]) => tbCell(r, k))) }; };
+    acts.tbCsv = () => { F.download([{ path: 'TLZ_iscritti_' + new Date().toISOString().slice(0, 10) + '.csv', mime: 'text/csv', text: F.csvBuild(tbSheet()) }]); toast('CSV scaricato: si apre con Excel e Google Sheets'); };
+    acts.tbCopy = () => { const sh = tbSheet(), tsv = [sh.cols].concat(sh.rows).map(r => r.map(v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => toast('Copiato: aprilo in Google Sheets e incolla'), () => toast('Copia non riuscita: usa «Scarica CSV»')); };
     Object.assign(X.views, { newClient: views.newClient });
     return X;
   };

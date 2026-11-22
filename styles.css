@@ -251,3 +251,10 @@ html{scroll-behavior:smooth}
 #nutriMount .sugbtn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;padding:12px 14px;min-height:60px;border-radius:14px;border:1px solid var(--line2);background:linear-gradient(180deg,#18212e,#131a25);color:#fff;font:inherit}
 #nutriMount .sugbtn b{font-size:1.02rem}#nutriMount .sugbtn span{font-size:.82rem;color:#aab6c6}#nutriMount .sugbtn:disabled{opacity:.55}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}.modal>div{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:18px;max-width:420px;width:100%}
+
+/* --- Tabella iscritti --- */
+.tbl{width:100%;border-collapse:collapse;font-size:.86rem;white-space:nowrap}
+.tbl th{position:sticky;top:0;background:#10151d;z-index:1;text-align:left;border-bottom:1px solid var(--line2)}
+.tbl td{padding:9px 10px;border-bottom:1px solid #ffffff10}
+.tbl tbody tr:nth-child(even){background:#ffffff06}.tbl tr.off{opacity:.6}
+.thb{background:none;border:0;color:var(--mute);font:700 .74rem var(--text);letter-spacing:.04em;text-transform:uppercase;padding:10px;cursor:pointer;white-space:nowrap}
