@@ -891,7 +891,7 @@
     acts.nutriNew = () => { ui.sub = { type: 'newClient', role: 'nutri', back: A.me && A.me.role === 'admin' ? 'gyms' : 'team' }; c.render(); window.scrollTo(0, 0); };
     acts.coachNew = () => { ui.sub = { type: 'newClient', role: 'coach', back: A.me && A.me.role === 'admin' ? 'gyms' : 'team' }; c.render(); window.scrollTo(0, 0); };
     acts.acctReset = async t => { const pw = prompt('Password temporanea generata (puoi cambiarla). Dettala alla persona: al primo accesso ne sceglierà una sua.', genPw()); if (!pw) return; try { await A.resetPassword(t.dataset.id, pw); toast('Password reimpostata'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
-    acts.acctActive = async t => { try { await A.setActive(t.dataset.id, t.dataset.on === '1'); await reload(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.acctActive = async t => { const on = t.dataset.on === '1', a = (ui.accts || []).find(x => x.id === t.dataset.id) || {}; if (on && isAdm()) return reactDlg(t.dataset.id, a.full_name || ''); try { const r = await A.setActive(t.dataset.id, on); if (!on && r && r.backup) saveBk('FORGIA_backup_' + fileSlug(a.full_name || 'account') + '_' + today() + '.json', r.backup); await reload(); toast(on ? 'Riattivato' : 'Copia di sicurezza salvata e disattivato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
     acts.acctDelete = async t => { const a = (ui.accts || []).find(x => x.id === t.dataset.id); if (!confirm(`Eliminare l'account di ${a ? a.full_name : ''} e i dati collegati? Non si può annullare.`) || !confirm('Ultima conferma: eliminare davvero?')) return; try { await A.deleteUser(t.dataset.id); await reload(); toast('Account eliminato'); } catch (e) { toast('Non riuscito: ' + e.message); } };
     const gymProfiles = id => X.clients().filter(p => p._acct && p._acct.gym_id === id), gymName = id => ((ui.gyms || []).find(g => g.id === id) || {}).name || 'palestra';
     acts.xlsxGym = t => exportXlsx(gymProfiles(t.dataset.id), 'TLZ_' + F.safeName(gymName(t.dataset.id)));
@@ -1223,8 +1223,9 @@
     acts.clGym = t => { AD().cg = t.dataset.id; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
     acts.admToggle = async t => {
       const on = t.dataset.on === '1', k = t.dataset.k, nm = t.dataset.nm || '';
-      if (!on && !confirm(k === 'gym' ? `Disattivare la palestra ${nm}? Nessuno dei suoi account potrà entrare finché non la riattivi.` : `Disattivare ${nm}? Non potrà più entrare finché non lo riattivi. I dati restano.`)) return;
-      try { if (k === 'gym') await A.setGymActive(t.dataset.id, on); else await A.setActive(t.dataset.id, on); ui.clLoaded = false; ui.clBusy = false; await reload(); toast(on ? 'Riattivato' : 'Disattivato'); } catch (e) { toast('Non riuscito: ' + e.message); }
+      if (on && k === 'acc' && isAdm()) return reactDlg(t.dataset.id, nm);
+      if (!on && !confirm(k === 'gym' ? `Disattivare la palestra ${nm}?\n\nPrima salvo in automatico la copia di sicurezza di tutta la palestra e di ogni account (sul server e in un file sul tuo PC). Poi nessuno potrà più entrare finché non la riattivi. Nessun dato viene cancellato.` : `Disattivare ${nm}?\n\nPrima salvo in automatico la copia di sicurezza del profilo e dei dati (sul server e in un file sul tuo PC). Poi non potrà più entrare finché non lo riattivi. Nessun dato viene cancellato.`)) return;
+      try { const r = k === 'gym' ? await A.setGymActive(t.dataset.id, on) : await A.setActive(t.dataset.id, on); if (!on && r && r.backup) saveBk('FORGIA_backup_' + fileSlug(nm) + '_' + today() + '.json', r.backup); ui.clLoaded = false; ui.clBusy = false; await reload(); toast(on ? 'Riattivato' : 'Copia di sicurezza salvata e disattivato'); } catch (e) { toast('Non riuscito: ' + e.message); }
     };
 
     /* ---------------- CLIENTI ---------------- */
@@ -1328,19 +1329,100 @@
       gAcc().filter(a => a.id !== meId).forEach(a => { const s = gm(a.gym_id), co = gAcc().find(x => x.id === a.coach_id); L.push({ k: 'acc', id: a.id, tipo: a.role === 'client' ? 'Cliente' : gNu(a) && a.role !== 'nutri' ? gRole(a) + ' + Nutr.' : gRole(a), nm: a.full_name, us: a.username, gym: s ? s.g.name : '–', gid: a.gym_id, co: co ? co.full_name : '', cr: a.created_at, ls: a.last_seen, sv: a.role === 'client' ? gSrv(a.modules) : '', st: s ? s.st : null, act: a.active, ord: a.role === 'head' ? 1 : a.role === 'coach' ? 2 : a.role === 'nutri' ? 3 : 4 }); });
       L = L.filter(r => (!D.pt || r.tipo.toLowerCase().indexOf(D.pt) === 0) && (!D.pg || r.gid === D.pg) && (!D.ps || (D.ps === 'on' ? r.act : !r.act)) && (!q || plainS(r.nm + ' ' + r.us + ' ' + r.gym).includes(q)));
       L.sort((a, b) => plainS(a.gym).localeCompare(plainS(b.gym)) || a.ord - b.ord || String(a.cr || '').localeCompare(String(b.cr || '')));
-      const rows = L.map((r, i) => `<tr${r.act ? '' : ' class="gd-off"'}><td>${i + 1}</td><td>${esc(r.tipo)}</td><td><b>${esc(r.nm)}</b></td><td class="mute">${esc(r.us)}</td><td>${esc(r.gym)}</td><td>${esc(r.co || '–')}</td><td>${gD(r.cr) || '–'}</td><td>${esc(r.sv || '–')}</td><td>${r.st && r.k === 'gym' ? stChip(r.st) : '–'}</td><td>${gSeen(r.ls)}</td><td>${r.act ? '<span class="gd-chip" style="--c:#2fd6a0">attivo</span>' : '<span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}</td><td><button class="sm ${r.act ? '' : 'primary'}" data-act="admToggle" data-k="${r.k}" data-id="${esc(r.id)}" data-on="${r.act ? 0 : 1}" data-nm="${esc(r.nm)}">${r.act ? 'Disattiva' : 'Attiva'}</button></td></tr>`).join('');
+      const rows = L.map((r, i) => `<tr${r.act ? '' : ' class="gd-off"'}><td>${i + 1}</td><td>${esc(r.tipo)}</td><td><b>${esc(r.nm)}</b></td><td class="mute">${esc(r.us)}</td><td>${esc(r.gym)}</td><td>${esc(r.co || '–')}</td><td>${gD(r.cr) || '–'}</td><td>${esc(r.sv || '–')}</td><td>${r.st && r.k === 'gym' ? stChip(r.st) : '–'}</td><td>${gSeen(r.ls)}</td><td>${r.act ? '<span class="gd-chip" style="--c:#2fd6a0">attivo</span>' : '<span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}</td><td><button class="sm ${r.act ? '' : 'primary'}" data-act="admToggle" data-k="${r.k}" data-id="${esc(r.id)}" data-on="${r.act ? 0 : 1}" data-nm="${esc(r.nm)}">${r.act ? 'Disattiva' : 'Attiva'}</button>${r.k === 'acc' ? ` <button class="sm" data-act="admMove" data-id="${esc(r.id)}" data-nm="${esc(r.nm)}" title="Cambia palestra o porta fuori palestra">Palestra…</button>` : ''}</td></tr>`).join('');
       const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
       return `<div class="gd"><div class="gd-hd"><h1>Controllo amministratore</h1><p>Attiva o disattiva qualsiasi palestra, allenatore, nutrizionista o cliente</p></div>
         <div class="gd-card" style="padding:12px"><div class="row wrap" style="gap:8px;margin-bottom:10px"><input data-adq="pq" placeholder="Cerca nome, username, palestra…" value="${esc(D.pq)}" style="max-width:260px">
           <select data-adf="pt" aria-label="Tipo">${opt('', 'Tutti i tipi', D.pt)}${opt('palestra', 'Palestre', D.pt)}${opt('responsabile', 'Responsabili', D.pt)}${opt('allenatore', 'Allenatori', D.pt)}${opt('nutrizionista', 'Nutrizionisti', D.pt)}${opt('cliente', 'Clienti', D.pt)}</select>
           <select data-adf="pg" aria-label="Palestra">${opt('', 'Tutte le palestre', D.pg)}${G.map(s => opt(s.g.id, s.n + '. ' + s.g.name, D.pg)).join('')}</select>
           <select data-adf="ps" aria-label="Stato">${opt('', 'Tutti gli stati', D.ps)}${opt('on', 'Solo attivi', D.ps)}${opt('off', 'Solo disattivati', D.ps)}</select></div>
-          <div style="margin:0 -12px -12px">${gTable('ctl', [['n', '#', 44], ['t', 'Tipo', 130], ['nm', 'Nome', 190], ['us', 'Username', 150], ['g', 'Palestra', 170], ['co', 'Allenatore', 150], ['cr', 'Iscritto il', 110], ['sv', 'Servizi', 160], ['pg', 'Pagamento', 220], ['ul', 'Ultimo accesso', 120], ['sa', 'Stato', 110], ['az', 'Azione', 110]], rows)}</div></div>
+          <div style="margin:0 -12px -12px">${gTable('ctl', [['n', '#', 44], ['t', 'Tipo', 130], ['nm', 'Nome', 190], ['us', 'Username', 150], ['g', 'Palestra', 170], ['co', 'Allenatore', 150], ['cr', 'Iscritto il', 110], ['sv', 'Servizi', 160], ['pg', 'Pagamento', 220], ['ul', 'Ultimo accesso', 120], ['sa', 'Stato', 110], ['az', 'Azione', 210]], rows)}</div></div>
         <p class="mute small">${L.length} righe. La disattivazione chiede conferma e non cancella nessun dato. Trascina i bordi delle colonne per allargarle.</p></div>`;
     }
-    X.profileTop = function () { if (isAdm()) return myAthlete() + ctlPanel() + quick(); return myAthlete(); };
+    X.profileTop = function () { if (isAdm()) return myAthlete() + reqPanel() + ctlPanel() + quick(); return myAthlete(); };
     { const _oi = X.onInput; X.onInput = function (t) { if (t.hasAttribute && t.hasAttribute('data-adq')) { const k = t.dataset.adq; AD()[k] = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-adq="' + k + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } return true; } return _oi.apply(this, arguments); };
       const _oc = X.onChange; X.onChange = function (t) { if (t.hasAttribute && t.hasAttribute('data-adf')) { AD()[t.dataset.adf] = t.value; c.render(); return true; } return _oc.apply(this, arguments); }; }
+
+    /* ---------------- ACCOUNT DISATTIVATO · RICHIESTE SCRITTE · BACKUP · RIATTIVAZIONE ---------------- */
+    const today = () => new Date().toISOString().slice(0, 10);
+    const fileSlug = n => String(n || 'account').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'account';
+    const saveBk = (name, obj) => { try { F.download([{ path: name, mime: 'application/json', text: JSON.stringify(obj, null, 1) }]); } catch (e) { toast('Copia non scaricata: ' + e.message); } };
+    const blockedNow = () => { try { return !!localStorage.getItem('forgia.blocked'); } catch (e) { return false; } };
+    const RQ_K = { reactivate: 'Riattivare il mio account con i miei dati', independent: 'Continuare a usare l’app fuori dalla palestra', other: 'Altro' };
+    const RQ_R = { client: 'Utente', coach: 'Allenatore', nutri: 'Nutrizionista' };
+    function reqView() {
+      const R = ui.rq || (ui.rq = { kind: blockedNow() ? 'reactivate' : 'independent', role: 'client' }), nm = ((ui.lgN || '') + ' ' + (ui.lgS || '')).trim();
+      const o = (m, v) => Object.keys(m).map(k => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(m[k])}</option>`).join('');
+      return `<div class="card hero"><h1>Scrivi allo sviluppatore</h1><p>La richiesta arriva all’amministratore dell’app, che ti risponde al contatto che lasci. I tuoi dati restano conservati.</p></div>
+        ${ui.rqDone ? `<div class="card"><h2>Richiesta inviata</h2><p class="small">Grazie. Ti rispondiamo al contatto che hai indicato. Nel frattempo i tuoi dati sono al sicuro.</p><button class="primary" data-act="reqClose">Torna all’accesso</button></div>`
+        : `<form class="card" id="reqForm" autocomplete="on"><label for="rq_k">Cosa vuoi chiedere</label><select id="rq_k" name="kind">${o(RQ_K, R.kind)}</select>
+          <label for="rq_r">Come vuoi usare l’app</label><select id="rq_r" name="role_wanted">${o(RQ_R, R.role)}</select>
+          <label for="rq_n">Nome e cognome</label><input id="rq_n" name="full_name" required minlength="2" maxlength="80" value="${esc(R.full_name != null ? R.full_name : nm)}">
+          <label for="rq_u">Username (se lo ricordi)</label><input id="rq_u" name="username" maxlength="80" placeholder="nome.cognome" value="${esc(R.username || '')}">
+          <label for="rq_g">Palestra di cui fai o facevi parte (se c’è)</label><input id="rq_g" name="gym_name" maxlength="80" value="${esc(R.gym_name || '')}">
+          <label for="rq_c">Email o telefono per risponderti</label><input id="rq_c" name="contact" required minlength="5" maxlength="120" value="${esc(R.contact || '')}">
+          <label for="rq_m">Messaggio</label><textarea id="rq_m" name="message" rows="4" maxlength="1000" placeholder="Es. la mia palestra ha chiuso, voglio continuare da solo con i miei dati">${esc(R.message || '')}</textarea>
+          <input name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+          ${ui.rqErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.rqErr)}</div>` : ''}
+          <button class="primary" style="margin-top:12px;width:100%" ${ui.busy ? 'disabled' : ''}>${ui.busy ? 'Invio…' : 'Invia la richiesta'}</button>
+          <button type="button" class="ghost" style="margin-top:8px;width:100%" data-act="reqClose">Indietro</button></form>`}`;
+    }
+    function helpBlock() {
+      const bl = blockedNow();
+      return `${bl ? `<div class="card" style="border-color:var(--warn)"><h2 style="margin-top:0">Account disattivato</h2><p class="small">Il tuo account è stato disattivato, ma i tuoi dati non sono andati persi: restano salvati sul server e su questo dispositivo. Per riattivarlo scrivi una richiesta indicando la palestra di cui fai parte, oppure chiedi di continuare fuori dalla palestra.</p><div class="row wrap" style="gap:8px"><button class="sm primary" data-act="reqOpen">Scrivi la richiesta</button><button class="sm" data-act="devBackup">Scarica la copia dei miei dati</button></div></div>` : ''}
+        <div class="card"><b class="small">Non riesci a entrare o non hai più una palestra?</b><p class="small mute" style="margin:6px 0 8px">Scrivi allo sviluppatore per riattivare il tuo account con i tuoi dati, oppure per usare l’app fuori dalla palestra come utente, allenatore o nutrizionista.</p><button class="sm" data-act="reqOpen">Scrivi una richiesta</button></div>`;
+    }
+    { const _vl = views.login; views.login = function () {
+        if (ui.reqOpen) return reqView();
+        const h = _vl.apply(this, arguments); if (ui.setupOpen) return h;
+        try { if (blockedNow() && !localStorage.getItem('forgia.blockedBk')) { localStorage.setItem('forgia.blockedBk', '1'); setTimeout(() => { try { acts.devBackup(); } catch (e) { } }, 500); } } catch (e) { }
+        return h + helpBlock();
+      }; }
+    acts.reqOpen = () => { ui.reqOpen = true; ui.rqDone = false; ui.rqErr = ''; c.render(); window.scrollTo(0, 0); };
+    acts.reqClose = () => { ui.reqOpen = false; ui.rqDone = false; ui.rqErr = ''; c.render(); };
+    acts.devBackup = () => { const b = A.deviceBackup(); saveBk('FORGIA_backup_dispositivo_' + today() + '.json', b); toast('Copia dei dati del dispositivo salvata'); };
+    { const _os = X.onSubmit; X.onSubmit = async function (form) {
+        if (form.id === 'reqForm') {
+          const fd = Object.fromEntries(new FormData(form).entries()); ui.rq = { kind: fd.kind, role: fd.role_wanted, full_name: fd.full_name, username: fd.username, gym_name: fd.gym_name, contact: fd.contact, message: fd.message }; ui.rqErr = ''; ui.busy = true; c.render();
+          try { await A.requestAccess(fd); ui.rqDone = true; ui.rq = null; } catch (e) { ui.rqErr = e.message; }
+          ui.busy = false; c.render(); return true;
+        }
+        return _os.apply(this, arguments);
+      }; }
+    /* l'errore di accesso di un account disattivato apre la schermata dedicata */
+    { const _si = A.signIn; A.signIn = async function () { try { const r = await _si.apply(this, arguments); try { localStorage.removeItem('forgia.blocked'); localStorage.removeItem('forgia.blockedBk'); } catch (e2) { } return r; } catch (e) { if (/disattivato|non attivo/i.test(e.message || '')) { A.noteBlocked(); e.message = 'Account disattivato: i tuoi dati sono al sicuro. Scrivi una richiesta per riattivarlo.'; } throw e; } }; }
+    /* riattivazione (solo amministratore): stessa palestra, altra palestra, oppure fuori palestra */
+    function reactDlg(id, nm, moveOnly) {
+      X.ensureAdmin(); const gs = (ui.gyms || []).filter(g => g.active), a = (ui.accts || []).find(x => x.id === id) || {};
+      const ov = document.createElement('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+      ov.innerHTML = `<div class="card" style="max-width:440px;width:100%;margin:0"><h2 style="margin-top:0">${moveOnly ? 'Palestra di' : 'Riattiva'} ${esc(nm)}</h2><p class="small mute">${a.active === false ? 'Torna a entrare con i suoi dati.' : ''} Se cambia palestra o va fuori palestra, salvo prima una copia di sicurezza. Un allenatore principale fuori palestra diventa allenatore.</p>
+        <label for="rd_g">Dove</label><select id="rd_g">${a.gym_id ? '<option value="">Stessa palestra di prima</option>' : ''}${gs.filter(g => g.id !== a.gym_id).map(g => `<option value="${esc(g.id)}">Passa a: ${esc(g.name)}</option>`).join('')}<option value="indep">Fuori palestra (uso autonomo)</option></select>
+        <div class="row wrap" style="gap:8px;margin-top:12px"><button class="primary" id="rd_ok">${moveOnly ? 'Conferma' : 'Riattiva'}</button><button class="ghost" id="rd_no">Annulla</button></div></div>`;
+      document.body.appendChild(ov);
+      ov.querySelector('#rd_no').onclick = () => ov.remove();
+      ov.querySelector('#rd_ok').onclick = async () => {
+        const v = ov.querySelector('#rd_g').value, o = v === 'indep' ? { independent: true } : v ? { gym_id: v } : {};
+        if (moveOnly && !v) { ov.remove(); return; }
+        try { await A.reactivate(id, o); ov.remove(); ui.clLoaded = false; ui.clBusy = false; await reload(); toast(v === 'indep' ? 'Ora usa l’app fuori palestra' : 'Fatto'); } catch (e) { toast('Non riuscito: ' + e.message); }
+      };
+    }
+    acts.admMove = t => reactDlg(t.dataset.id, t.dataset.nm || '', true);
+    /* richieste ricevute + copie di sicurezza */
+    function loadReq(force) {
+      if (ui.rqBusy || (ui.rqLoaded && !force)) return; ui.rqBusy = true;
+      Promise.all([A.listRequests().catch(() => []), A.listBackups().catch(() => [])]).then(([r, b]) => { ui.rqList = r || []; ui.bkList = b || []; ui.rqLoaded = true; ui.rqBusy = false; c.render(); }).catch(() => { ui.rqBusy = false; });
+    }
+    function reqPanel() {
+      loadReq(); const R = ui.rqList || [], B = ui.bkList || [], nuove = R.filter(x => x.status === 'new').length;
+      const rows = R.map((x, i) => `<tr${x.status === 'new' ? '' : ' class="gd-off"'}><td>${i + 1}</td><td>${gD(x.created_at)}</td><td>${esc(RQ_K[x.kind] || x.kind)}</td><td><b>${esc(x.full_name)}</b><div class="mute small">${esc(x.username || '')}</div></td><td>${esc(RQ_R[x.role_wanted] || '–')}</td><td>${esc(x.gym_name || '–')}</td><td>${esc(x.contact)}</td><td style="white-space:normal">${esc(x.message || '')}</td><td>${x.status === 'new' ? '<span class="gd-chip" style="--c:#ffb020">da gestire</span>' : x.status === 'done' ? '<span class="gd-chip" style="--c:#2fd6a0">fatta</span>' : '<span class="gd-chip" style="--c:#ff5b6e">rifiutata</span>'}</td><td>${x.status === 'new' ? `<button class="sm primary" data-act="rqSet" data-id="${x.id}" data-s="done">Fatta</button> <button class="sm" data-act="rqSet" data-id="${x.id}" data-s="rejected">Rifiuta</button>` : `<button class="sm" data-act="rqSet" data-id="${x.id}" data-s="new">Riapri</button>`}</td></tr>`).join('');
+      const brows = B.map((x, i) => `<tr><td>${i + 1}</td><td>${gD(x.taken_at)}</td><td>${x.subject === 'gym' ? 'Palestra' : 'Account'}</td><td><b>${esc(x.label || '')}</b></td><td>${esc(x.reason || '')}</td><td><button class="sm" data-act="bkDl" data-id="${x.id}" data-nm="${esc(x.label || '')}">Scarica</button></td></tr>`).join('');
+      return `<div class="gd"><div class="gd-hd"><h1>Richieste e copie di sicurezza</h1><p>${nuove ? `<b>${nuove}</b> richiest${nuove === 1 ? 'a' : 'e'} da gestire` : 'Nessuna richiesta da gestire'} · ${B.length} cop${B.length === 1 ? 'ia salvata' : 'ie salvate'} sul server</p></div>
+        <div class="gd-card" style="padding:0">${gTable('rq', [['n', '#', 44], ['d', 'Data', 100], ['k', 'Richiesta', 220], ['nm', 'Chi', 180], ['r', 'Ruolo', 110], ['g', 'Palestra', 150], ['c', 'Contatto', 170], ['m', 'Messaggio', 280], ['s', 'Stato', 110], ['az', 'Azione', 170]], rows)}</div>
+        <p class="mute small">Per riattivare: cerca la persona qui sotto in «Controllo amministratore», tocca Attiva e scegli la palestra oppure «Fuori palestra». Chi non ha più un account lo trovi tra i disattivati; se non esiste, crealo in una palestra e poi con «Palestra…» portalo fuori.</p>
+        <details class="card" style="margin-top:10px"><summary><b>Copie di sicurezza sul server (${B.length})</b> <span class="mute small">si fanno da sole a ogni disattivazione</span></summary><div class="gd-card" style="padding:0;margin-top:8px">${gTable('bk', [['n', '#', 44], ['d', 'Data', 100], ['t', 'Tipo', 90], ['nm', 'Nome', 200], ['m', 'Motivo', 220], ['az', 'File', 110]], brows)}</div></details></div>`;
+    }
+    acts.rqSet = async t => { try { await A.setRequest(t.dataset.id, t.dataset.s); loadReq(true); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    acts.bkDl = async t => { try { const sn = await A.getBackup(t.dataset.id); if (!sn) throw new Error('copia non trovata'); saveBk('FORGIA_backup_' + fileSlug(t.dataset.nm) + '_' + today() + '.json', sn); } catch (e) { toast('Non riuscito: ' + e.message); } };
     Object.assign(X.views, { newClient: views.newClient });
     return X;
   };

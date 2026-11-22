@@ -1,11 +1,11 @@
 {
   "version": "1.48.1",
-  "build": 134,
+  "build": 135,
   "date": "2026-11-22",
   "notes": [
+    "Prima di disattivare un account o una palestra l'app fa da sola la copia di sicurezza completa (sul server e in un file scaricato sul tuo PC); se la copia non riesce, non disattiva. Chi ha l'account disattivato vede un avviso, può scaricare la copia dei suoi dati dal dispositivo e scrivere una richiesta in app. L'amministratore vede le richieste in Profilo e può riattivare nella stessa palestra, in un'altra o fuori palestra (utente, allenatore, nutrizionista indipendenti).",
     "Disattivare una palestra, un allenatore o un cliente ora lo blocca davvero: non può più entrare né rinnovare l'accesso, e i suoi dati restano. Riattivando torna tutto come prima. Nuova colonna «Ultimo accesso» nelle tabelle di clienti, team e controllo amministratore.",
     "Dashboard nuova per amministratore, responsabile di palestra e allenatore: schede con numeri, grafico iscrizioni, anello pagamenti/stato, palestre numerate che si aprono sui clienti in ordine di iscrizione, tabelle ridimensionabili. Team per palestra. In Profilo il controllo completo (attiva/disattiva palestra, allenatore, nutrizionista, cliente) e il tuo profilo atleta privato.",
-    "Tabella iscritti rifatta come Google Sheets: colonne A, B, C…, numeri di riga, barra della formula, celle selezionabili con le frecce, riga 1 per ordinare e scheda foglio in basso.",
-    "Tabella iscritti stile foglio di calcolo per amministratore, responsabile e allenatore: ordina, cerca, filtra per ruolo, scarica CSV o copia per Google Sheets. Mostra servizi, stato, primo accesso, ultimo salvataggio e (per l'amministratore) il pagamento della palestra."
+    "Tabella iscritti rifatta come Google Sheets: colonne A, B, C…, numeri di riga, barra della formula, celle selezionabili con le frecce, riga 1 per ordinare e scheda foglio in basso."
   ]
 }

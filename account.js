@@ -50,7 +50,7 @@
 
   async function loadMe() {
     const rows = await rest('profiles?id=eq.' + tok.user.id + '&select=id,username,full_name,role,birth,active,must_change_password,gym_id,can_see_all,rm_enabled,is_nutri,modules');
-    if (!rows.length || !rows[0].active) { tok = null; store(); throw new Error('account non attivo'); }
+    if (!rows.length || !rows[0].active) { A.noteBlocked(); tok = null; store(); throw new Error('account non attivo'); }
     if (A.mode === 'admin' && rows[0].role !== 'admin') { tok = null; store(); throw new Error('Accesso non consentito da questo indirizzo'); }
     A.me = rows[0]; A.gym = null;
     if (A.me.gym_id) { try { A.gym = (await rest('gyms?id=eq.' + A.me.gym_id + '&select=id,name,active'))[0] || null; } catch (e) { } }
@@ -198,6 +198,20 @@
   A.createUser = o => admin(Object.assign({ action: 'create' }, o));
   A.resetPassword = (uid, password) => admin({ action: 'reset_password', user_id: uid, password });
   A.setActive = (uid, active) => admin({ action: 'set_active', user_id: uid, active });
+  A.reactivate = (uid, o) => admin(Object.assign({ action: 'reactivate', user_id: uid }, o || {}));
+  /* richiesta scritta in app (anche senza account attivo): arriva all'amministratore */
+  A.requestAccess = body => raw('/functions/v1/access-request', { method: 'POST', headers: { apikey: cfg.anonKey, Authorization: 'Bearer ' + cfg.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  A.listRequests = () => rest('access_requests?select=*&order=created_at.desc&limit=100');
+  A.setRequest = (id, status, note) => rest('access_requests?id=eq.' + id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status, note: note || null, handled_by: tok.user.id, handled_at: new Date().toISOString() }) });
+  A.listBackups = () => rest('account_backups?select=id,user_id,subject,label,reason,taken_at&order=taken_at.desc&limit=100');
+  A.getBackup = id => rest('account_backups?id=eq.' + id + '&select=snapshot').then(r => r && r[0] && r[0].snapshot);
+  /* copia sul dispositivo dei dati locali (profili, allenamenti, diario): resta usabile anche con l'account disattivato */
+  A.deviceBackup = function () {
+    const out = { formato: 'forgia-backup-dispositivo', creato: new Date().toISOString(), dati: {} };
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!k || k === KEY || k === IMP || /^forgia\.(mecache|lk)/.test(k)) continue; if (/^(forma|forgia|tlz)/i.test(k) || /\.v1/.test(k)) out.dati[k] = localStorage.getItem(k); } } catch (e) { }
+    return out;
+  };
+  A.noteBlocked = function () { try { localStorage.setItem('forgia.blocked', String(Date.now())); } catch (e) { } };
   A.deleteUser = uid => admin({ action: 'delete', user_id: uid });
   A.assignPlan = (uid, title, body) => rest('assigned_plans', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ user_id: uid, coach_id: A.me.id, title, body }) }).then(r => { A.logAccess(uid, 'send_plan'); return r; });
   A.deletePlan = (uid, id) => rest('assigned_plans?id=eq.' + id + '&user_id=eq.' + uid, { method: 'DELETE', headers: { Prefer: 'return=representation' } }).then(r => { if (!r || !r.length) throw new Error('Scheda non eliminata'); A.logAccess(uid, 'delete_plan'); return r; });
