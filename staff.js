@@ -1100,6 +1100,245 @@
     const tbSheet = () => { const { rows, cols } = tbData(); return { name: 'Iscritti', cols: cols.map(x => x[1]), rows: rows.map(r => cols.map(([k]) => tbCell(r, k))) }; };
     acts.tbCsv = () => { F.download([{ path: 'TLZ_iscritti_' + new Date().toISOString().slice(0, 10) + '.csv', mime: 'text/csv', text: F.csvBuild(tbSheet()) }]); toast('CSV scaricato: si apre con Excel e Google Sheets'); };
     acts.tbCopy = () => { const sh = tbSheet(), tsv = [sh.cols].concat(sh.rows).map(r => r.map(v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n'); (navigator.clipboard ? navigator.clipboard.writeText(tsv) : Promise.reject()).then(() => toast('Copiato: aprilo in Google Sheets e incolla'), () => toast('Copia non riuscita: usa «Scarica CSV»')); };
+    /* =====================================================================
+       DASHBOARD AMMINISTRATORE v2 (build 133): Palestre / Clienti / Team / Profilo
+       Schede con numeri, grafici (barre+linea, anello, barre), tabelle ridimensionabili
+       ===================================================================== */
+    const act30Ids = (ids) => (ui.cl || []).filter(p => p._acct && ids.has(p._uid) && p._updated && new Date(p._updated).getTime() > Date.now() - 30 * 864e5).length;
+    const isAdm = () => !!(A.enabled && A.me && A.me.role === 'admin' && !(A.imp && A.imp()));
+    const AD = () => (ui.ad = ui.ad || { cg: null, tg: null, cq: '', pq: '', pt: '', ps: '', pg: '', classic: false });
+    const G_COL = { paid: '#2fd6a0', due: '#ff5b6e', trial: '#3b9dff', trialx: '#ffb020', free: '#a78bfa', off: '#64748b' };
+    const G_LAB = { paid: 'Pagati', due: 'Da pagare', trial: 'In prova', trialx: 'Prova scaduta', free: 'Gratuiti', off: 'Non attivati' };
+    const gAcc = () => ui.accts || [], gGym = () => ui.gyms || [];
+    const gCl = a => a.role === 'client', gCo = a => a.role === 'coach' || a.role === 'head', gNu = a => a.role === 'nutri' || !!a.is_nutri;
+    const gD = d => dIt(String(d || '').slice(0, 10));
+    const gEur = n => '€ ' + (Math.round(n * 100) / 100).toLocaleString('it-IT');
+    const gSrv = m => ({ both: 'Allenamento + dieta', train: 'Solo allenamento', diet: 'Solo dieta' }[m || 'both'] || 'Allenamento + dieta');
+    const gRole = a => a.role === 'head' ? 'Responsabile' : a.role === 'coach' ? 'Allenatore' : a.role === 'nutri' ? 'Nutrizionista' : a.role === 'admin' ? 'Amministratore' : 'Cliente';
+    const IC = {
+      gym: 'M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z',
+      user: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
+      users: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
+      food: 'M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z',
+      euro: 'M15 18.5c-2.51 0-4.68-1.42-5.76-3.5H15l1-2H8.58c-.05-.33-.08-.66-.08-1s.03-.67.08-1H15l1-2H9.24C10.32 6.92 12.5 5.5 15 5.5c1.61 0 3.09.59 4.23 1.57L21 5.3C19.41 3.87 17.3 3 15 3c-3.92 0-7.24 2.51-8.48 6H3l-1 2h4.06c-.04.33-.06.66-.06 1s.02.67.06 1H3l-1 2h4.52c1.24 3.49 4.56 6 8.48 6 2.31 0 4.41-.87 6-2.3l-1.78-1.77c-1.13.98-2.6 1.57-4.22 1.57z',
+      warn: 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z',
+      trend: 'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z',
+      off: 'M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z'
+    };
+    const gSvg = k => `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="${IC[k] || ''}"/></svg>`;
+    const gKpi = (ic, n, label, col, sub) => `<div class="gd-k"><span class="gd-ic" style="color:${col};background:${col}22">${gSvg(ic)}</span><div><b>${n}</b><span>${esc(label)}</span>${sub ? `<em>${esc(sub)}</em>` : ''}</div></div>`;
+    /* anello con legenda */
+    function gDonut(parts, big, small) {
+      const tot = parts.reduce((s, p) => s + p.v, 0); let off = 0;
+      const segs = tot ? parts.filter(p => p.v > 0).map(p => { const len = p.v / tot * 100, s = `<circle r="15.9155" cx="21" cy="21" fill="none" stroke="${p.col}" stroke-width="4.2" stroke-dasharray="${len.toFixed(2)} ${(100 - len).toFixed(2)}" stroke-dashoffset="${(25 - off).toFixed(2)}"></circle>`; off += len; return s; }).join('') : '';
+      return `<div class="gd-donut"><svg viewBox="0 0 42 42" role="img"><circle r="15.9155" cx="21" cy="21" fill="none" stroke="#1d2e4d" stroke-width="4.2"></circle>${segs}<text x="21" y="22.2" text-anchor="middle" class="gd-n">${esc(big)}</text><text x="21" y="26.6" text-anchor="middle" class="gd-s">${esc(small)}</text></svg>
+        <ul class="gd-leg">${parts.map(p => `<li><i style="background:${p.col}"></i><span>${esc(p.l)}</span><b>${p.v}</b></li>`).join('')}</ul></div>`;
+    }
+    const gBars = (rows, col) => { const mx = Math.max(1, ...rows.map(r => r.v)); return `<div class="gd-bars">${rows.map(r => `<div class="gd-br"><span class="gd-bl" title="${esc(r.l)}">${esc(r.l)}</span><span class="gd-bt"><i style="width:${r.v ? Math.max(4, Math.round(r.v / mx * 100)) : 0}%;background:${r.col || col || 'linear-gradient(90deg,#3b9dff,#2fd6a0)'}"></i></span><b>${r.v}</b></div>`).join('') || '<p class="mute small">Nessun dato.</p>'}</div>`; };
+    /* barre + linea cumulativa (ultimi 8 mesi di iscrizioni) */
+    function gCombo(list) {
+      const mo = [], d = new Date(); d.setDate(1); for (let i = 7; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); mo.push(x.toISOString().slice(0, 7)); }
+      const MS = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+      const before = list.filter(a => String(a.created_at || '').slice(0, 7) < mo[0]).length;
+      let cum = before; const pts = mo.map(m => { const v = list.filter(a => String(a.created_at || '').slice(0, 7) === m).length; cum += v; return { m, v, cum }; });
+      const W = 560, H = 210, pl = 30, pb = 26, pt = 14, n = pts.length, ph = H - pt - pb, mx = Math.max(1, ...pts.map(p => p.v)), cm = Math.max(1, ...pts.map(p => p.cum)), bw = (W - pl - 8) / n;
+      const grid = [0, .25, .5, .75, 1].map(f => { const y = H - pb - f * ph; return `<line x1="${pl}" x2="${W - 6}" y1="${y}" y2="${y}" stroke="#1d2e4d" stroke-width="1"/><text x="${pl - 5}" y="${y + 3}" text-anchor="end" class="gd-ax">${Math.round(f * cm)}</text>`; }).join('');
+      const bars = pts.map((p, i) => { const h = p.v / mx * ph * .8, x = pl + i * bw + bw * .2; return `<rect x="${x.toFixed(1)}" y="${(H - pb - h).toFixed(1)}" width="${(bw * .6).toFixed(1)}" height="${Math.max(h, p.v ? 2 : 0).toFixed(1)}" rx="2" fill="url(#gdB)"><title>${MS[+p.m.slice(5) - 1]}: ${p.v} nuove iscrizioni</title></rect><text x="${(x + bw * .3).toFixed(1)}" y="${H - 8}" text-anchor="middle" class="gd-ax">${MS[+p.m.slice(5) - 1]}</text>`; }).join('');
+      const line = pts.map((p, i) => `${i ? 'L' : 'M'}${(pl + i * bw + bw / 2).toFixed(1)} ${(H - pb - p.cum / cm * ph).toFixed(1)}`).join(' ');
+      const dots = pts.map((p, i) => `<circle cx="${(pl + i * bw + bw / 2).toFixed(1)}" cy="${(H - pb - p.cum / cm * ph).toFixed(1)}" r="3" fill="#0e1a30" stroke="#ffb020" stroke-width="2"><title>Totale ${p.cum}</title></circle>`).join('');
+      return `<svg class="gd-combo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Nuove iscrizioni per mese e totale"><defs><linearGradient id="gdB" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3b9dff"/><stop offset="1" stop-color="#2fd6a0"/></linearGradient></defs>${grid}${bars}<path d="${line}" fill="none" stroke="#ffb020" stroke-width="2.2"/>${dots}</svg>
+        <div class="gd-lg"><span><i style="background:linear-gradient(#3b9dff,#2fd6a0)"></i>Nuove iscrizioni</span><span><i style="background:#ffb020"></i>Totale iscritti</span></div>`;
+    }
+    /* tabella ridimensionabile: trascina il bordo delle colonne, oppure l'angolo in basso a destra del riquadro */
+    function gTable(id, cols, rows) {
+      const W = (ui.cw = ui.cw || {}), w = (W[id] = W[id] || {}), tw = cols.reduce((s, x, i) => s + (w[i] || x[2]), 0);
+      return `<div class="rz-wrap" data-rz="${id}"><table class="rz" style="width:${tw}px"><colgroup>${cols.map((x, i) => `<col style="width:${w[i] || x[2]}px">`).join('')}</colgroup><thead><tr>${cols.map((x, i) => `<th>${esc(x[1])}<span class="rz-h" data-ci="${i}" title="Trascina per allargare"></span></th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="${cols.length}" class="mute small">Nessun dato.</td></tr>`}</tbody></table></div>`;
+    }
+    if (!ui.rzOn) {
+      ui.rzOn = true;
+      document.addEventListener('pointerdown', e => {
+        const h = e.target.closest && e.target.closest('.rz-h'); if (!h) return; e.preventDefault(); e.stopPropagation();
+        const wrap = h.closest('[data-rz]'), id = wrap.dataset.rz, i = +h.dataset.ci, col = wrap.querySelectorAll('col')[i], tb = wrap.querySelector('table'), x0 = e.clientX, w0 = col.getBoundingClientRect().width, t0 = tb.getBoundingClientRect().width;
+        const mv = ev => { const w = Math.max(56, w0 + ev.clientX - x0); col.style.width = w + 'px'; tb.style.width = (t0 - w0 + w) + 'px'; };
+        const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); ((ui.cw = ui.cw || {})[id] = ui.cw[id] || {})[i] = Math.round(col.getBoundingClientRect().width); };
+        document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+      }, true);
+    }
+    const stChip = st => `<span class="gd-chip" style="--c:${G_COL[st.k] || '#64748b'}">${esc(st.t)}</span>`;
+    const subTxt = (t, id) => { const r = bl().rows[t + ':' + id]; if (!r || r.mode === 'off') return 'Non attivato'; if (r.mode === 'free') return 'Gratuito'; if (r.mode === 'trial') return 'Prova' + (r.trial_until ? ' fino al ' + dIt(r.trial_until) : ''); return 'A pagamento' + (r.price != null ? ' · ' + gEur(+r.price) + '/mese' : ''); };
+    function gStat(g, i) {
+      const l = gAcc().filter(a => a.gym_id === g.id), cl = l.filter(gCl);
+      return { n: i + 1, g, l, cl, co: l.filter(gCo), nu: l.filter(gNu), head: l.filter(a => a.role === 'head'), st: billStatus('gym', g.id), act30: act30Of(a => a.gym_id === g.id), last: cl.map(a => a.created_at || '').sort().pop() };
+    }
+    const gAll = () => gGym().slice().sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || ''))).map(gStat);
+    const gHead = (t, sub) => `<div class="gd-hd"><h1>${esc(t)}</h1>${sub ? `<p>${esc(sub)}</p>` : ''}</div>`;
+    const gLoading = () => (!ui.admLoaded ? '<p class="mute">Caricamento…</p>' : '');
+    const gTile = (s, act, sel, extra) => `<div class="gd-tile${sel ? ' on' : ''}" data-act="${act}" data-id="${esc(s.g.id)}" role="button" tabindex="0"><span class="gd-num">${s.n}</span><div class="gd-tb"><b>${esc(s.g.name)}</b>${s.g.active ? '' : ' <span class="gd-chip" style="--c:#ff5b6e">disattivata</span>'}<div class="gd-ts">${extra}</div></div></div>`;
+
+    /* ---------------- PALESTRE ---------------- */
+    const _vGyms = views.gyms;
+    views.gyms = function () {
+      if (!isAdm()) return _vGyms.apply(this, arguments);
+      X.ensureAdmin(); X.ensureClients(); ensureBill();
+      const G = gAll(), a = gAcc(), cl = a.filter(gCl), subs = G.map(s => ['gym', s.g.id]).concat(nutriList().map(x => ['nutri', x.id])), cnt = { paid: 0, due: 0, trial: 0, trialx: 0, free: 0, off: 0 };
+      let inc = 0, due = 0; subs.forEach(([t, id]) => { const st = billStatus(t, id); cnt[st.k]++; const r = bl().rows[t + ':' + id]; if (r && r.mode === 'paid') { const p = +r.price || 0; if (paidOf(t, id, monthNow())) inc += p; else due += p; } });
+      const ok = cnt.paid + cnt.free + cnt.trial, pct = subs.length ? Math.round(ok / subs.length * 100) : 0;
+      const rows = subs.map(([t, id], i) => { const g = t === 'gym' ? G.find(s => s.g.id === id) : null, nm = t === 'gym' ? g.g.name : (a.find(x => x.id === id) || {}).full_name || '', r = bl().rows[t + ':' + id] || {}, lp = bl().pays.filter(p => p.subject_type === t && p.subject_id === id).map(p => p.paid_at).sort().pop(), st = billStatus(t, id);
+        return `<tr${t === 'gym' ? ` data-act="gymOpen" data-id="${esc(id)}" class="gd-rowlink"` : ''}><td>${i + 1}</td><td>${t === 'gym' ? 'Palestra' : 'Nutrizionista'}</td><td><b>${esc(nm)}</b></td><td>${esc(subTxt(t, id))}</td><td>${r.mode === 'paid' && r.price != null ? gEur(+r.price) : '–'}</td><td>${stChip(st)}</td><td>${lp ? gD(lp) : '–'}</td><td>${t === 'gym' ? g.cl.length : '–'}</td></tr>`; }).join('');
+      return `<div class="gd">${gHead('Palestre', 'Abbonamenti, pagamenti e attività di tutte le palestre')}${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${gLoading()}
+        <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm primary" data-act="gymNew">+ Nuova palestra</button><button class="sm" data-act="gymReload">Aggiorna</button><button class="sm" data-act="xlsxAll">Excel di tutti</button><button class="sm" data-act="csvAll">CSV di tutti</button></div>
+        <div class="gd-kpis">${gKpi('gym', G.filter(s => s.g.active).length + '/' + G.length, 'Palestre attive', '#3b9dff')}${gKpi('user', a.filter(gCo).length, 'Allenatori', '#2fd6a0')}${gKpi('food', nutriList().length, 'Nutrizionisti', '#a78bfa')}${gKpi('users', cl.length, 'Clienti', '#ffb020', cl.filter(x => !x.coach_id).length ? cl.filter(x => !x.coach_id).length + ' senza allenatore' : '')}${gKpi('euro', gEur(inc), 'Incassato ' + mLabel(monthNow()), '#2fd6a0')}${gKpi('warn', gEur(due), 'Da incassare', '#ff5b6e', cnt.due + cnt.trialx ? (cnt.due + cnt.trialx) + ' da sollecitare' : '')}</div>
+        <div class="gd-row"><div class="gd-card"><h3>Nuove iscrizioni · ultimi 8 mesi</h3>${gCombo(cl)}</div>
+          <div class="gd-card"><h3>Pagamenti ${esc(mLabel(monthNow()))}</h3>${gDonut(Object.keys(G_LAB).map(k => ({ l: G_LAB[k], v: cnt[k], col: G_COL[k] })), pct + '%', 'in regola')}</div></div>
+        <div class="gd-row r2"><div class="gd-card"><h3>Clienti per palestra</h3>${gBars(G.map(s => ({ l: s.n + '. ' + s.g.name, v: s.cl.length })))}</div>
+          <div class="gd-card"><h3>Attivi negli ultimi 30 giorni</h3>${gBars(G.map(s => ({ l: s.n + '. ' + s.g.name, v: s.act30, col: 'linear-gradient(90deg,#2fd6a0,#a7f3d0)' })))}</div></div>
+        <h2 class="gd-h2">Le tue palestre</h2><div class="gd-tiles">${G.map(s => gTile(s, 'gymOpen', false, `${stChip(s.st)}<br>${s.cl.length} client${s.cl.length === 1 ? 'e' : 'i'} · ${s.co.length} allenator${s.co.length === 1 ? 'e' : 'i'} · ${s.nu.length} nutrizionist${s.nu.length === 1 ? 'a' : 'i'}<br><span class="mute">${esc(subTxt('gym', s.g.id))}</span>`)).join('') || '<p class="mute">Nessuna palestra.</p>'}</div>
+        <h2 class="gd-h2">Abbonamenti e pagamenti</h2><div class="gd-card" style="padding:0">${gTable('abb', [['n', '#', 44], ['t', 'Tipo', 110], ['nm', 'Nome', 200], ['ab', 'Abbonamento', 200], ['im', 'Importo', 100], ['st', 'Stato', 230], ['lp', 'Ultimo pagamento', 140], ['cl', 'Clienti', 80]], rows)}</div>
+        <p class="mute small">Trascina il bordo di una colonna per allargarla; l'angolo in basso a destra del riquadro ridimensiona tutta la tabella. Tocca una palestra per aprirla e gestire il pagamento.</p>
+        ${nutriCard()}</div>`;
+    };
+    /* dettaglio palestra */
+    views.gym = function () {
+      X.ensureAdmin(); X.ensureClients(); ensureBill();
+      const G = gAll(), s = G.find(x => x.g.id === (ui.sub || {}).id); if (!s) return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><p class="mute">Caricamento…</p>`;
+      const g = s.g, tm = s.l.filter(x => !gCl(x) || false).filter(x => x.role !== 'client'), ord = { head: 0, coach: 1, nutri: 2 };
+      const rows = s.cl.slice().sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || ''))).map((a, i) => cRow(a, i + 1, s)).join('');
+      return `<div class="gd"><div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div>
+        <div class="gd-hd"><h1><span class="gd-num big">${s.n}</span> ${esc(g.name)}</h1><p>${stChip(s.st)} <span class="mute">${esc(subTxt('gym', g.id))}</span></p></div>
+        <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm ${g.active ? '' : 'primary'}" data-act="admToggle" data-k="gym" data-id="${esc(g.id)}" data-on="${g.active ? 0 : 1}" data-nm="${esc(g.name)}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="lensOpen" data-id="${esc(g.id)}">Vedi come l'allenatore</button><button class="sm" data-act="xlsxGym" data-id="${esc(g.id)}">Excel</button><button class="sm" data-act="csvGym" data-id="${esc(g.id)}">CSV</button><button class="sm" data-act="clGym" data-id="${esc(g.id)}">Tutti i clienti →</button></div>
+        <div class="gd-kpis">${gKpi('users', s.cl.length, 'Clienti', '#ffb020')}${gKpi('user', s.co.length, 'Allenatori', '#2fd6a0')}${gKpi('food', s.nu.length, 'Nutrizionisti', '#a78bfa')}${gKpi('trend', s.act30, 'Attivi 30 gg', '#3b9dff')}</div>
+        <div class="gd-card" style="margin-top:12px"><h3>Pagamento della palestra</h3>${billPanel('gym', g.id)}<p class="mute small" style="margin:8px 0 0">Disattivando la palestra nessuno dei suoi account può entrare. I dati restano.</p></div>
+        <h2 class="gd-h2">Team (${tm.length})</h2><div class="gd-card">${tm.slice().sort((a, b) => (ord[a.role] ?? 9) - (ord[b.role] ?? 9) || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account del team.</p>'}</div>
+        <h2 class="gd-h2">Clienti in ordine di iscrizione (${s.cl.length})</h2><div class="gd-card" style="padding:0">${gTable('gcl', CL_COLS, rows)}</div></div>`;
+    };
+    const CL_COLS = [['n', '#', 44], ['nm', 'Cliente', 190], ['us', 'Username', 150], ['co', 'Allenatore', 160], ['cr', 'Iscritto il', 110], ['sv', 'Servizi', 160], ['pg', 'Pagamento (palestra)', 210], ['sa', 'Stato', 110], ['az', 'Azioni', 200]];
+    const CL_COLS_S = CL_COLS.filter(x => x[0] !== 'pg');
+    function cRow(a, n, s) {
+      const co = gAcc().find(x => x.id === a.coach_id);
+      return `<tr><td>${n}</td><td><b>${esc(a.full_name)}</b></td><td class="mute">${esc(a.username)}</td><td>${esc(co ? co.full_name : '–')}</td><td>${gD(a.created_at) || '–'}</td><td>${esc(gSrv(a.modules))}</td>${isAdm() ? `<td>${s ? stChip(s.st) : '–'}</td>` : ''}<td>${a.active ? '<span class="gd-chip" style="--c:#2fd6a0">attivo</span>' : '<span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}</td><td><button class="sm" data-act="admCl" data-id="${esc(a.id)}">Apri</button> <button class="sm" data-act="admToggle" data-k="acc" data-id="${esc(a.id)}" data-on="${a.active ? 0 : 1}" data-nm="${esc(a.full_name)}">${a.active ? 'Disattiva' : 'Riattiva'}</button></td></tr>`;
+    }
+    acts.admCl = t => { acts.clientOpen(t); if (ui.sub) ui.sub.back = 'clients'; };
+    acts.clGym = t => { AD().cg = t.dataset.id; ui.sub = null; ui.tab = 'clients'; c.render(); window.scrollTo(0, 0); };
+    acts.admToggle = async t => {
+      const on = t.dataset.on === '1', k = t.dataset.k, nm = t.dataset.nm || '';
+      if (!on && !confirm(k === 'gym' ? `Disattivare la palestra ${nm}? Nessuno dei suoi account potrà entrare finché non la riattivi.` : `Disattivare ${nm}? Non potrà più entrare finché non lo riattivi. I dati restano.`)) return;
+      try { if (k === 'gym') await A.setGymActive(t.dataset.id, on); else await A.setActive(t.dataset.id, on); ui.clLoaded = false; ui.clBusy = false; await reload(); toast(on ? 'Riattivato' : 'Disattivato'); } catch (e) { toast('Non riuscito: ' + e.message); }
+    };
+
+    /* ---------------- CLIENTI ---------------- */
+    const _vCli = views.clients;
+    views.clients = function () {
+      const role = A.enabled && A.me && !(A.imp && A.imp()) && !ui.sub ? A.me.role : null;
+      if (role !== 'admin' && role !== 'head' && role !== 'coach') return _vCli.apply(this, arguments);
+      const D = AD(); if (D.classic) return `<div class="row"><button class="ghost" data-act="adClassic" data-v="0">← Dashboard clienti</button></div>` + _vCli.apply(this, arguments);
+      if (role !== 'admin') return clScoped();
+      X.ensureAdmin(); X.ensureClients(); ensureBill();
+      const G = gAll(), a = gAcc(), cl = a.filter(gCl), own = ui.own || [], mine = cl.filter(x => own.includes(x.id) || !x.gym_id);
+      if (D.cg === 'mine') return clDrill('Miei clienti', 'Clienti creati o segnati da te come amministratore', mine, null, 0, '#a78bfa');
+      if (D.cg) { const s = G.find(x => x.g.id === D.cg); if (s) return clDrill(s.g.name, null, s.cl, s, s.n, '#3b9dff'); D.cg = null; }
+      const d30 = Date.now() - 30 * 864e5, nuovi = cl.filter(x => x.created_at && new Date(x.created_at).getTime() > d30).length, off = cl.filter(x => x.active === false).length, att = act30Of(() => true), noCo = cl.filter(x => !x.coach_id).length;
+      const inatt = Math.max(0, cl.length - off - att);
+      return `<div class="gd">${gHead('Clienti', 'Prima il quadro d\'insieme, poi apri la palestra che ti interessa')}${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}${gLoading()}
+        <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm primary" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button><button class="sm" data-act="tbOpen">Tabella iscritti</button><button class="sm" data-act="xlsxAll">Excel</button><button class="sm" data-act="csvAll">CSV</button><button class="sm" data-act="adClassic" data-v="1">Elenco classico e strumenti</button></div>
+        <div class="gd-kpis">${gKpi('users', cl.length, 'Clienti totali', '#3b9dff')}${gKpi('trend', att, 'Attivi 30 gg', '#2fd6a0')}${gKpi('user', nuovi, 'Nuovi 30 gg', '#ffb020')}${gKpi('off', off, 'Disattivati', '#ff5b6e')}${gKpi('warn', noCo, 'Senza allenatore', '#ffb020')}${gKpi('gym', mine.length, 'Miei clienti', '#a78bfa')}</div>
+        <div class="gd-row"><div class="gd-card"><h3>Nuove iscrizioni · ultimi 8 mesi</h3>${gCombo(cl)}</div>
+          <div class="gd-card"><h3>Stato dei clienti</h3>${gDonut([{ l: 'Attivi 30 gg', v: att, col: '#2fd6a0' }, { l: 'Inattivi', v: inatt, col: '#ffb020' }, { l: 'Disattivati', v: off, col: '#ff5b6e' }], String(cl.length), 'clienti')}</div></div>
+        <h2 class="gd-h2">Palestre</h2><div class="gd-tiles">${G.map(s => gTile(s, 'clGym', false, `<b class="gd-big">${s.cl.length}</b> client${s.cl.length === 1 ? 'e' : 'i'} · ${s.act30} attiv${s.act30 === 1 ? 'o' : 'i'}<br>${stChip(s.st)}${s.last ? `<br><span class="mute">ultima iscrizione ${gD(s.last)}</span>` : ''}`)).join('')}
+          <div class="gd-tile mine" data-act="clMine" role="button" tabindex="0"><span class="gd-num" style="background:#a78bfa">★</span><div class="gd-tb"><b>Miei clienti</b><div class="gd-ts"><b class="gd-big">${mine.length}</b> client${mine.length === 1 ? 'e' : 'i'}<br><span class="mute">creati o segnati da me, separati dalle palestre</span></div></div></div></div></div>`;
+    };
+
+    /* Dashboard clienti per responsabile di palestra e allenatore: stessa grafica, solo i loro dati */
+    function clScoped() {
+      const me = A.me, D = AD(), head = me.role === 'head'; X.ensureAdmin(); X.ensureClients();
+      const a = gAcc(), own = ui.own || [], all = a.filter(x => gCl(x) && !own.includes(x.id)), coaches = a.filter(gCo), gname = (A.gym && A.gym.name) || ((gGym()[0] || {}).name) || '';
+      if (D.cg && D.cg !== 'none' && !coaches.some(x => x.id === D.cg)) D.cg = null;
+      const sel = D.cg ? coaches.find(x => x.id === D.cg) : null, list0 = D.cg ? (D.cg === 'none' ? all.filter(x => !x.coach_id) : all.filter(x => x.coach_id === D.cg)) : all, q = plainS(D.cq);
+      const d30 = Date.now() - 30 * 864e5, nuovi = list0.filter(x => x.created_at && new Date(x.created_at).getTime() > d30).length, off = list0.filter(x => x.active === false).length, ids = new Set(list0.map(x => x.id)), att = act30Ids(ids);
+      const inatt = Math.max(0, list0.length - off - att);
+      const rows = list0.slice().sort((x, y) => String(x.created_at || '').localeCompare(String(y.created_at || ''))).filter(x => !q || plainS(x.full_name + ' ' + x.username).includes(q)).map((x, i) => cRow(x, i + 1, null)).join('');
+      const tiles = head ? `<h2 class="gd-h2">Allenatori</h2><div class="gd-tiles">${coaches.map((co, i) => { const n = all.filter(x => x.coach_id === co.id).length; return `<div class="gd-tile${D.cg === co.id ? ' on' : ''}" data-act="clCoachS" data-id="${esc(co.id)}" role="button" tabindex="0"><span class="gd-num">${i + 1}</span><div class="gd-tb"><b>${esc(co.full_name)}</b>${co.active ? '' : ' <span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}<div class="gd-ts"><b class="gd-big">${n}</b> client${n === 1 ? 'e' : 'i'}<br><span class="mute">${esc(gRole(co))}</span></div></div></div>`; }).join('')}${all.some(x => !x.coach_id) ? `<div class="gd-tile${D.cg === 'none' ? ' on' : ''}" data-act="clCoachS" data-id="none" role="button" tabindex="0"><span class="gd-num" style="background:#64748b">–</span><div class="gd-tb"><b>Senza allenatore</b><div class="gd-ts"><b class="gd-big">${all.filter(x => !x.coach_id).length}</b> clienti</div></div></div>` : ''}</div>` : '';
+      return `<div class="gd">${myAthlete()}${gHead('Clienti', (head ? gname + (sel ? ' · ' + sel.full_name : D.cg === 'none' ? ' · senza allenatore' : '') : 'I tuoi clienti'))}${ui.clErr ? `<div class="msg danger small">${esc(ui.clErr)}</div>` : ''}${gLoading()}
+        <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm primary" data-act="clientNew">+ Nuovo cliente</button><button class="sm" data-act="clientsReload">Aggiorna</button><button class="sm" data-act="tbOpen">Tabella iscritti</button><button class="sm" data-act="xlsxAll">Excel</button><button class="sm" data-act="csvAll">CSV</button><button class="sm" data-act="adClassic" data-v="1">Elenco classico e strumenti</button>${D.cg ? '<button class="sm" data-act="clCoachS" data-id="">← Tutti i clienti</button>' : ''}</div>
+        <div class="gd-kpis">${gKpi('users', list0.length, 'Clienti', '#3b9dff')}${gKpi('trend', att, 'Attivi 30 gg', '#2fd6a0')}${gKpi('user', nuovi, 'Nuovi 30 gg', '#ffb020')}${gKpi('off', off, 'Disattivati', '#ff5b6e')}${head ? gKpi('gym', coaches.length, 'Allenatori', '#a78bfa') : ''}</div>
+        <div class="gd-row"><div class="gd-card"><h3>Nuove iscrizioni · ultimi 8 mesi</h3>${gCombo(list0)}</div><div class="gd-card"><h3>Stato dei clienti</h3>${gDonut([{ l: 'Attivi 30 gg', v: att, col: '#2fd6a0' }, { l: 'Inattivi', v: inatt, col: '#ffb020' }, { l: 'Disattivati', v: off, col: '#ff5b6e' }], String(list0.length), 'clienti')}</div></div>
+        ${tiles}<h2 class="gd-h2">Clienti in ordine di iscrizione (${list0.length})</h2><div class="row" style="margin-bottom:8px"><input data-adq="cq" placeholder="Cerca cliente…" value="${esc(D.cq)}" style="max-width:280px"></div>
+        <div class="gd-card" style="padding:0">${gTable('scl', CL_COLS_S, rows)}</div></div>`;
+    }
+    acts.clCoachS = t => { AD().cg = t.dataset.id || null; c.render(); };
+    acts.clMine = () => { AD().cg = 'mine'; c.render(); window.scrollTo(0, 0); };
+    acts.adClassic = t => { AD().classic = t.dataset.v === '1'; c.render(); window.scrollTo(0, 0); };
+    acts.adBack = () => { AD().cg = null; AD().cq = ''; c.render(); window.scrollTo(0, 0); };
+    function clDrill(title, sub, list, s, n, col) {
+      const D = AD(), q = plainS(D.cq), rows = list.slice().sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || ''))).filter(a => !q || plainS(a.full_name + ' ' + a.username).includes(q)).map((a, i) => cRow(a, i + 1, s)).join('');
+      const att = list.filter(x => x.active !== false).length;
+      return `<div class="gd"><div class="row"><button class="ghost" data-act="adBack">← Tutte le palestre</button></div>
+        <div class="gd-hd"><h1><span class="gd-num big" style="background:${col}">${n || '★'}</span> ${esc(title)}</h1><p>${s ? stChip(s.st) + ' <span class="mute">' + esc(subTxt('gym', s.g.id)) + '</span>' : esc(sub || '')}</p></div>
+        <div class="gd-kpis">${gKpi('users', list.length, 'Clienti', '#3b9dff')}${gKpi('trend', att, 'Attivi (account)', '#2fd6a0')}${gKpi('off', list.length - att, 'Disattivati', '#ff5b6e')}${s ? gKpi('user', s.co.length, 'Allenatori', '#ffb020') : ''}</div>
+        <div class="row wrap" style="gap:8px;margin:12px 0"><input data-adq="cq" placeholder="Cerca cliente…" value="${esc(D.cq)}" style="max-width:280px">${s ? `<button class="sm" data-act="gymOpen" data-id="${esc(s.g.id)}">Dettagli palestra e pagamento</button><button class="sm" data-act="xlsxGym" data-id="${esc(s.g.id)}">Excel</button>` : ''}<button class="sm primary" data-act="clientNew">+ Nuovo cliente</button></div>
+        <div class="gd-card" style="padding:0">${gTable('cdr', CL_COLS, rows)}</div><p class="mute small">Clienti in ordine di iscrizione. Il pagamento è quello della palestra: i clienti non pagano singolarmente l'app.</p></div>`;
+    }
+
+    /* ---------------- TEAM ---------------- */
+    const _vTeam = views.team;
+    views.team = function () {
+      if (A.enabled && A.me && A.me.role === 'head' && !(A.imp && A.imp()) && !ui.sub) {
+        X.ensureAdmin(); X.ensureClients(); const g = A.gym || gGym()[0]; if (!g) return `<div class="gd">${gHead('Team', '')}${gLoading()}</div>`;
+        const s = gStat(g, 0), a = gAcc();
+        return `<div class="gd">${gHead('Team', g.name)}${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${gLoading()}
+          <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm primary" data-act="coachNew">+ Nuovo allenatore</button><button class="sm primary" data-act="nutriNew">+ Nuovo nutrizionista</button><button class="sm" data-act="gymReload">Aggiorna</button></div>
+          <div class="gd-kpis">${gKpi('user', a.filter(x => x.role === 'coach').length, 'Allenatori', '#2fd6a0')}${gKpi('food', nutriList().length, 'Nutrizionisti', '#a78bfa')}${gKpi('users', s.cl.length, 'Clienti', '#ffb020')}${gKpi('trend', s.act30, 'Attivi 30 gg', '#3b9dff')}</div>${teamPanel(s)}</div>`;
+      }
+      if (!isAdm() || ui.sub) return _vTeam.apply(this, arguments);
+      X.ensureAdmin(); ensureBill();
+      const D = AD(), G = gAll(), a = gAcc(), tm = a.filter(x => x.role !== 'client' && x.role !== 'admin' || gNu(x));
+      const sel = D.tg && G.find(s => s.g.id === D.tg);
+      return `<div class="gd">${gHead('Team', 'Allenatori, responsabili e nutrizionisti, palestra per palestra')}${ui.admErr ? `<div class="msg danger small">${esc(ui.admErr)}</div>` : ''}${gLoading()}
+        <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm primary" data-act="coachNew">+ Nuovo allenatore</button><button class="sm primary" data-act="nutriNew">+ Nuovo nutrizionista</button><button class="sm" data-act="gymReload">Aggiorna</button></div>
+        <div class="gd-kpis">${gKpi('gym', G.length, 'Palestre', '#3b9dff')}${gKpi('user', a.filter(x => x.role === 'head').length, 'Responsabili', '#ffb020')}${gKpi('user', a.filter(x => x.role === 'coach').length, 'Allenatori', '#2fd6a0')}${gKpi('food', nutriList().length, 'Nutrizionisti', '#a78bfa')}</div>
+        <h2 class="gd-h2">Palestre</h2><div class="gd-tiles">${G.map(s => gTile(s, 'tmGym', sel && sel.g.id === s.g.id, `<b class="gd-big">${s.co.length + s.nu.filter(x => !gCo(x)).length}</b> nel team<br>${s.head.length} resp. · ${s.co.filter(x => x.role === 'coach').length} allenatori · ${s.nu.length} nutrizionisti`)).join('')}</div>
+        ${sel ? teamPanel(sel) : '<p class="mute small">Tocca una palestra per vedere solo il suo team.</p>'}</div>`;
+    };
+    acts.tmGym = t => { const D = AD(); D.tg = D.tg === t.dataset.id ? null : t.dataset.id; c.render(); };
+    function teamPanel(s) {
+      const mem = s.l.filter(x => x.role === 'head' || x.role === 'coach' || x.role === 'nutri' || gNu(x)).sort((a, b) => ({ head: 0, coach: 1, nutri: 2 }[a.role] ?? 3) - ({ head: 0, coach: 1, nutri: 2 }[b.role] ?? 3) || a.full_name.localeCompare(b.full_name));
+      const rows = mem.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(x.full_name)}</b></td><td>${gRole(x)}${gNu(x) && x.role !== 'nutri' ? ' + Nutrizionista' : ''}</td><td class="mute">${esc(x.username)}</td><td>${s.cl.filter(c2 => c2.coach_id === x.id).length}</td><td>${gD(x.created_at) || '–'}</td><td>${x.active ? '<span class="gd-chip" style="--c:#2fd6a0">attivo</span>' : '<span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}</td><td><button class="sm" data-act="admToggle" data-k="acc" data-id="${esc(x.id)}" data-on="${x.active ? 0 : 1}" data-nm="${esc(x.full_name)}">${x.active ? 'Disattiva' : 'Riattiva'}</button> <button class="sm" data-act="acctReset" data-id="${esc(x.id)}">Password</button></td></tr>`).join('');
+      return `<h2 class="gd-h2">${isAdm() ? `<span class="gd-num">${s.n}</span> ` : ''}Team di ${esc(s.g.name)}</h2><div class="gd-card" style="padding:0">${gTable('tm', [['n', '#', 44], ['nm', 'Nome', 190], ['rl', 'Ruolo', 170], ['us', 'Username', 150], ['cl', 'Clienti', 80], ['cr', 'Dal', 110], ['sa', 'Stato', 110], ['az', 'Azioni', 200]], rows)}</div>
+        <details class="card" style="margin-top:10px"><summary><b>Gestione avanzata</b> <span class="mute small">permessi, nutrizionista, elimina</span></summary>${mem.map(acctRow).join('')}</details>`;
+    }
+
+    /* ---------------- PROFILO: pannello di controllo + profilo atleta personale ---------------- */
+    function myAthlete() {
+      const me = A.me; if (!me || !['admin', 'head', 'coach'].includes(me.role) || (A.imp && A.imp())) return '';
+      if (!ui.ownLoaded) { ui.ownLoaded = true; A.listOwn().then(l => { ui.own = l; c.render(); }).catch(() => { ui.own = ui.own || []; }); }
+      X.ensureAdmin(); const own = ui.own || [], acc = gAcc(), mineIn = gid => acc.find(x => own.includes(x.id) && x.gym_id === gid);
+      const btn = a => `<button class="primary" style="width:100%;margin:6px 0" data-act="ownGo" data-id="${esc(a.id)}">Passa al mio profilo atleta${a.gym_id && me.role === 'admin' ? ' · ' + esc((gGym().find(g => g.id === a.gym_id) || {}).name || '') : ''}</button>`;
+      let body;
+      if (me.role === 'admin') body = gAll().map(s => { const a = mineIn(s.g.id); return `<div class="row" style="gap:8px;align-items:center;border-top:1px solid var(--line);padding:8px 0"><span class="gd-num">${s.n}</span><b class="grow">${esc(s.g.name)}</b>${a ? `<button class="sm primary" data-act="ownGo" data-id="${esc(a.id)}">Passa al mio profilo</button>` : `<button class="sm" data-act="ownCreateG" data-id="${esc(s.g.id)}">Crea il mio profilo</button>`}</div>`; }).join('') || '<p class="mute small">Nessuna palestra.</p>';
+      else { const a = acc.find(x => own.includes(x.id)) || (own[0] ? { id: own[0] } : null); body = a ? btn(a) : `<button class="primary" style="width:100%" data-act="ownCreate" ${ui.ownBusy ? 'disabled' : ''}>${ui.ownBusy ? 'Creo il profilo…' : 'Crea il mio profilo atleta'}</button>`; }
+      return `<div class="card gd-me"><h2 style="margin-top:0">Il mio profilo atleta</h2><p class="small mute" style="margin-top:0">È privato: ci registri i tuoi allenamenti e la tua dieta come un atleta qualsiasi, con la stessa password. Per tornare al tuo ruolo usa «Torna…» nel menu in alto (la tua iniziale).</p>${body}${ui.ownErr ? `<div class="msg danger small">${esc(ui.ownErr)}</div>` : ''}</div>`;
+    }
+    acts.ownCreateG = async t => { try { const r = await A.createOwn(t.dataset.id); ui.own = (ui.own || []).concat(r.id); ui.accts = null; ui.admLoaded = false; ui.cl = null; ui.clLoaded = false; toast('Profilo atleta creato'); await A.impersonate(r.id, A.me.full_name); ui.menu = false; await c.onSignIn(); } catch (e) { toast('Non riuscito: ' + e.message); } };
+    function ctlPanel() {
+      X.ensureAdmin(); X.ensureClients(); ensureBill();
+      const D = AD(), G = gAll(), gm = id => G.find(s => s.g.id === id), q = plainS(D.pq), meId = A.me.id;
+      let L = [];
+      G.forEach(s => L.push({ k: 'gym', id: s.g.id, tipo: 'Palestra', nm: s.g.name, us: '', gym: s.g.name, gid: s.g.id, co: '', cr: s.g.created_at, sv: '', st: s.st, act: s.g.active, ord: 0 }));
+      gAcc().filter(a => a.id !== meId).forEach(a => { const s = gm(a.gym_id), co = gAcc().find(x => x.id === a.coach_id); L.push({ k: 'acc', id: a.id, tipo: a.role === 'client' ? 'Cliente' : gNu(a) && a.role !== 'nutri' ? gRole(a) + ' + Nutr.' : gRole(a), nm: a.full_name, us: a.username, gym: s ? s.g.name : '–', gid: a.gym_id, co: co ? co.full_name : '', cr: a.created_at, sv: a.role === 'client' ? gSrv(a.modules) : '', st: s ? s.st : null, act: a.active, ord: a.role === 'head' ? 1 : a.role === 'coach' ? 2 : a.role === 'nutri' ? 3 : 4 }); });
+      L = L.filter(r => (!D.pt || r.tipo.toLowerCase().indexOf(D.pt) === 0) && (!D.pg || r.gid === D.pg) && (!D.ps || (D.ps === 'on' ? r.act : !r.act)) && (!q || plainS(r.nm + ' ' + r.us + ' ' + r.gym).includes(q)));
+      L.sort((a, b) => plainS(a.gym).localeCompare(plainS(b.gym)) || a.ord - b.ord || String(a.cr || '').localeCompare(String(b.cr || '')));
+      const rows = L.map((r, i) => `<tr${r.act ? '' : ' class="gd-off"'}><td>${i + 1}</td><td>${esc(r.tipo)}</td><td><b>${esc(r.nm)}</b></td><td class="mute">${esc(r.us)}</td><td>${esc(r.gym)}</td><td>${esc(r.co || '–')}</td><td>${gD(r.cr) || '–'}</td><td>${esc(r.sv || '–')}</td><td>${r.st && r.k === 'gym' ? stChip(r.st) : '–'}</td><td>${r.act ? '<span class="gd-chip" style="--c:#2fd6a0">attivo</span>' : '<span class="gd-chip" style="--c:#ff5b6e">disattivato</span>'}</td><td><button class="sm ${r.act ? '' : 'primary'}" data-act="admToggle" data-k="${r.k}" data-id="${esc(r.id)}" data-on="${r.act ? 0 : 1}" data-nm="${esc(r.nm)}">${r.act ? 'Disattiva' : 'Attiva'}</button></td></tr>`).join('');
+      const opt = (v, l, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+      return `<div class="gd"><div class="gd-hd"><h1>Controllo amministratore</h1><p>Attiva o disattiva qualsiasi palestra, allenatore, nutrizionista o cliente</p></div>
+        <div class="gd-card" style="padding:12px"><div class="row wrap" style="gap:8px;margin-bottom:10px"><input data-adq="pq" placeholder="Cerca nome, username, palestra…" value="${esc(D.pq)}" style="max-width:260px">
+          <select data-adf="pt" aria-label="Tipo">${opt('', 'Tutti i tipi', D.pt)}${opt('palestra', 'Palestre', D.pt)}${opt('responsabile', 'Responsabili', D.pt)}${opt('allenatore', 'Allenatori', D.pt)}${opt('nutrizionista', 'Nutrizionisti', D.pt)}${opt('cliente', 'Clienti', D.pt)}</select>
+          <select data-adf="pg" aria-label="Palestra">${opt('', 'Tutte le palestre', D.pg)}${G.map(s => opt(s.g.id, s.n + '. ' + s.g.name, D.pg)).join('')}</select>
+          <select data-adf="ps" aria-label="Stato">${opt('', 'Tutti gli stati', D.ps)}${opt('on', 'Solo attivi', D.ps)}${opt('off', 'Solo disattivati', D.ps)}</select></div>
+          <div style="margin:0 -12px -12px">${gTable('ctl', [['n', '#', 44], ['t', 'Tipo', 130], ['nm', 'Nome', 190], ['us', 'Username', 150], ['g', 'Palestra', 170], ['co', 'Allenatore', 150], ['cr', 'Iscritto il', 110], ['sv', 'Servizi', 160], ['pg', 'Pagamento', 220], ['sa', 'Stato', 110], ['az', 'Azione', 110]], rows)}</div></div>
+        <p class="mute small">${L.length} righe. La disattivazione chiede conferma e non cancella nessun dato. Trascina i bordi delle colonne per allargarle.</p></div>`;
+    }
+    X.profileTop = function () { if (isAdm()) return myAthlete() + ctlPanel() + quick(); return myAthlete(); };
+    { const _oi = X.onInput; X.onInput = function (t) { if (t.hasAttribute && t.hasAttribute('data-adq')) { const k = t.dataset.adq; AD()[k] = t.value; const pos = t.selectionStart; c.render(); const n = document.querySelector('[data-adq="' + k + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } } return true; } return _oi.apply(this, arguments); };
+      const _oc = X.onChange; X.onChange = function (t) { if (t.hasAttribute && t.hasAttribute('data-adf')) { AD()[t.dataset.adf] = t.value; c.render(); return true; } return _oc.apply(this, arguments); }; }
     Object.assign(X.views, { newClient: views.newClient });
     return X;
   };

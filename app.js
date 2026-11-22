@@ -1278,7 +1278,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     return `<div class="card"><h2>Recensioni</h2>${vis.length ? `<div class="row" style="gap:8px"><b style="font-size:1.6rem">${fmt(avg, 1)}</b><span style="color:var(--accent2);font-size:1.2rem">${stars(Math.round(avg))}</span><span class="mute small">${vis.length} recension${vis.length === 1 ? 'e' : 'i'}</span></div>` : '<p class="mute small">Ancora nessuna recensione. Sii il primo a raccontare la tua esperienza.</p>'}${mineBtn}${form}${R.list === null ? '<p class="mute small">Recensioni non raggiungibili ora: serve internet.</p>' : ''}${items}</div>`;
   }
   function viewMe() {
-    const p = P(); if (!p) return `<h1>Profilo</h1>${X.advancedCard()}${bioCard()}${recoverCard()}${reviewsCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
+    const p = P(); if (!p) return `<h1>Profilo</h1>${X.profileTop ? X.profileTop() : ''}${X.advancedCard()}${bioCard()}${recoverCard()}${reviewsCard()}<p class="mute small">${esc(BRAND)} dà indicazioni generali di allenamento, non sostituisce medico, fisioterapista o allenatore.</p>`;
     const c = F.calc(p), pm = Math.round(c.protein / 4);
     return `<h1>${esc(p.name)}</h1>
       <div class="card"><div class="row"><div class="grow"><b>${c.age} anni</b> · ${p.height} cm · ${p.weight} kg · BMI ${fmt(c.bmi, 1)}<div class="mute small">${esc(p.goal === 'auto' ? goalLabel(p) : GOALS[p.goal])} · ${esc(STYLES[p.style])} · ${p.days} giorni · ${LEVELS[p.level]}${p.stopMonths >= 12 ? ' · rientro dopo ' + Math.round(p.stopMonths / 12) + ' anni' : ''}</div></div>
