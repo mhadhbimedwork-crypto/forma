@@ -1066,16 +1066,34 @@
       return { T, rows, cols };
     }
     const tbCell = (r, k) => (k === 'last' || k === 'created') ? dIt(r[k]) : r[k];
+    const colL = n => { let t = ''; n++; while (n > 0) { const m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };
+    function tbSel() { const T = ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }; if (!T.sel) T.sel = [1, 0]; return T.sel; }
+    function tbPick(r, cI) {
+      const { rows, cols } = tbData(); r = Math.max(0, Math.min(rows.length, r)); cI = Math.max(0, Math.min(cols.length - 1, cI)); ui.tb.sel = [r, cI];
+      document.querySelectorAll('.gs-sel,.gs-hl').forEach(e => e.classList.remove('gs-sel', 'gs-hl'));
+      const cell = document.querySelector(`.gsheet td[data-r="${r}"][data-c="${cI}"]`); if (cell) { cell.classList.add('gs-sel'); cell.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+      document.querySelectorAll(`.gsheet [data-ch="${cI}"],.gsheet [data-rh="${r}"]`).forEach(e => e.classList.add('gs-hl'));
+      const nm = document.getElementById('gsName'), fx = document.getElementById('gsFx');
+      if (nm) nm.textContent = colL(cI) + (r + 1); if (fx) fx.textContent = r === 0 ? cols[cI][1] : tbCell(rows[r - 1], cols[cI][0]);
+    }
     views.table = function () {
       X.ensureClients(); X.ensureAdmin(); ensureBill();
-      const { T, rows, cols } = tbData(), arr = k => T.sort === k ? (T.dir > 0 ? ' ▲' : ' ▼') : '';
-      return `<div class="row"><button class="ghost" data-act="tbBack">← Clienti</button></div><h1>Tabella iscritti</h1>
-        <div class="card"><div class="row wrap" style="gap:8px"><input data-tq placeholder="Cerca nome, palestra, allenatore…" value="${esc(T.q)}" style="flex:1;min-width:160px">
-        <select data-tbr aria-label="Filtra per ruolo"><option value="">Tutti</option>${Object.entries(TB_ROLE).map(([v, l]) => `<option value="${v}" ${T.role === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-        <div class="row wrap" style="gap:8px;margin-top:8px"><button class="sm primary" data-act="tbCopy">Copia per Google Sheets</button><button class="sm" data-act="tbCsv">Scarica CSV (Excel)</button><a class="btn sm" style="text-decoration:none" href="https://sheets.new" target="_blank" rel="noopener">Apri Google Sheets</a></div>
-        <p class="mute small" style="margin:8px 0 0">${rows.length} persone. «Copia», poi in Google Sheets: Ctrl+V (o tieni premuto e incolla). Il foglio è una copia: non si aggiorna da solo.</p></div>
-        <div class="card" style="padding:0;overflow:auto;max-height:70vh"><table class="tbl"><thead><tr>${cols.map(([k, l]) => `<th><button class="thb" data-act="tbSort" data-k="${k}">${esc(l)}${arr(k)}</button></th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr class="${r.act === 'Disattivato' ? 'off' : ''}">${cols.map(([k]) => `<td${k === 'act' && r.act === 'Disattivato' ? ' class="bad"' : ''}>${esc(tbCell(r, k))}</td>`).join('')}</tr>`).join('') || `<tr><td class="mute">Nessun risultato</td></tr>`}</tbody></table></div>`;
+      const { T, rows, cols } = tbData(), sel = tbSel(), arr = k => T.sort === k ? (T.dir > 0 ? ' ▲' : ' ▼') : '';
+      const cur = (sel[0] === 0 ? cols[sel[1]] && cols[sel[1]][1] : cols[sel[1]] && tbCell(rows[sel[0] - 1] || {}, cols[sel[1]][0])) || '';
+      if (!T.kb) { T.kb = true; document.addEventListener('keydown', e => { if (ui.tab !== 'table' || !document.querySelector('.gsheet') || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return; const d = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Tab: [0, 1], Enter: [1, 0] }[e.key]; if (!d) return; e.preventDefault(); const s2 = tbSel(); tbPick(s2[0] + d[0], s2[1] + d[1]); }); }
+      return `<div class="row"><button class="ghost" data-act="tbBack">← Clienti</button></div>
+      <div class="gsheet">
+        <div class="gs-top"><span class="gs-ico">▦</span><div><b class="gs-title">Iscritti THE LIFTING ZONE</b><div class="gs-menu">File &nbsp; Modifica &nbsp; Visualizza &nbsp; Dati</div></div></div>
+        <div class="gs-tools"><input data-tq placeholder="🔍 Cerca" value="${esc(T.q)}"><select data-tbr aria-label="Filtra per ruolo"><option value="">Tutti i ruoli</option>${Object.entries(TB_ROLE).map(([v, l]) => `<option value="${v}" ${T.role === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          <button data-act="tbCopy" title="Copia tutto e incolla in Google Sheets">⧉ Copia</button><button data-act="tbCsv" title="Scarica CSV per Excel e Google Sheets">⤓ CSV</button><a class="gsb" href="https://sheets.new" target="_blank" rel="noopener">Apri Sheets ↗</a></div>
+        <div class="gs-fx"><span id="gsName" class="gs-name">${colL(sel[1])}${sel[0] + 1}</span><span class="gs-f">ƒx</span><span id="gsFx" class="gs-fv">${esc(cur)}</span></div>
+        <div class="gs-grid"><table><thead><tr class="gs-letters"><th class="gs-corner"></th>${cols.map((_, i) => `<th data-ch="${i}" class="${sel[1] === i ? 'gs-hl' : ''}">${colL(i)}</th>`).join('')}</tr></thead>
+        <tbody><tr><th class="gs-rh ${sel[0] === 0 ? 'gs-hl' : ''}" data-rh="0">1</th>${cols.map(([k, l], i) => `<td class="gs-head ${sel[0] === 0 && sel[1] === i ? 'gs-sel' : ''}" data-act="tbSort" data-k="${k}" data-r="0" data-c="${i}">${esc(l)}${arr(k)}</td>`).join('')}</tr>
+        ${rows.map((r, ri) => `<tr><th class="gs-rh ${sel[0] === ri + 1 ? 'gs-hl' : ''}" data-rh="${ri + 1}">${ri + 2}</th>${cols.map(([k], i) => `<td data-act="tbCell" data-r="${ri + 1}" data-c="${i}" class="${sel[0] === ri + 1 && sel[1] === i ? 'gs-sel' : ''}${k === 'act' && r.act === 'Disattivato' ? ' gs-bad' : ''}${k === 'name' ? ' gs-b' : ''}">${esc(tbCell(r, k))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        <div class="gs-tabs"><span class="gs-tab">Iscritti</span><span class="gs-cnt">${rows.length} righe · tocca una cella · frecce per spostarti · tocca la riga 1 per ordinare</span></div>
+      </div>`;
     };
+    acts.tbCell = t => tbPick(+t.dataset.r, +t.dataset.c);
     acts.tbOpen = () => { ui.tab = 'table'; ui.sub = null; c.render(); };
     acts.tbBack = () => { ui.tab = 'clients'; c.render(); };
     acts.tbSort = t => { const T = (ui.tb = ui.tb || { q: '', role: '', sort: 'name', dir: 1 }); T.dir = T.sort === t.dataset.k ? -T.dir : 1; T.sort = t.dataset.k; c.render(); };

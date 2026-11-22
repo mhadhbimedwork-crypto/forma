@@ -258,3 +258,32 @@ html{scroll-behavior:smooth}
 .tbl td{padding:9px 10px;border-bottom:1px solid #ffffff10}
 .tbl tbody tr:nth-child(even){background:#ffffff06}.tbl tr.off{opacity:.6}
 .thb{background:none;border:0;color:var(--mute);font:700 .74rem var(--text);letter-spacing:.04em;text-transform:uppercase;padding:10px;cursor:pointer;white-space:nowrap}
+
+/* --- Tabella iscritti in stile Google Sheets --- */
+.gsheet{background:#fff;color:#202124;border:1px solid #dadce0;border-radius:8px;overflow:hidden;font:13px/1.3 Arial,Helvetica,sans-serif;margin-top:8px}
+.gsheet *{box-sizing:border-box}
+.gs-top{display:flex;gap:10px;align-items:center;padding:8px 12px;background:#fff}
+.gs-ico{background:#0f9d58;color:#fff;border-radius:4px;width:30px;height:34px;display:grid;place-items:center;font-size:18px}
+.gs-title{font-size:16px;font-weight:400;color:#202124}.gs-menu{font-size:12px;color:#5f6368;margin-top:2px}
+.gs-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;background:#edf2fa;border-radius:24px;margin:0 10px 6px}
+.gs-tools input,.gs-tools select{width:auto;flex:1;min-width:110px;max-width:200px;background:#fff;color:#202124;border:1px solid #dadce0;border-radius:16px;padding:5px 10px;font:13px Arial,sans-serif;box-shadow:none}
+.gs-tools select{flex:0 0 auto}
+.gs-tools button,.gs-tools .gsb{background:transparent;border:0;color:#202124;font:13px Arial,sans-serif;padding:6px 10px;border-radius:16px;cursor:pointer;text-decoration:none;min-height:0}
+.gs-tools button:hover,.gs-tools .gsb:hover{background:#dde3ea}
+.gs-fx{display:flex;align-items:center;border-top:1px solid #dadce0;border-bottom:1px solid #dadce0;background:#fff;min-height:28px}
+.gs-name{width:62px;text-align:center;border-right:1px solid #dadce0;padding:5px 0;color:#202124}
+.gs-f{padding:0 10px;color:#5f6368;font-style:italic;border-right:1px solid #dadce0}.gs-fv{padding:5px 10px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-grid{overflow:auto;max-height:62vh;background:#fff;-webkit-overflow-scrolling:touch}
+.gs-grid table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+.gs-grid th,.gs-grid td{border-right:1px solid #e2e3e3;border-bottom:1px solid #e2e3e3;padding:3px 8px;height:24px;white-space:nowrap;text-align:left;font-weight:400;color:#202124}
+.gs-letters th{position:sticky;top:0;z-index:3;background:#f8f9fa;text-align:center;color:#5f6368;font-size:12px;min-width:90px;border-bottom:1px solid #c0c0c0}
+.gs-letters .gs-corner{left:0;z-index:4;min-width:36px;width:36px}
+.gs-rh{position:sticky;left:0;z-index:2;background:#f8f9fa;text-align:center!important;color:#5f6368!important;font-size:11px;min-width:36px;width:36px;border-right:1px solid #c0c0c0!important}
+.gs-grid td{cursor:cell;background:#fff}
+.gs-head{font-weight:700!important;background:#f8f9fa!important}
+.gs-b{font-weight:600!important}.gs-bad{color:#d93025!important}
+.gs-hl.gs-rh,.gs-letters .gs-hl{background:#e8eaed!important;color:#202124!important}
+.gs-grid td.gs-sel{outline:2px solid #1a73e8;outline-offset:-2px;background:#e8f0fe}
+.gs-tabs{display:flex;align-items:center;gap:12px;background:#f8f9fa;border-top:1px solid #dadce0;padding:0 10px;min-height:32px}
+.gs-tab{background:#fff;color:#188038;font-weight:700;padding:6px 14px;border-bottom:3px solid #188038;box-shadow:0 -1px 0 #dadce0}
+.gs-cnt{color:#5f6368;font-size:11px}

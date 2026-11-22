@@ -1,8 +1,9 @@
 {
   "version": "1.48.1",
-  "build": 131,
+  "build": 132,
   "date": "2026-11-21",
   "notes": [
+    "Tabella iscritti rifatta come Google Sheets: colonne A, B, C…, numeri di riga, barra della formula, celle selezionabili con le frecce, riga 1 per ordinare e scheda foglio in basso.",
     "Tabella iscritti stile foglio di calcolo per amministratore, responsabile e allenatore: ordina, cerca, filtra per ruolo, scarica CSV o copia per Google Sheets. Mostra servizi, stato, primo accesso, ultimo salvataggio e (per l'amministratore) il pagamento della palestra.",
     "Nutrizione ora è dentro l'app: stessa sessione, nessun secondo accesso. Chi entra come allenatore-nutrizionista trova elenco clienti, ricerca per nome e dieta nella sezione Nutrizione.",
     "Allenatori e responsabili: il profilo atleta personale è nella lista Clienti (senza altra password); se crei un cliente con il tuo nome lo attiva da solo e avvisa dei doppioni.",
