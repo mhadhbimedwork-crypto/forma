@@ -1,8 +1,10 @@
 {
-  "version": "1.48.1",
-  "build": 140,
+  "version": "1.49.0",
+  "build": 141,
   "date": "2026-11-22",
   "notes": [
+    "L'app ora parla inglese, francese, tedesco e spagnolo: riconosce da sola la lingua del telefono e ti chiede di confermarla o cambiarla (anche da Profilo).",
+    "Avvertenze più leggere: in app solo un breve avviso di responsabilità; il testo completo è in un file facoltativo (avvertenze.html) e l'informativa privacy completa è in privacy.html. In Profilo c'è la casella per consentire allo sviluppatore di vedere i tuoi dati per manutenzione e miglioramenti.",
     "Dieta in The Lifting Zone: l'avviso ora dice chiaramente che i dati inseriti restano salvati nel tuo dispositivo e, facendo il backup su file, trovi dentro anche la tua dieta.",
     "The Lifting Zone: ora c'è anche la sezione Dieta, facoltativa. Al primo ingresso scegli se attivarla con il tuo nutrizionista o compilando tu i dati (si disattiva dal fondo della sezione). In tutta l'app le tabelle tengono sempre fisse la prima riga (intestazioni) e la prima colonna (nomi) mentre scorri, così sai sempre a cosa corrisponde ogni dato.",
     "Verifica a due passaggi decisa da te: in Area sviluppatore (amministratore) scegli per quali ruoli è obbligatoria (responsabili, allenatori, nutrizionisti, clienti). Chi è obbligato registra l'app di verifica al prossimo accesso e senza il codice non vede nessun dato (controllo anche sul server). Se qualcuno perde il telefono, «Azzera 2 passaggi» accanto a «Apri profilo». «Entra» nei profili continua a funzionare senza codice. I micronutrienti CREA (vitamine e minerali) ora ci sono anche nell'app della palestra e nell'area nutrizionista.",

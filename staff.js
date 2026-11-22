@@ -7,7 +7,7 @@
     const { esc, ui, fmt, toast } = c, A = F.Account, views = {}, acts = {}, X = { views, acts };
     const S = () => c.S(), P = () => c.P();
     const chipCls = st => st === 'up' ? 'danger' : st === 'new' ? 'warn' : st === 'down' || st === 'clear' ? 'ok' : '';
-    const tr = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '';
+    const tr = d => d ? new Date(d + 'T00:00:00').toLocaleDateString((window.LOC || 'it-IT'), { day: 'numeric', month: 'short' }) : '';
     const arrow = st => ({ up: '▲', down: '▼', clear: '✓', new: '●', flat: '■' }[st] || '');
     const staffMode = () => A.enabled ? A.staff() : !!S().settings.staffMode;
     const devMode = () => A.enabled ? A.isAdmin() : !!S().settings.devMode;
@@ -428,7 +428,7 @@
     function bkDue() { let t = 0; try { t = +localStorage.getItem('tlz.orgts') || 0; } catch (e) { } const h = (Date.now() - t) / 36e5; return !t || h > 12 ? { h: t ? Math.floor(h) : null } : null; }
     function bkBanner() {
       if (!A.enabled || !A.isAdmin()) return '';   // lo stato dei backup/server lo vede solo l'amministratore
-      const d = bkDue(), ab = +lsg('tlz.abts') || 0, hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      const d = bkDue(), ab = +lsg('tlz.abts') || 0, hm = t => new Date(t).toLocaleTimeString((window.LOC || 'it-IT'), { hour: '2-digit', minute: '2-digit' });
       if (!d) return `<p class="mute small" style="margin:6px 2px">Backup automatico attivo: ultima copia sul PC alle ${hm(+lsg('tlz.orgts') || 0)}${ab ? ', nel browser alle ' + hm(ab) : ''}. Lo storico di ogni utente resta anche sul server.</p>`;
       const linked = F.fsSupported() && ui.bkDir !== undefined;
       return `<div class="card" style="border:1px solid var(--warn,#c80)"><b>Backup automatico</b><p class="small" style="margin:4px 0">${ab ? 'Copia automatica nel browser alle ' + hm(ab) + ' e storico sul server attivi.' : 'Sto preparando la prima copia automatica.'} ${d.h === null ? 'Sul PC non risulta ancora nessuna copia.' : 'L\'ultima copia sul PC è di oltre ' + d.h + ' ore fa.'} Per salvare da solo anche sul PC collega una cartella una volta sola: dopo si aggiorna in automatico a ogni apertura.</p><div class="row wrap" style="gap:6px">${F.fsSupported() ? '<button class="primary sm" data-act="bkOrgPick">Collega cartella del PC</button>' : ''}${F.canWebShare() ? '<button class="sm primary" data-act="bkShareOrg">Salva su Drive / telefono (Condividi)</button>' : ''}<button class="sm ${F.fsSupported() ? '' : 'primary'}" data-act="bkUpdate">Backup ordinato adesso</button>${ab ? '<button class="sm" data-act="bkLocalDl">Scarica ultima copia automatica</button>' : ''}</div></div>`;
@@ -674,7 +674,7 @@
       if (clSig() !== before && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) && !ui.sub) c.render();
     }, 5 * 60e3);
     window.addEventListener('online', async () => { if (A.enabled && A.me && staffMode() && ui.clLoaded && !ui.clBusy) { ui.clBusy = true; await loadClients(); ui.clBusy = false; c.render(); } });
-    function staleBanner() { return ui.clStale ? `<div class="msg warn small"><b>Sei offline.</b> Vedi i dati dell'ultimo aggiornamento (${new Date(ui.clStale).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}). Appena torna la rete si aggiornano da soli. Le azioni che cambiano i dati (nuovo cliente, schede, password) richiedono la connessione.</div>` : ''; }
+    function staleBanner() { return ui.clStale ? `<div class="msg warn small"><b>Sei offline.</b> Vedi i dati dell'ultimo aggiornamento (${new Date(ui.clStale).toLocaleString((window.LOC || 'it-IT'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}). Appena torna la rete si aggiornano da soli. Le azioni che cambiano i dati (nuovo cliente, schede, password) richiedono la connessione.</div>` : ''; }
     X.dailyOrg = dailyOrg;
     acts.xlsxAll = () => exportXlsx(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
     acts.csvAll = () => exportCsv(X.clients(), (A.enabled ? 'TLZ_clienti' : 'Profili'));
@@ -696,7 +696,7 @@
     const reload = async () => { ui.admLoaded = false; ui.admBusy = false; await loadAdmin(); c.render(); };
     function acctRow(a) {
       const me = A.me && A.me.id === a.id, mgr = !me && (A.me.role === 'admin' || (A.me.role === 'head' && a.role !== 'head') || (A.me.role === 'coach' && a.role === 'client' && a.coach_id === A.me.id));
-      return `<div style="border-top:1px solid var(--line);padding:8px 0"><div><b>${esc(a.full_name)}</b> <span class="mute small">${esc(a.username)}</span></div><div style="margin-top:4px"><span class="chip">${rl(a.role)}</span> ${a.is_nutri ? '<span class="chip">Nutrizionista</span> ' : ''}${a.active ? '' : '<span class="chip warn">disattivato</span> '}${a.must_change_password ? '<span class="chip">password da scegliere</span>' : ''} <span class="mute small">Ultimo accesso: ${a.last_seen ? new Date(a.last_seen).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }) : 'mai'}</span></div>
+      return `<div style="border-top:1px solid var(--line);padding:8px 0"><div><b>${esc(a.full_name)}</b> <span class="mute small">${esc(a.username)}</span></div><div style="margin-top:4px"><span class="chip">${rl(a.role)}</span> ${a.is_nutri ? '<span class="chip">Nutrizionista</span> ' : ''}${a.active ? '' : '<span class="chip warn">disattivato</span> '}${a.must_change_password ? '<span class="chip">password da scegliere</span>' : ''} <span class="mute small">Ultimo accesso: ${a.last_seen ? new Date(a.last_seen).toLocaleString((window.LOC || 'it-IT'), { dateStyle: 'short', timeStyle: 'short' }) : 'mai'}</span></div>
         ${mgr ? `<div class="row wrap" style="margin-top:6px"><button class="sm" data-act="acctReset" data-id="${a.id}">Password dimenticata: reimposta</button>${isAdm() && a.active ? `<button class="sm" data-act="impGo" data-id="${a.id}">Apri profilo</button><button class="sm" data-act="mfaRst" data-id="${a.id}" data-nm="${esc(a.full_name)}">Azzera 2 passaggi</button>` : ''}<button class="sm" data-act="bkNow" data-id="${a.id}" data-nm="${esc(a.full_name)}">Backup</button><button class="sm" data-act="acctActive" data-id="${a.id}" data-on="${a.active ? 0 : 1}">${a.active ? 'Disattiva' : 'Riattiva'}</button>${a.role === 'coach' && A.me.role !== 'coach' ? `<label class="small row" style="gap:4px;margin:0"><input type="checkbox" style="width:auto" data-perm="${a.id}" ${a.can_see_all ? 'checked' : ''}> vede tutti i clienti</label>` : ''}${(a.role === 'coach' || a.role === 'head') && A.me.role !== 'coach' ? `<label class="small row" style="gap:4px;margin:0"><input type="checkbox" style="width:auto" data-nutri="${a.id}" ${a.is_nutri ? 'checked' : ''}> anche nutrizionista</label>` : ''}${A.me.role !== 'coach' && a.role !== 'client' ? `<button class="sm danger" data-act="acctDelete" data-id="${a.id}">Elimina</button>` : ''}</div>` : ''}</div>`;
     }
     const gymStats = g => { const l = (ui.accts || []).filter(a => a.gym_id === g.id); return { heads: l.filter(a => a.role === 'head'), coaches: l.filter(a => a.role === 'coach').length, clients: l.filter(a => a.role === 'client').length, list: l }; };
@@ -1118,9 +1118,9 @@
     const gAcc = () => ui.accts || [], gGym = () => ui.gyms || [];
     const gCl = a => a.role === 'client', gCo = a => a.role === 'coach' || a.role === 'head', gNu = a => a.role === 'nutri' || !!a.is_nutri;
     const gD = d => dIt(String(d || '').slice(0, 10));
-    const gSeen = v => { if (!v) return '<span class="mute">mai</span>'; const t = new Date(v).getTime(); if (!t) return '–'; const m = Math.max(0, Math.round((Date.now() - t) / 6e4)); const d = new Date(t), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); const rel = m < 2 ? 'adesso' : m < 60 ? m + ' min fa' : m < 1440 ? Math.floor(m / 60) + ' h fa' : Math.floor(m / 1440) + ' g fa'; return `<span title="${d.toLocaleDateString('it-IT')} ${hh}">${rel}</span>`; };
+    const gSeen = v => { if (!v) return '<span class="mute">mai</span>'; const t = new Date(v).getTime(); if (!t) return '–'; const m = Math.max(0, Math.round((Date.now() - t) / 6e4)); const d = new Date(t), hh = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); const rel = m < 2 ? 'adesso' : m < 60 ? m + ' min fa' : m < 1440 ? Math.floor(m / 60) + ' h fa' : Math.floor(m / 1440) + ' g fa'; return `<span title="${d.toLocaleDateString((window.LOC || 'it-IT'))} ${hh}">${rel}</span>`; };
     const gMax = l => (l || []).reduce((x, a) => (a.last_seen && (!x || a.last_seen > x)) ? a.last_seen : x, null);
-    const gEur = n => '€ ' + (Math.round(n * 100) / 100).toLocaleString('it-IT');
+    const gEur = n => '€ ' + (Math.round(n * 100) / 100).toLocaleString((window.LOC || 'it-IT'));
     const gSrv = m => ({ both: 'Allenamento + dieta', train: 'Solo allenamento', diet: 'Solo dieta' }[m || 'both'] || 'Allenamento + dieta');
     const gRole = a => a.role === 'head' ? 'Responsabile' : a.role === 'coach' ? 'Allenatore' : a.role === 'nutri' ? 'Nutrizionista' : a.role === 'admin' ? 'Amministratore' : 'Cliente';
     const IC = {

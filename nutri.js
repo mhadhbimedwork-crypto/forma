@@ -135,7 +135,6 @@
     ['Responsabilità del professionista', 'Sei il solo responsabile di ciò che inserisci, misuri, interpreti, prescrivi e comunichi ai tuoi clienti, del rispetto delle norme della tua professione e del tuo codice deontologico, e dell\'abilitazione all\'esercizio. Dichiari di essere abilitato e iscritto all\'albo o all\'ordine, ove richiesto.'],
     ['Dati dei clienti', 'Puoi vedere solo i dati che il cliente ha consentito. Per i dati che inserisci e conservi sei autonomo titolare del trattamento: informa i clienti, ottieni i consensi necessari, usa i dati solo per le finalità della prestazione e non condividerli con altri. Esporta e conserva i file scaricati con adeguate misure di sicurezza.'],
     ['Minorenni', 'Per i minorenni serve il consenso di un genitore o tutore, che devi poter documentare.'],
-    ['Nessuna garanzia', 'Il servizio è fornito così com\'è, senza garanzie di continuità, assenza di errori o idoneità a uno scopo particolare. Mantieni copie dei dati che ti servono.'],
-    ['Limiti di responsabilità', 'Nei limiti consentiti dalla legge, chi sviluppa e pubblica l\'app non risponde dei danni derivanti dall\'uso dell\'area professionale né delle scelte professionali dell\'utente. Resta ferma la responsabilità che la legge non permette di escludere (ad esempio per dolo o colpa grave) e i diritti inderogabili dei consumatori.']
+    ['Nessuna garanzia', 'Il servizio è fornito così com\'è, senza garanzie di continuità, assenza di errori o idoneità a uno scopo particolare. Mantieni copie dei dati che ti servono.']
   ];
 })(window.FORMA || (window.FORMA = {}));

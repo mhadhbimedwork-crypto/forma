@@ -44,7 +44,7 @@
   function syncText() {
     if (!(AC.enabled && AC.me)) return '';
     if (!AC.isAdmin()) return navigator.onLine === false ? 'Offline · puoi continuare a usare l\'app' : '';   // clienti e allenatori non vedono stato server/sincronizzazione: solo l'amministratore
-    const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const hm = t => new Date(t).toLocaleTimeString((window.LOC || 'it-IT'), { hour: '2-digit', minute: '2-digit' });
     if (navigator.onLine === false) return isDirty() ? 'Offline · dati salvati sul telefono, si inviano da soli appena torna la rete' : 'Offline · puoi continuare, i dati restano sul telefono';
     if (syncBusy) return 'Sincronizzo…';
     if (isDirty()) return ui.syncErr ? 'Da inviare · riprovo da solo' : 'Da inviare…';
@@ -127,7 +127,7 @@
   const ui = { tab: 'home', sub: null, zone: null, msgs: [], timer: null, tick: null };
   let toastT;
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 3200); }
-  const fmt = (n, d) => (Math.round(n * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).toLocaleString('it-IT');
+  const fmt = (n, d) => (Math.round(n * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).toLocaleString((window.LOC || 'it-IT'));
   const GOALS = { auto: 'Guidato dai miei dati (consigliato)', recomp: 'Definizione + massa magra (ricomposizione)', cut: 'Dimagrire / definizione', mass: 'Mettere massa muscolare', strength: 'Forza' };
   const STYLES = { cali: 'Calisthenics', gym: 'Palestra (pesi/macchine)', mix: 'Palestra + calisthenics' };
   const LEVELS = { 1: 'Principiante', 2: 'Intermedio', 3: 'Avanzato' };
@@ -183,7 +183,7 @@
   }
 
   /* ---------- backup ---------- */
-  const fdate = d => d ? d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const fdate = d => d ? d.toLocaleDateString((window.LOC || 'it-IT'), { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   function backupCard() {
     const b = F.backupInfo(S), nat = F.isNative(), fs = F.fsSupported();
     const state = b.last ? `Ultimo backup: <b>${fdate(b.last)}</b> (${esc(b.where || '')}). ` : 'Nessun backup ancora. ';
@@ -304,7 +304,7 @@
     try {
       const ss = window.speechSynthesis; if (!ss || !txt) return;
       if (!itVoice) itVoice = (ss.getVoices() || []).find(v => /^it/i.test(v.lang)) || null;
-      const u = new SpeechSynthesisUtterance(txt); u.lang = 'it-IT'; if (itVoice) u.voice = itVoice; u.rate = 1.05; u.volume = 1;
+      const u = new SpeechSynthesisUtterance(txt); u.lang = (window.LOC || 'it-IT'); if (itVoice) u.voice = itVoice; u.rate = 1.05; u.volume = 1;
       ss.cancel(); ss.speak(u);
     } catch (e) { }
   }
@@ -857,21 +857,24 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     const g = nut.targets; if (g && g.k > 0) return { src: 'own', k: g.k, p: g.p || 0, c: g.c || 0, f: g.f || 0 };
     return null;
   }
-  const legalBody = () => F.LEGAL.map(x => `<h3 style="margin:10px 0 2px">${esc(x[0])}</h3><p class="small" style="margin:0">${esc(x[1])}</p>`).join('');
   function dietOptGate() {
     return `<h1>Dieta</h1><div class="card hero"><h2>La dieta è facoltativa</h2><p>In ${esc(BRAND)} l'allenamento viene prima di tutto: la sezione Dieta resta spenta finché non la attivi tu. Scegli come vuoi usarla.</p></div>
       <div class="card"><h2>Mi segue un nutrizionista</h2><p class="small">Il tuo nutrizionista scrive la dieta e tu la vedi qui, pasto per pasto, con calorie, macro e micronutrienti. Tu registri quello che mangi.</p><button class="primary" data-act="dietOpt" data-v="nutri">Attiva con il mio nutrizionista</button></div>
       <div class="card"><h2>Compilo io i miei dati</h2><p class="small">Inserisci tu gli alimenti di ogni pasto (anche con le combinazioni pronte) e controlli calorie, macro e micronutrienti. Sono indicazioni di calcolo e un diario, non una dieta prescritta.</p><button class="primary" data-act="dietOpt" data-v="self">Attiva e compilo io</button></div>
       <p class="mute small">I dati che inserisci restano salvati nel tuo dispositivo: se fai il backup su file (Profilo), trovi dentro anche la tua dieta. Puoi disattivare la sezione quando vuoi dal fondo della pagina Dieta.</p>`;
   }
+  const LEGAL_SHORT = 'La responsabilità di ciò che mangio e di come mi alleno è mia e dei professionisti che scrivono la dieta e l\'allenamento, non dell\'app.';
+  const legalLink = () => `<p class="small" style="margin:8px 0 0"><a href="avvertenze.html" target="_blank" rel="noopener">Apri il testo completo (facoltativo)</a></p>`;
   function legalGate() {
-    return `<h1>Dieta</h1><div class="card"><h2>Prima di iniziare</h2><p class="small">${esc(BRAND)} è solo un motore di calcolo e un diario: non crea né consiglia diete. Leggi e accetta queste avvertenze per usare la sezione Dieta.</p>${legalBody()}
-      <label class="row" style="gap:8px;margin-top:12px;align-items:flex-start"><input type="checkbox" id="legalChk" style="width:auto;margin-top:4px"><span class="small">Ho letto e capisco che la responsabilità di ciò che mangio e di come mi alleno è mia e dei professionisti che mi seguono, non dell'app.</span></label>
+    return `<h1>Dieta</h1><div class="card"><h2>Prima di iniziare</h2><p class="small"><span data-notr>${esc(BRAND)}</span> <span>è solo un diario e un motore di calcolo: non crea né consiglia diete.</span> <span>${esc(LEGAL_SHORT)}</span></p>${legalLink()}
+      <label class="row" style="gap:8px;margin-top:12px;align-items:flex-start"><input type="checkbox" id="legalChk" style="width:auto;margin-top:4px"><span class="small"><span>Ho capito:</span> <span>${esc(LEGAL_SHORT.charAt(0).toLowerCase() + LEGAL_SHORT.slice(1))}</span></span></label>
       <button class="primary" style="margin-top:10px" data-act="legalOk">Accetto e continuo</button></div>`;
   }
   function legalCard() {
     const ok = S.settings.legal === F.LEGAL_VERSION;
-    return `<div class="card"><details><summary><b>Avvertenze e responsabilità</b></summary><p class="small mute" style="margin:8px 0 0">${esc(BRAND)} è solo un motore di calcolo: non è un servizio medico, dietetico o di allenamento personale.</p>${legalBody()}${ok && S.settings.legalAt ? `<p class="mute small" style="margin-top:10px">Accettate il ${esc(S.settings.legalAt)}.</p>` : ''}</details></div>`;
+    return `<div class="card"><h2>Avvertenze e privacy</h2><p class="small mute" style="margin:0">${esc(LEGAL_SHORT)}</p>${ok && S.settings.legalAt ? `<p class="mute small" style="margin:6px 0 0">Accettate il ${esc(S.settings.legalAt)}.</p>` : ''}
+      <p class="small" style="margin:8px 0 0"><a href="avvertenze.html" target="_blank" rel="noopener">Avvertenze e responsabilità</a> · <a href="privacy.html" target="_blank" rel="noopener">Informativa privacy completa</a></p>
+      <label class="row" style="gap:8px;margin-top:10px;align-items:flex-start"><input type="checkbox" data-act="devShare" ${S.settings.devShare ? 'checked' : ''} style="width:auto;margin-top:4px"><span class="small">Consento allo sviluppatore di vedere i miei dati per manutenzione, aggiornamenti e miglioramenti. Puoi toglierlo quando vuoi.</span></label></div>`;
   }
   /* --- dieta inviata dal nutrizionista: il cliente la legge (testo identico + versione digitale) e sceglie se attivarla --- */
   const dietOf = m => { try { const d = JSON.parse(m.body); return d && d.plan ? d : null; } catch (e) { return null; } };
@@ -1341,6 +1344,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       <div class="card"><h2>Alimentazione</h2><p class="small">${esc(BRAND)} non calcola né consiglia diete: nella scheda Dieta registri ciò che mangi e puoi importare il piano che ti ha dato il tuo nutrizionista. Qui sotto segni solo le intolleranze.</p></div>
       ${intolCard(p)}
 `}
+      ${window.I18N ? I18N.card() : ''}
       ${legalCard()}
       <div class="card"><h2>${GYM ? 'Aggiornamenti' : 'Aggiornamenti e richieste'}</h2>
       <p class="small">Versione installata: <b>${esc(F.VERSION.version)}</b> (build ${F.VERSION.build})${NATIVE ? ' · app Android' + (APKB ? ' ' + APKB : '') : ''}</p>
@@ -1532,6 +1536,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     async nlRevoke(t) { if (!(await ask({ title: 'Revocare il collegamento con il nutrizionista?', text: 'Non potrà più vedere i tuoi dati. I dati che ha già scritto restano nella sua scheda.' }))) return; try { await AC._rest('nutri_links?id=eq.' + t.dataset.id, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ status: 'revoked', scope_diary: false, scope_training: false, decided_at: new Date().toISOString() }) }); await loadNutriLinks(); pushDiary(); toast('Collegamento revocato'); render(); } catch (e) { toast(e.message); } },
     dietOpt(t) { S.settings.dietOpt = t.dataset.v === 'nutri' ? 'nutri' : 'self'; S.settings.dietOptAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
     dietOff() { if (!confirm('Disattivare la sezione Dieta? I dati inseriti restano salvati nel tuo dispositivo e nel backup su file.')) return; S.settings.dietOpt = null; save(); ui.tab = 'home'; render(); },
+    devShare(el) { S.settings.devShare = !!el.checked; S.settings.devShareAt = F.todayISO(); save(); toast(S.settings.devShare ? 'Consenso attivato' : 'Consenso tolto'); },
     legalOk() { const c = $('#legalChk'); if (!c || !c.checked) return toast('Spunta la casella per continuare'); S.settings.legal = F.LEGAL_VERSION; S.settings.legalAt = F.todayISO(); save(); render(); window.scrollTo(0, 0); },
     async pvParse() {
       const t = ($('#pvText').value || '').trim(); if (t.length < 5) return toast('Incolla il testo del piano');
