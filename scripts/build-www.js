@@ -48,7 +48,7 @@ if (path.basename(out) === '_site') {
   /* Area nutrizionista (/nutri/): pagina web separata, stessi dati dell'app */
   {
     const nu = path.join(out, 'nutri'); fs.mkdirSync(nu, { recursive: true });
-    fs.writeFileSync(path.join(nu, 'gymcfg.js'), 'window.FORMA_GYM = ' + JSON.stringify({ name: 'FORGIA Nutrizionista', key: 'forgia.nutri.v1', mode: 'nutri', server }) + ';\n');
+    fs.writeFileSync(path.join(nu, 'gymcfg.js'), 'window.FORMA_GYM = ' + JSON.stringify({ name: 'FORGIA GYM Nutrizionista', key: 'forgia.nutri.v1', mode: 'nutri', server }) + ';\n');
     fs.copyFileSync('nutri.html', path.join(nu, 'index.html'));
     for (const f of ['avvertenze.html', 'privacy.html', 'i18n.js', 'i18n-en.js', 'i18n-fr.js', 'i18n-de.js', 'i18n-es.js', 'xlsx.js', 'account.js', 'nutri.js', 'nutri-app.js', 'nutrition.js', 'crea.js', 'crea.json', 'crea_micro.json', 'dietplan.js', 'formato.js', 'nutri-diet.js']) fs.copyFileSync(f, path.join(nu, f));
     console.log('Area nutrizionista in', nu);

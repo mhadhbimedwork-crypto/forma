@@ -27,6 +27,7 @@ header.top{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,#05
 header.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2) 45%,transparent 85%)}
 .brandrow{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .brandrow img{border-radius:7px}
+.brandrow img.applogo{height:72px;width:auto;border-radius:0;display:block}
 header.top .brand{font:italic 700 1.1rem var(--display);letter-spacing:.16em;color:#fff}
 .brandrow .tag{margin-left:auto;font:600 .64rem var(--display);letter-spacing:.2em;color:var(--accent)}
 .slogan{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 12px;padding:6px 18px;min-height:34px;overflow:hidden;background:linear-gradient(100deg,#ff4234 0%,#c4121f 52%,#2a0a0e 100%);clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,14px 100%);box-shadow:0 0 22px #ff42344d}

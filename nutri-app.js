@@ -63,7 +63,7 @@
     if (!A.me) await A.restore();
     if (!A.me) return viewLogin();
     if (!A.isNutri()) { if (EMB) { $app.innerHTML = '<div class="card">Questa sezione è riservata ai nutrizionisti.</div>'; return; } await A.signOut(); return viewLogin('Questo accesso è riservato ai nutrizionisti.'); }
-    if (A.needMfa) { $app.innerHTML = '<div class="card"><h2>Verifica a due passaggi obbligatoria</h2><p>Per il tuo account serve la verifica a due passaggi. Apri l\'app FORGIA, accedi lì e registra l\'app di verifica (Google o Microsoft Authenticator); poi torna qui.</p><button class="ghost" id="mfaOut">Esci</button></div>'; document.getElementById('mfaOut').onclick = async () => { await A.signOut(); A.me = null; viewLogin(); }; return; }
+    if (A.needMfa) { $app.innerHTML = '<div class="card"><h2>Verifica a due passaggi obbligatoria</h2><p>Per il tuo account serve la verifica a due passaggi. Apri l\'app FORGIA GYM, accedi lì e registra l\'app di verifica (Google o Microsoft Authenticator); poi torna qui.</p><button class="ghost" id="mfaOut">Esci</button></div>'; document.getElementById('mfaOut').onclick = async () => { await A.signOut(); A.me = null; viewLogin(); }; return; }
     if (A.me.must_change_password) return viewPw();
     if (!await termsOk()) return viewTerms();
     if (!EMB) { document.getElementById('who').textContent = A.me.full_name; const o = document.getElementById('out'); o.hidden = false;
@@ -287,7 +287,7 @@
   async function exportPdf(id) {
     const all = await collect(id), w = window.open('', '_blank'); if (!w) { alert('Consenti le finestre popup per scaricare il PDF.'); return; }
     const css = 'body{font:13px/1.4 system-ui,sans-serif;color:#000;margin:18px}h1{font-size:18px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 6px;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%;margin-bottom:6px}th,td{border:1px solid #bbb;padding:3px 6px;text-align:left;font-size:12px}.pb{page-break-after:always}@media print{.no{display:none}}';
-    let h = '<!doctype html><meta charset="utf-8"><title>FORGIA – dati clienti</title><style>' + css + '</style><button class="no" onclick="print()">Stampa / Salva come PDF</button><h1>Dati clienti – ' + esc(A.me.full_name) + '</h1><div>Generato il ' + fmtD(today()) + '</div>';
+    let h = '<!doctype html><meta charset="utf-8"><title>FORGIA GYM – dati clienti</title><style>' + css + '</style><button class="no" onclick="print()">Stampa / Salva come PDF</button><h1>Dati clienti – ' + esc(A.me.full_name) + '</h1><div>Generato il ' + fmtD(today()) + '</div>';
     all.forEach(({ c, view, recs }, i) => {
       const ws = view.weights || [], p = view.profile || {};
       h += '<div class="' + (i < all.length - 1 ? 'pb' : '') + '"><h2>' + esc(c.name) + ' — ' + (age(p.birth) != null ? age(p.birth) + ' anni, ' : '') + (p.h ? p.h + ' cm, ' : '') + esc(p.sex || '') + '</h2>' +

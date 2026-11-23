@@ -2,7 +2,7 @@
   "name": "forma",
   "version": "1.0.0",
   "private": true,
-  "description": "FORGIA – allenamento e benessere su misura",
+  "description": "FORGIA GYM – allenamento e benessere su misura",
   "scripts": {
     "build:www": "node scripts/build-www.js www",
     "sync": "npm run build:www && npx cap sync android",

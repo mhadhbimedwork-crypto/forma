@@ -250,7 +250,7 @@
     const dow = (new Date(iso + 'T12:00:00').getDay() + 6) % 7;
     return plan.days.find(d => d.dow === dow) || plan.days[0];
   };
-  F.PLAN_NOTICE = 'FORGIA non crea né consiglia diete: registra ciò che mangi e trascrive il piano che ti ha dato il tuo professionista. Per qualsiasi dubbio su alimentazione, patologie o terapie rivolgiti a lui o al tuo medico.';
+  F.PLAN_NOTICE = 'FORGIA GYM non crea né consiglia diete: registra ciò che mangi e trascrive il piano che ti ha dato il tuo professionista. Per qualsiasi dubbio su alimentazione, patologie o terapie rivolgiti a lui o al tuo medico.';
 
   /* Avvertenze e responsabilità (da far rivedere a un legale prima della pubblicazione sugli store) */
   F.LEGAL_VERSION = '2026-11-c';

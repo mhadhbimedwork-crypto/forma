@@ -15,7 +15,7 @@
   function markdown(p) {
     const L = F.LABELS || { GOALS: {}, STYLES: {}, LEVELS: {} }, c = F.calc(p), pl = p.plans.find(x => x.id === p.activePlan);
     const o = [];
-    o.push(`# ${p.name} – riepilogo FORGIA`, `*Esportato il ${F.todayISO()}. Per modificare i dati usa il file .json con lo stesso nome e reimportalo da Profilo → Importa.*`, '');
+    o.push(`# ${p.name} – riepilogo FORGIA GYM`, `*Esportato il ${F.todayISO()}. Per modificare i dati usa il file .json con lo stesso nome e reimportalo da Profilo → Importa.*`, '');
     o.push('## Dati', `- Età: ${c.age} anni (nato il ${p.birth})`, `- Altezza: ${p.height} cm · Peso: ${p.weight} kg · BMI ${c.bmi.toFixed(1)}`,
       `- Obiettivo: ${L.GOALS[p.goal] || p.goal}`, `- Allenamento: ${L.STYLES[p.style] || p.style} · ${p.days} giorni/settimana · livello ${L.LEVELS[p.level] || p.level}`,
       `- Mesi di stop prima di iniziare: ${p.stopMonths || 0}`, '');
@@ -167,7 +167,7 @@
       await FS.writeFile({ path, data: f.text, directory: 'CACHE', encoding: 'utf8', recursive: true });
       uris.push((await FS.getUri({ path, directory: 'CACHE' })).uri);
     }
-    await SH.share({ title: title || 'FORGIA backup', files: uris, dialogTitle: 'Salva o invia il backup' });
+    await SH.share({ title: title || 'FORGIA GYM backup', files: uris, dialogTitle: 'Salva o invia il backup' });
   };
   F.download = function (files) {
     files.forEach((f, i) => setTimeout(() => {

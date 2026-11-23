@@ -1,16 +1,31 @@
 {
-  "name": "FORGIA – Allenamento e benessere",
-  "short_name": "FORGIA",
+  "name": "FORGIA GYM – Allenamento e benessere",
+  "short_name": "FORGIA GYM",
   "description": "Schede, alimentazione e progressi su misura per ogni persona",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0c1311",
-  "theme_color": "#0f766e",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
   "lang": "it",
   "icons": [
-    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
-    {"src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml"}
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

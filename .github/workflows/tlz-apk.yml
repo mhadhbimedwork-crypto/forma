@@ -26,7 +26,7 @@ jobs:
           fs.writeFileSync('capacitor.config.json',JSON.stringify(c,null,2));"
           node scripts/build-www.js www && npx cap sync android
           cp -r android-tlz/res/. android/app/src/main/res/
-          sed -i 's#>FORGIA<#>THE LIFTING ZONE<#g; s#>it.forma.app<#>it.tlz.app<#g' android/app/src/main/res/values/strings.xml
+          sed -i 's#>FORGIA GYM<#>THE LIFTING ZONE<#g; s#>it.forma.app<#>it.tlz.app<#g' android/app/src/main/res/values/strings.xml
           sed -i 's#0F766E#050507#' android/app/src/main/res/values/ic_launcher_background.xml
           cat android/app/src/main/res/values/strings.xml
       - name: Chiave di firma (conservata nella cache di GitHub, mai nel codice)

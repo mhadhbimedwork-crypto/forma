@@ -1,4 +1,4 @@
-# FORGIA – allenamento e benessere su misura
+# FORGIA GYM – allenamento e benessere su misura
 
 App web installabile (PWA) per allenamento, alimentazione e progressi, personalizzata per ogni profilo.
 Dati salvati sul dispositivo. Nessun account.
@@ -16,7 +16,7 @@ Apri `index.html` nel browser (Chrome/Edge). Per installarla sul telefono serve 
 - Backup/ripristino JSON, eliminazione di schede e profili.
 
 ## App Android (APK) e aggiornamenti
-- **Scarica l'APK:** https://github.com/mhadhbimedwork-crypto/forma/releases/download/apk/FORGIA.apk (si costruisce da solo su GitHub). Sul telefono: apri il file e consenti l'installazione da questa origine.
+- **Scarica l'APK:** https://github.com/mhadhbimedwork-crypto/forma/releases/download/apk/FORGIA-GYM.apk (si costruisce da solo su GitHub). Sul telefono: apri il file e consenti l'installazione da questa origine.
 - **Aggiornamenti:** l'APK è un guscio che carica l'app da https://mhadhbimedwork-crypto.github.io/forma/. Ogni modifica caricata su `main` va online in 1-2 minuti e arriva al telefono alla prossima apertura, senza reinstallare. In app: Profilo → Aggiornamenti e richieste → Controlla aggiornamenti.
 - **Richieste dall'app:** Profilo → Aggiornamenti e richieste → scrivi cosa vuoi → "Invia richiesta" (apre una Issue su GitHub già scritta) oppure "Copia per la chat".
 - L'APK va ricostruito solo se cambiano icona, nome o parti native (`android/`): parte da solo al push, o da Actions → "Costruisci APK" → Run workflow.

@@ -1,7 +1,7 @@
 /* FORGIA – interfaccia. Dati salvati sul dispositivo (localStorage). */
 (function (F) {
   'use strict';
-  const GYM = window.FORMA_GYM || null, BRAND = GYM ? GYM.name : 'FORGIA';
+  const GYM = window.FORMA_GYM || null, BRAND = GYM ? GYM.name : 'FORGIA GYM';
   const KEY = GYM ? GYM.key : 'forma.v1';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = s => document.querySelector(s);
@@ -222,7 +222,7 @@
   }
   function header() {
     const p = P(), opts = S.profiles.map(x => `<option value="${x.id}" ${x.id === S.active ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const brand = `<div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}</div>${slogan(GYM ? GYM.tag : 'NO PAIN NO GAIN')}${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
+    const brand = `<div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img class="applogo" src="icons/logo.png" alt="${esc(BRAND)}">`}</div>${slogan(GYM ? GYM.tag : 'NO PAIN NO GAIN')}${AC.enabled && AC.me ? `<div class="syncline" id="syncLine" role="status">${esc(syncText())}</div>` : ''}`;
     if (!p) return `<header class="top">${brand}${AC.enabled && AC.me ? '<div style="position:absolute;right:var(--gutter);top:calc(env(safe-area-inset-top) + 22px)">' + X.menuBtn() + '</div>' : ''}</header>`;
     const c = F.calc(p);
     return `<header class="top">${brand}
@@ -251,7 +251,7 @@
   };
   function bioCard() {
     if (!(AC.enabled && AC.me) || (AC.imp && AC.imp())) return '';
-    if (!bio.ok) return `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Su questo dispositivo non è disponibile. Succede se usi l'app installata dal file APK o un browser senza impronta. Apri FORGIA dal browser del telefono (Chrome o Safari) e scegli «Aggiungi a schermata Home»: lì l'impronta funziona.</p></div>`;
+    if (!bio.ok) return `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Su questo dispositivo non è disponibile. Succede se usi l'app installata dal file APK o un browser senza impronta. Apri FORGIA GYM dal browser del telefono (Chrome o Safari) e scegli «Aggiungi a schermata Home»: lì l'impronta funziona.</p></div>`;
     return bio.id ? `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Attivo su questo dispositivo: ogni volta che apri l'app ti chiede l'impronta (o il volto) invece della password.</p><button class="sm" data-act="bioOff">Disattiva su questo dispositivo</button></div>`
       : `<div class="card"><h2>Sblocco con impronta</h2><p class="small mute">Apri l'app con l'impronta o il volto, senza riscrivere nome e password. Vale solo su questo telefono; la password resta valida come alternativa.</p><button class="sm primary" data-act="bioOn">Attiva l'impronta</button>${ui.bioErr ? `<div class="msg danger small" style="margin-top:8px">${esc(ui.bioErr)}</div>` : ''}</div>`;
   }
@@ -272,7 +272,7 @@
     const p = P(), g = gate(), staff = !!(X && X.showClients());
     if (p && AC.enabled && AC.me && AC.me.role === 'client' && !p._acct) p.rmOn = !!AC.me.rm_enabled;
     let body;
-    if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img src="icons/mark.png" alt="" width="28" height="28"><span class="brand">${esc(BRAND)}</span>`}</div></header><main>${g}</main>`; return; }
+    if (g) { $('#app').innerHTML = `<header class="top"><div class="brandrow">${GYM ? `<img class="gymlogo" src="icons/gym/mark.png" alt="${esc(BRAND)}">` : `<img class="applogo" src="icons/logo.png" alt="${esc(BRAND)}">`}</div></header><main>${g}</main>`; return; }
     if (!p && staff && !ui.sub && !['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab)) ui.tab = X.homeTab();
     if (!ui.sub && ((ui.tab === 'diet' && AC.modules() === 'train') || (ui.tab === 'plan' && AC.modules() === 'diet'))) ui.tab = 'home';
     const XV = X ? Object.assign({}, X.views) : {};
@@ -349,7 +349,7 @@
     try {
       const ms = navigator.mediaSession, t = ui.timer; if (!ms || !t) return;
       const m = Math.floor(t.left / 60), sc = t.left % 60, txt = m + ':' + String(sc).padStart(2, '0');
-      if (window.MediaMetadata) ms.metadata = new MediaMetadata({ title: txt + ' · ' + t.label, artist: (F.APP_NAME || document.title || 'FORGIA') + ' · −30 / +30 s nei tasti', artwork: lkArt() });
+      if (window.MediaMetadata) ms.metadata = new MediaMetadata({ title: txt + ' · ' + t.label, artist: (F.APP_NAME || document.title || 'FORGIA GYM') + ' · −30 / +30 s nei tasti', artwork: lkArt() });
       ms.playbackState = 'playing';
       if (ms.setPositionState) ms.setPositionState({ duration: Math.max(t.total, 1), position: Math.min(Math.max(t.total - t.left, 0), t.total), playbackRate: 1 });
     } catch (e) { }
@@ -368,7 +368,7 @@
   function ntPush() { const rt = RT(), t = ui.timer; if (!rt || !t) return; try { rt.start({ end: t.end, label: t.label, total: t.total }).catch(() => { }); } catch (e) { } }
   function tmStart() {
     const rt = RT(); if (!rt) { lkStart(); return; }
-    try { rt.ensure().then(r => { if (r && r.granted === false && !ntWarned) { ntWarned = true; toast('Attiva le notifiche di FORGIA nelle impostazioni del telefono per vedere il timer nel blocca schermo'); } ntPush(); }).catch(() => ntPush()); } catch (e) { ntPush(); }
+    try { rt.ensure().then(r => { if (r && r.granted === false && !ntWarned) { ntWarned = true; toast('Attiva le notifiche di FORGIA GYM nelle impostazioni del telefono per vedere il timer nel blocca schermo'); } ntPush(); }).catch(() => ntPush()); } catch (e) { ntPush(); }
   }
   function tmUpdate() { if (RT()) ntPush(); else lkStart(); }
   function tmStop(quiet) { const rt = RT(); if (rt) { try { rt.stop().catch(() => { }); } catch (e) { } } else if (!quiet) lkStop(); }
@@ -1358,7 +1358,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
       ${(S.requests || []).slice(-5).reverse().map(r => `<div class="row small" style="border-top:1px solid var(--line);padding:5px 0"><span class="grow">${esc(r.text.slice(0, 90))}${r.text.length > 90 ? '…' : ''}<br><span class="mute">${r.date} · ${esc(r.how)}</span></span><button class="ghost sm danger" data-act="delReq" data-id="${r.id}" aria-label="Elimina richiesta">✕</button></div>`).join('')}</div>
 `}
       ${GYM ? '' : `
-      <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORGIA (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
+      <div class="card"><h2>Server IA (opzionale)</h2><p class="mute small">Collegando il tuo server FORGIA GYM (cartella <code>server</code>) l'analista IA legge le schede da foto e commenta i tuoi dati.</p>
       <input id="aiUrl" placeholder="https://il-tuo-server" value="${esc(S.settings.aiUrl || '')}" aria-label="Indirizzo server IA"><button class="sm" style="margin-top:8px" data-act="saveAI">Salva</button></div>
 `}
       <div class="card"><h2>Backup automatico ogni giorno</h2>${backupCard()}</div>
@@ -1783,14 +1783,14 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     },
     async applyUpdate() { applyUpdateNow(false); },
     dismissNews() { S.settings.seenBuild = F.VERSION.build; save(); ui.whatsNew = null; render(); },
-    sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
-    async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORGIA v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
+    sendReq() { const t = reqText(); if (!t) return; const body = `${t}\n\n---\nApp FORGIA GYM v${F.VERSION.version} (build ${F.VERSION.build})\n${navigator.userAgent}`; const url = `https://github.com/${F.REPO}/issues/new?labels=richiesta&title=${encodeURIComponent('Richiesta: ' + t.slice(0, 60))}&body=${encodeURIComponent(body)}`; logReq(t, 'aperta su GitHub'); window.open(url, '_blank', 'noopener'); },
+    async copyReq() { const t = reqText(); if (!t) return; const txt = `Richiesta per FORGIA GYM v${F.VERSION.version}: ${t}`; try { await navigator.clipboard.writeText(txt); toast('Copiato: incollalo nella chat con Claude'); } catch (e) { toast('Copia non riuscita: seleziona il testo e copialo'); } logReq(t, 'copiata per la chat'); },
     async delReq(t) { if (!(await ask({ title: 'Eliminare questa richiesta?' }))) return; S.requests = (S.requests || []).filter(r => r.id !== t.dataset.id); save(); render(); },
     saveAI() { S.settings.aiUrl = $('#aiUrl').value.trim(); save(); toast('Salvato'); },
     async bkPick() { try { const h = await F.pickDir(); ui.bkDir = h.name; const r = await F.runBackup(S, { interactive: true }); save(); render(); toast(r.ok ? 'Cartella collegata. Backup fatto: ' + r.where : 'Cartella collegata'); } catch (e) { if (!e || e.name !== 'AbortError') toast('Cartella non accessibile'); } },
     async bkForget() { await F.forgetDir(); ui.bkDir = null; render(); toast('Cartella scollegata'); },
     async bkNow() { const r = await F.runBackup(S, { interactive: true, manual: true }); if (r.ok) { save(); ui.bkHide = true; render(); toast(`Backup di ${r.profiles} profil${r.profiles === 1 ? 'o' : 'i'} salvato: ${r.where}`); } else toast('Backup non riuscito (' + r.reason + ')'); },
-    async bkShare() { try { if (F.isNative()) await F.nativeShare(F.allFiles(S)); else await F.webShareZip(F.allFiles(S), 'FORGIA_backup.zip', 'FORGIA backup'); } catch (e) { toast(e && e.name === 'AbortError' ? 'Condivisione annullata' : 'Condivisione non disponibile su questo browser'); } },
+    async bkShare() { try { if (F.isNative()) await F.nativeShare(F.allFiles(S)); else await F.webShareZip(F.allFiles(S), 'FORGIA_backup.zip', 'FORGIA GYM backup'); } catch (e) { toast(e && e.name === 'AbortError' ? 'Condivisione annullata' : 'Condivisione non disponibile su questo browser'); } },
     bkLater() { ui.bkHide = true; render(); },
     export() { F.download(F.allFiles(S).concat([{ path: 'FORGIA_backup_completo.json', mime: 'application/json', text: JSON.stringify(S, null, 1) }])); },
     profUse(t) { S.active = t.dataset.id; save(); ui.sub = null; ui.zone = null; render(); window.scrollTo(0, 0); },
@@ -1937,7 +1937,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   /* ---------- area allenatore, sviluppatore, account ---------- */
   async function onSignIn() {
     if (GYM && AC.me && AC.me.role === 'admin' && !AC.needMfa && !(AC.imp && AC.imp())) {   /* nell'app della palestra l'amministratore entra con gli stessi dati, ma direttamente nel suo profilo atleta: l'amministrazione resta su FORGIA */
-      try { const ids = await AC.listOwn(); if (!ids.length) throw new Error('Nessun profilo atleta collegato al tuo account: collegalo da FORGIA (Accessi rapidi → ★).'); await AC.impersonate(ids[0], ''); }
+      try { const ids = await AC.listOwn(); if (!ids.length) throw new Error('Nessun profilo atleta collegato al tuo account: collegalo da FORGIA GYM (Accessi rapidi → ★).'); await AC.impersonate(ids[0], ''); }
       catch (e) { AC.signOut(); onSignOut(); ui.authErr = e.message; return render(); }
     }
     ui.busy = false; ui.authErr = ''; S = load(); ui.sub = null; ui.tab = AC.staff() ? X.homeTab() : 'home'; ui.cl = null; ui.clLoaded = false; ui.dev = {}; ui.inbox = []; ui.diets = [];
