@@ -850,6 +850,7 @@
       return `<div class="row"><button class="ghost" data-act="gymBack">← Palestre</button></div><h1>${esc(g.name)}</h1>
         <div class="card"><div class="row wrap"><button class="sm" data-act="bkGym" data-id="${g.id}" data-nm="${esc(g.name)}">Backup</button><button class="sm" data-act="gymActive" data-id="${g.id}" data-on="${g.active ? 0 : 1}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="lensOpen" data-id="${g.id}">Vedi come l'allenatore</button><button class="sm primary" data-act="xlsxGym" data-id="${g.id}">Excel della palestra</button><button class="sm" data-act="csvGym" data-id="${g.id}">CSV</button></div>
         <p class="mute small" style="margin-bottom:0">Disattivando la palestra nessuno dei suoi account può più entrare. I dati restano e li riattivi quando vuoi.</p></div>
+        <div class="card"><h3>Nome della palestra</h3><div class="row wrap" style="gap:8px"><input id="gymNm" value="${esc(g.name)}" maxlength="80" aria-label="Nome della palestra" style="flex:1;min-width:180px"><button class="sm primary" data-act="gymRename" data-id="${esc(g.id)}">Salva nome</button></div><p class="mute small" style="margin:8px 0 0">Il nuovo nome compare subito per tutti gli account della palestra (all'apertura dell'app), nelle liste, nelle recensioni e nelle prossime esportazioni. Le copie di sicurezza già salvate restano com'erano.</p></div>
         <div class="card"><h2>Pagamento</h2>${billPanel('gym', g.id)}</div>
         <div class="card"><h2>Account (${k.list.length})</h2>${k.list.slice().sort((a, b) => ord[a.role] - ord[b.role] || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account.</p>'}</div>`;
     };
@@ -882,6 +883,18 @@
       if (r === 'admin') h += `<div class="msg small" style="margin:8px 0">Ripristino dati su richiesta della palestra: serve il blocco di sicurezza sbloccato (Profilo → Console).</div><label class="btn sm" style="margin:0 0 8px;display:inline-flex">Ripristina da file .json<input type="file" id="rstFile" data-id="${esc(p._uid)}" accept=".json" hidden></label>`;
       return h;
     }
+    acts.gymRename = async t => {
+      const el = document.getElementById('gymNm'), nm = ((el && el.value) || '').replace(/\s+/g, ' ').trim(), g = (ui.gyms || []).find(x => x.id === t.dataset.id);
+      if (!nm) return toast('Scrivi il nome della palestra.');
+      if (g && g.name === nm) return toast('Il nome è già questo.');
+      if (!confirm(`Cambiare il nome della palestra${g ? ' «' + g.name + '»' : ''} in «${nm}»?\n\nIl nuovo nome compare per tutti gli account della palestra.`)) return;
+      try {
+        const r = await A.renameGym(t.dataset.id, nm); const n = (r && r.name) || nm;
+        if (g) g.name = n; if (A.gym && A.gym.id === t.dataset.id) A.gym.name = n;
+        (ui.accts || []).forEach(a => { if (a.gym_id === t.dataset.id && a.gym) a.gym.name = n; });
+        ui.clLoaded = false; ui.admLoaded = false; ui.gymsLoaded = false; toast('Nome cambiato in «' + n + '».'); c.render();
+      } catch (e) { toast('Nome non cambiato: ' + (e && e.message || e)); }
+    };
     acts.gymNew = () => { ui.sub = { type: 'newGym' }; c.render(); window.scrollTo(0, 0); };
     acts.gymBack = () => { ui.sub = null; ui.tab = 'gyms'; c.render(); };
     acts.gymOpen = t => { ui.sub = { type: 'gym', id: t.dataset.id }; c.render(); window.scrollTo(0, 0); };
@@ -1215,6 +1228,7 @@
         <div class="gd-hd"><h1><span class="gd-num big">${s.n}</span> ${esc(g.name)}</h1><p>${stChip(s.st)} <span class="mute">${esc(subTxt('gym', g.id))}</span></p></div>
         <div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="sm" data-act="bkGym" data-id="${esc(g.id)}" data-nm="${esc(g.name)}">Backup</button><button class="sm ${g.active ? '' : 'primary'}" data-act="admToggle" data-k="gym" data-id="${esc(g.id)}" data-on="${g.active ? 0 : 1}" data-nm="${esc(g.name)}">${g.active ? 'Disattiva palestra' : 'Riattiva palestra'}</button><button class="sm primary" data-act="lensOpen" data-id="${esc(g.id)}">Vedi come l'allenatore</button><button class="sm" data-act="xlsxGym" data-id="${esc(g.id)}">Excel</button><button class="sm" data-act="csvGym" data-id="${esc(g.id)}">CSV</button><button class="sm" data-act="clGym" data-id="${esc(g.id)}">Tutti i clienti →</button></div>
         <div class="gd-kpis">${gKpi('users', s.cl.length, 'Clienti', '#ffb020')}${gKpi('user', s.co.length, 'Allenatori', '#2fd6a0')}${gKpi('food', s.nu.length, 'Nutrizionisti', '#a78bfa')}${gKpi('trend', s.act30, 'Attivi 30 gg', '#3b9dff')}</div>
+        <div class="gd-card" style="margin-top:12px"><h3>Nome della palestra</h3><div class="row wrap" style="gap:8px"><input id="gymNm" value="${esc(g.name)}" maxlength="80" aria-label="Nome della palestra" style="flex:1;min-width:180px"><button class="sm primary" data-act="gymRename" data-id="${esc(g.id)}">Salva nome</button></div><p class="mute small" style="margin:8px 0 0">Il nuovo nome compare subito per tutti gli account della palestra (all'apertura dell'app), nelle liste, nelle recensioni e nelle prossime esportazioni. Le copie di sicurezza già salvate restano com'erano.</p></div>
         <div class="gd-card" style="margin-top:12px"><h3>Pagamento della palestra</h3>${billPanel('gym', g.id)}<p class="mute small" style="margin:8px 0 0">Disattivando la palestra nessuno dei suoi account può entrare. I dati restano.</p></div>
         <h2 class="gd-h2">Team (${tm.length})</h2><div class="gd-card">${tm.slice().sort((a, b) => (ord[a.role] ?? 9) - (ord[b.role] ?? 9) || a.full_name.localeCompare(b.full_name)).map(acctRow).join('') || '<p class="mute small">Nessun account del team.</p>'}</div>
         <h2 class="gd-h2">Clienti in ordine di iscrizione (${s.cl.length})</h2><div class="gd-card" style="padding:0">${gTable('gcl', CL_COLS, rows)}</div></div>`;

@@ -179,6 +179,7 @@
   A.listAccounts = () => rest('profiles?select=id,username,full_name,role,birth,active,coach_id,gym_id,can_see_all,is_nutri,modules,must_change_password,created_at,last_seen&order=created_at.desc');
   A.listGyms = () => rest('gyms?select=id,name,active,created_at&order=name');
   A.createGym = o => admin(Object.assign({ action: 'create_gym' }, o));
+  A.renameGym = (gym_id, name) => api('/functions/v1/rename-gym', { method: 'POST', body: JSON.stringify({ gym_id, name }) });
   A.setGymActive = (gym_id, active) => admin({ action: 'set_gym_active', gym_id, active });
   A.backupNow = uid => admin({ action: 'backup_now', user_id: uid }).then(r => r.backup);
   A.mfaReset = uid => admin({ action:'mfa_reset', user_id: uid });

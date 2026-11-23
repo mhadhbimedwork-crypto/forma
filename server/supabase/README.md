@@ -26,3 +26,5 @@ Indirizzi: app dei clienti e allenatori `.../gym/`, console amministratore `.../
 - Il primo amministratore si crea dall'app con la «Prima configurazione» (codice monouso `bootstrap_setup`, che si cancella dopo l'uso). Fatto il 2026-11-03.
 - Le app FORGIA (principale) e THE LIFTING ZONE usano lo stesso server: stesso accesso con nome e password, ruolo dall'account. Sul server va solo l'allenamento (lista `SHARE` in account.js): dieta, alimenti ed esami restano sul dispositivo.
 - Facoltativo: disattivare 'Allow new users to sign up' in Authentication > Sign In / Providers.
+- Funzione `rename-gym` (cambio nome palestra, admin o allenatore principale della propria palestra): `supabase functions deploy rename-gym`.
+- Nota: la copia di `admin-users/index.ts` in questa cartella è più vecchia di quella online (v12); quella online è la fonte di verità.
