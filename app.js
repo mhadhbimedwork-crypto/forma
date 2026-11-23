@@ -268,6 +268,7 @@
     if (ui.consent === false && !imp) return X.views.consent();
     return null;
   }
+  function apkBanner() { return NATIVE && ui.apkNew ? `<div class="msg tip" style="margin:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap" role="status"><span style="flex:1;min-width:180px"><b>Nuova versione dell'app</b> disponibile. I tuoi dati restano.</span><button class="sm primary" data-act="apkInstall">Aggiorna app</button></div>` : ''; }
   function render() {
     const p = P(), g = gate(), staff = !!(X && X.showClients());
     if (p && AC.enabled && AC.me && AC.me.role === 'client' && !p._acct) p.rmOn = !!AC.me.rm_enabled;
@@ -279,7 +280,7 @@
     if (!p && !(ui.sub && ['profile', 'client', 'newClient', 'dev', 'gym', 'newGym'].includes(ui.sub.type)) && !(staff && ['clients', 'me', 'gyms', 'team', 'nutri'].includes(ui.tab) && !ui.sub)) body = viewWelcome();
     else if (ui.sub) body = ({ profile: viewProfileForm, plan: viewPlanDetail, sent: viewSent, session: viewSession, editSession: viewEditSession, import: viewImport, recipe: viewRecipe, planrev: viewPlanRev, dietsent: viewDietSent, client: XV.client, newClient: XV.newClient, dev: XV.dev, gym: XV.gym, newGym: XV.newGym }[ui.sub.type] || (() => ''))();
     else body = ({ home: viewHome, plan: viewPlans, diet: viewDiet, body: viewBody, prog: viewProg, me: viewMe, gara: () => G.view(), clients: XV.clients, gyms: XV.gyms, team: XV.team, nutri: XV.nutri }[ui.tab])();
-    $('#app').innerHTML = header() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
+    $('#app').innerHTML = header() + apkBanner() + (X && X.impBanner ? X.impBanner() : '') + (ui.menu && AC.enabled && AC.me ? X.menu() : '') + `<main class="${ui.sub || ui.tab === 'clients' ? '' : 'multi'}">${body}</main>` + (p || staff ? nav() : '');
     const th = $('#timerHost'); if (th) th.innerHTML = timerBar();
     if (G && G.after) G.after();
   }
@@ -1779,6 +1780,10 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
     async apkInstall() {
       if (!ui.apkNew || !ui.apkNew.url) return;
       const up = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ApkUpdater;
+      if ((+APKB || 0) < APK_STABLE_FROM) {   // le versioni installate prima di questa hanno una firma diversa: Android non le aggiorna sopra. Una volta sola.
+        const r = await ask({ title: 'Passaggio una tantum alla versione con aggiornamenti automatici', text: 'Questa installazione è di una versione precedente e Android non può aggiornarla sopra. Fai così, una volta sola: 1) Profilo → Dati → «Esporta backup» (se non entri con un account); 2) disinstalla l\'app; 3) installa il nuovo file che si scarica ora. Da quel momento ogni aggiornamento si installa da solo, con un tocco su «Aggiorna app». Se accedi con il tuo account, i dati sono già sul server.' });
+        if (r && r.ok) window.open(ui.apkNew.url, '_blank'); return;
+      }
       if (!up) { toast('Scarico il nuovo APK: aprilo e conferma l\'installazione sopra a quello attuale.'); window.open(ui.apkNew.url, '_blank'); return; }
       try {
         const c = await up.canInstall();
@@ -1843,6 +1848,7 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   /* app Android (APK): il numero di build è nello user agent; l'ultima versione dell'APK è nelle note della release */
   const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const APKB = (/(?:TLZ|FORGIA)APK\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';
+  const APK_STABLE_FROM = GYM ? 12 : 16;   // prima build con la chiave di firma fissa (FORGIA 16, THE LIFTING ZONE 12)
   async function checkApk() {
     ui.apkNew = null; if (!NATIVE) return null;
     try {
@@ -2010,6 +2016,8 @@ if (!on) return ch + `<div class="card" style="opacity:.75">${altBar}<b>${esc(x.
   setTimeout(() => { if (F.loadCrea) F.loadCrea().then(l => { if (l.length && !ui.sub && /diet|nutri|food/i.test(String(ui.tab))) render(); }); }, 2000);
   if (AC.enabled) bio.check().then(() => AC.restore()).then(me => { if (me && bio.ok && bio.id) ui.locked = true; return me ? onSignIn() : render(); });
   else autoBackup();
+  if (NATIVE) { const recheck = async () => { if (navigator.onLine === false || document.hidden) return; const had = ui.apkNew && ui.apkNew.build; const a = await checkApk(); if ((a && a.build) !== had && idleNow()) render(); };
+    setInterval(recheck, 30 * 60 * 1000); document.addEventListener('visibilitychange', () => { if (!document.hidden) recheck(); }); }
   if (NATIVE) setTimeout(async () => {   // nuova versione dell'APK: si propone da dentro l'app, una volta per versione
     if (navigator.onLine === false) return;
     const a = await checkApk(); if (a) render(); const day = localISO(new Date()); if (!a || S.settings.apkAsked === a.build + '@' + day || !idleNow()) return;

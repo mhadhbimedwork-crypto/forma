@@ -1,8 +1,9 @@
 {
   "version": "1.50.0",
-  "build": 146,
+  "build": 147,
   "date": "2026-11-23",
   "notes": [
+    "Aggiornamenti dell'app Android: ora la firma è fissa e le nuove versioni si installano da sole sopra a quella attuale, con un tocco su «Aggiorna app» (compare in alto quando c'è una versione nuova, anche mentre usi l'app). Se hai una versione installata prima di oggi, l'app ti guida una sola volta nel passaggio (backup, disinstalla, installa).",
     "Icona aggiornata: logo FORGIA GYM ben centrato e più grande su fondo nero.",
     "Puoi cambiare il nome di una palestra (da amministratore, aprendo la palestra in Palestre → «Nome della palestra» → Salva nome). Il nuovo nome arriva a tutti gli account della palestra senza reinstallare nulla, e si aggiorna anche nelle recensioni.",
     "Nel Profilo di amministratore, sviluppatore e responsabili ora ci sono anche Aggiornamenti (con «Controlla aggiornamenti»), lingua, avvertenze e backup automatico, come per gli altri profili.",
