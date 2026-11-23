@@ -16,6 +16,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        debug {
+            // chiave fissa consegnata dal server alla build (variabile APK_KEYSTORE): stessa firma a ogni build, quindi gli aggiornamenti si installano sopra
+            if (System.getenv("APK_KEYSTORE")) {
+                storeFile file(System.getenv("APK_KEYSTORE"))
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
