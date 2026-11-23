@@ -1,8 +1,9 @@
 {
   "version": "1.50.0",
-  "build": 142,
+  "build": 143,
   "date": "2026-11-23",
   "notes": [
+    "Icona e schermata iniziale rinnovate: sfondo scuro con bagliore rosso, nei colori dell'app.",
     "L'app ora si chiama FORGIA GYM e ha il nuovo logo: icona, schermata iniziale, intestazione, avvisi, backup e area nutrizionista. I tuoi dati, gli accessi e i backup già salvati restano esattamente dove sono.",
     "L'app ora parla inglese, francese, tedesco e spagnolo: riconosce da sola la lingua del telefono e ti chiede di confermarla o cambiarla (anche da Profilo).",
     "Avvertenze più leggere: in app solo un breve avviso di responsabilità; il testo completo è in un file facoltativo (avvertenze.html) e l'informativa privacy completa è in privacy.html. In Profilo c'è la casella per consentire allo sviluppatore di vedere i tuoi dati per manutenzione e miglioramenti.",
